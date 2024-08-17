@@ -18,7 +18,7 @@ DOTNAMES=(
 )
 
 echoinfo() {
-    echo "INFO: $1"
+    echo -e "\e[32mINFO:\e[0m $1"
 }
 
 export DOTFILE_DIR DOTNAMES
