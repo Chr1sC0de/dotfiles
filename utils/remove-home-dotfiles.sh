@@ -5,14 +5,16 @@ SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 # import the DOTFILE_DIR variable, echoinfo function
 source "$SCRIPT_DIR/core.sh"
 
-echoinfo "Removing Profile Symlink"
+for DOTNAME in "${DOTNAMES[@]}"; do
+    echoinfo "Removing symlink for $DOTNAME"
 
-PROFILE_DIR="$HOME/Profile"
+    SYMLINK_TARGET="$HOME/$DOTNAME"
 
-if [[ -L $PROFILE_DIR ]]; then
-    echoinfo "Profile symlink found, removing"
-    rm "$HOME/Profile"
-    echoinfo "Finished symlink removing Profile"
-else
-    echoinfo "Profile symlink not found"
-fi
+    if [[ -L $SYMLINK_TARGET ]]; then
+        echoinfo "$DOTNAME symlink found removing"
+        rm "$SYMLINK_TARGET"
+        echoinfo "Finished removing $DOTNAME symlink"
+    else
+        echoinfo "$DOTNAME not found"
+    fi
+done

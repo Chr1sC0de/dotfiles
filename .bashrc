@@ -117,4 +117,4 @@ if ! shopt -oq posix; then
     fi
 fi
 
-source "$HOME/.profile/__init__.sh"
+source "$HOME/.my-profile/__init__.sh"

@@ -4,4 +4,4 @@
 globally shared variables
 '
 
-export PROFILE_FOLDER="$HOME/Profile"
+export PROFILE_FOLDER="$HOME/.my-profile"

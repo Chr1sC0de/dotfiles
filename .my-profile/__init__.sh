@@ -6,7 +6,7 @@ as it will cause an error
 '
 
 # shellcheck disable=SC1091
-source "$HOME/Profile/variables.sh"
+source "$HOME/.my-profile/variables.sh"
 source "$PROFILE_FOLDER/utils/__init__.sh"
 source "$PROFILE_FOLDER/private-variables/__init__.sh"
 
