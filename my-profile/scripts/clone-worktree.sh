@@ -2,20 +2,20 @@
 
 set -e
 
-url=$1
-basename=${url##*/}
-name=${2:-${basename%.*}}
+URL=$1
+BASENAME=${URL##*/}
+NAME=${2:-${BASENAME%.*}}
 
-echo "url=$url"
-echo "basename=$basename"
-echo "reponame=$name"
+echoinfo "url=$URL"
+echoinfo "basename=$BASENAME"
+echoinfo "reponame=$NAME"
 
-mkdir $name
-cd "$name" || exit
+mkdir "$NAME"
+cd "$NAME" || exit
 
-git clone --bare $url .root
+git clone --bare "$URL" .root
 cd .root
-echo "gitdir: ." > .git
+echo "gitdir: ." >.git
 
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 
