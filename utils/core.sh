@@ -9,7 +9,12 @@ DOTFILE_DIR="$(
 DOTNAMES=(
     "my-profile"
     "bashrc"
+    "inputrc"
+    "tmux.conf"
+    "gitconfig"
     "config/nvim"
+    "config/kitty"
+    "config/xdg-terminals.list"
 )
 
 echoinfo() {

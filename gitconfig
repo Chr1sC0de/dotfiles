@@ -1,0 +1,7 @@
+[user]
+	email = chrisam1993@gmail.com
+	name = Chris Mamon
+[alias]
+	clone-worktree = "!sh $HOME/Profile/scripts/clone-worktree.sh"
+[core]
+	editor = nvim
