@@ -7,8 +7,9 @@ DOTFILE_DIR="$(
 )"
 
 DOTNAMES=(
-    ".my-profile"
-    ".bashrc"
+    "my-profile"
+    "bashrc"
+    "config/nvim"
 )
 
 echoinfo() {
