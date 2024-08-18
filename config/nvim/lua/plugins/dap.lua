@@ -69,7 +69,7 @@ return {
                 cb({
                     type = 'executable',
                     -- use the debugpy installed by mason
-                    command = os.getenv("HOME") .. '/.local/share/nvim/mason/packages/debugpy/venv/bin/python',
+                    command = vim.fn.stdpath("data") .. '/mason/packages/debugpy/venv/bin/python',
                     args = { '-m', 'debugpy.adapter' },
                     options = {
                         source_filetype = 'python',
@@ -77,6 +77,12 @@ return {
                 })
             end
         end
+
+        dap.adapters.bashdb = {
+            type = 'executable',
+            command = vim.fn.stdpath("data") .. '/mason/packages/bash-debug-adapter/bash-debug-adapter',
+            name = 'bashdb',
+        }
 
         -- setup configuration
         dap.configurations.python = {
@@ -109,6 +115,28 @@ return {
                 program = "${file}",
                 pythonPath = get_pythonpath()
             },
+        }
+
+        dap.configurations.sh = {
+            {
+                type = 'bashdb',
+                request = 'launch',
+                name = "Launch file",
+                showDebugOutput = true,
+                pathBashdb = vim.fn.stdpath("data") .. '/mason/packages/bash-debug-adapter/extension/bashdb_dir/bashdb',
+                pathBashdbLib = vim.fn.stdpath("data") .. '/mason/packages/bash-debug-adapter/extension/bashdb_dir',
+                trace = true,
+                file = "${file}",
+                program = "${file}",
+                cwd = '${workspaceFolder}',
+                pathCat = "bat",
+                pathBash = "/bin/bash",
+                pathMkfifo = "mkfifo",
+                pathPkill = "pkill",
+                args = {},
+                env = {},
+                terminalKind = "integrated",
+            }
         }
     end
 }
