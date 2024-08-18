@@ -1,25 +1,3 @@
-local get_pythonpath = function()
-    local cwd = vim.fn.getcwd()
-    if vim.fn.executable(cwd .. '/venv/bin/python') == 1 then
-        return cwd .. '/venv/bin/python'
-    elseif vim.fn.executable(cwd .. '/.venv/bin/python') == 1 then
-        return cwd .. '/.venv/bin/python'
-    else
-        return 'python'
-    end
-end
-
-local get_fastapi_library_name = function()
-    local fastapi_entrypoint = os.getenv("NVIM_DAP_FASTAPI_ENTRYPOINT")
-    local default_fastapi_entrypoint = "api_lib.main:app"
-    if fastapi_entrypoint == nil then
-        -- print("INFO: fastapi entrypoint not set, using default_fastapi_entrypoint= " .. default_fastapi_entrypoint)
-        return default_fastapi_entrypoint
-    end
-    -- print("INFO: fastapi entrypoint set to = " .. fastapi_entrypoint)
-    return fastapi_entrypoint
-end
-
 return {
     "mfussenegger/nvim-dap",
     config = function()
@@ -52,91 +30,17 @@ return {
         end, { desc = "dap: centered floats scopes" })
         -- setup the dap configurations per use case
 
-        -- setup adapters
-        dap.adapters.python = function(cb, config)
-            if config.request == 'attach' then
-                local port = (config.connect or config).port
-                local host = (config.connect or config).host or '127.0.0.1'
-                cb({
-                    type = 'server',
-                    port = assert(port, '`connect.port` is required for a python `attach` configuration'),
-                    host = host,
-                    options = {
-                        source_filetype = 'python',
-                    },
-                })
-            else
-                cb({
-                    type = 'executable',
-                    -- use the debugpy installed by mason
-                    command = vim.fn.stdpath("data") .. '/mason/packages/debugpy/venv/bin/python',
-                    args = { '-m', 'debugpy.adapter' },
-                    options = {
-                        source_filetype = 'python',
-                    },
-                })
-            end
-        end
+        local python_config = require("dap-conf.python")
+        local bash_config = require("dap-conf.bash")
+        local lua_config = require("dap-conf.lua")
 
-        dap.adapters.bashdb = {
-            type = 'executable',
-            command = vim.fn.stdpath("data") .. '/mason/packages/bash-debug-adapter/bash-debug-adapter',
-            name = 'bashdb',
-        }
+        dap.adapters.python = python_config.adapter
+        dap.configurations.python = python_config.configuration
 
-        -- setup configuration
-        dap.configurations.python = {
-            {
-                type = "python",
-                request = "launch",
-                name = "FastAPI",
-                module = "uvicorn",
-                args = {
-                    get_fastapi_library_name(),
-                    "--host",
-                    "0.0.0.0",
-                    "--port",
-                    "8000",
-                    "--ssl-keyfile",
-                    "key.pem",
-                    "--ssl-certfile",
-                    "cert.pem",
-                    "--reload"
-                },
-                subProcess = false,
-                pythonPath = get_pythonpath()
-            },
-            {
-                type = 'python',
-                request = 'launch',
-                name = "Launch file",
-                -- Options below are for debugpy,
-                -- see https://github.com/microsoft/debugpy/wiki/Debug-configuration-settings for supported options
-                program = "${file}",
-                pythonPath = get_pythonpath()
-            },
-        }
+        dap.adapters.bashdb = bash_config.adapter
+        dap.configurations.sh = bash_config.configuration
 
-        dap.configurations.sh = {
-            {
-                type = 'bashdb',
-                request = 'launch',
-                name = "Launch file",
-                showDebugOutput = true,
-                pathBashdb = vim.fn.stdpath("data") .. '/mason/packages/bash-debug-adapter/extension/bashdb_dir/bashdb',
-                pathBashdbLib = vim.fn.stdpath("data") .. '/mason/packages/bash-debug-adapter/extension/bashdb_dir',
-                trace = true,
-                file = "${file}",
-                program = "${file}",
-                cwd = '${workspaceFolder}',
-                pathCat = "bat",
-                pathBash = "/bin/bash",
-                pathMkfifo = "mkfifo",
-                pathPkill = "pkill",
-                args = {},
-                env = {},
-                terminalKind = "integrated",
-            }
-        }
+        dap.adapters["local-lua"] = lua_config.adapter
+        dap.configurations.lua = lua_config.configuration
     end
 }
