@@ -3,7 +3,7 @@ vim.cmd.colorscheme "catppuccin"
 vim.opt.number = true
 vim.opt.relativenumber = true
 
-vim.cmd("hi Normal guibg=NONE ctermbg=NONE")
+-- vim.cmd("hi Normal guibg=NONE ctermbg=NONE")
 
 -- Set a color for all line numbers
 vim.cmd("hi LineNrAbove guifg=#888888 guibg=NONE")
@@ -23,4 +23,3 @@ vim.opt.hlsearch = false
 vim.opt.incsearch = true
 
 vim.opt.scrolloff = 10
-

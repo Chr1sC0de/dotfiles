@@ -1,7 +1,24 @@
 return {
     'nvim-treesitter/nvim-treesitter',
-    dependencies = "LiadOz/nvim-dap-repl-highlights",
     build = ":TSUpdate",
+    dependencies = {
+        "windwp/nvim-ts-autotag",
+        "LiadOz/nvim-dap-repl-highlights"
+    },
+    lazy = vim.fn.argc(-1) == 0, -- load treesitter early when opening a file from the cmdline,
+    init = function(plugin)
+        -- PERF: add nvim-treesitter queries to the rtp and it's custom query predicates early
+        -- This is needed because a bunch of plugins no longer `require("nvim-treesitter")`, which
+        -- no longer trigger the **nvim-treesitter** module to be loaded in time.
+        -- Luckily, the only things that those plugins need are the custom queries, which we make available
+        -- during startup.
+        require("lazy.core.loader").add_to_rtp(plugin)
+        require("nvim-treesitter.query_predicates")
+    end,
+    keys = {
+        { "<c-space>", desc = "Treesitter: Increment Selection" },
+        { "<bs>",      desc = "Treesitter: Decrement Selection", mode = "x" },
+    },
     config = function()
         require("nvim-treesitter.configs").setup({
             -- A list of parser names, or "all"
@@ -9,26 +26,23 @@ return {
                 "vimdoc", "javascript", "typescript", "c", "lua", "rust", "python",
                 "jsdoc", "bash", "json", "html", "css", "dap_repl"
             },
-
-            -- Install parsers synchronously (only applied to `ensure_installed`)
             sync_install = false,
-
-            -- Automatically install missing parsers when entering buffer
-            -- Recommendation: set to false if you don"t have `tree-sitter` CLI installed locally
             auto_install = true,
-
+            autotag = { enable = true },
             indent = {
                 enable = true
             },
-
-            highlight = {
-                -- `false` will disable the whole extension
+            incremental_selection = {
                 enable = true,
-
-                -- Setting this to true will run `:h syntax` and tree-sitter at the same time.
-                -- Set this to `true` if you depend on "syntax" being enabled (like for indentation).
-                -- Using this option may slow down your editor, and you may see some duplicate highlights.
-                -- Instead of true it can also be a list of languages
+                keymaps = {
+                    init_selection = "<C-space>",
+                    node_incremental = "<C-space>",
+                    scope_incremental = false,
+                    node_decremental = "<bs>",
+                },
+            },
+            highlight = {
+                enable = true,
                 additional_vim_regex_highlighting = { "markdown" },
             },
         })

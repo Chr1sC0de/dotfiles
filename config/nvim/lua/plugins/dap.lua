@@ -12,7 +12,7 @@ return {
         vim.keymap.set('n', '<Leader>B', function() require('dap').set_breakpoint() end, { desc = "dap: set breakpoint" })
         vim.keymap.set('n', '<Leader>lp',
             function() require('dap').set_breakpoint(nil, nil, vim.fn.input('Log point message: ')) end)
-        vim.keymap.set('n', '<Leader>dr', function() require('dap').repl.open() end, { desc = "dap: open repl" })
+        vim.keymap.set('n', '<Leader>dr', function() require('dap').repl.toggle() end, { desc = "dap: open toggle" })
         vim.keymap.set('n', '<Leader>dl', function() require('dap').run_last() end, { desc = "dap: run last" })
         vim.keymap.set({ 'n', 'v' }, '<Leader>dh', function()
             require('dap.ui.widgets').hover()

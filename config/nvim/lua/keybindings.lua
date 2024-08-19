@@ -9,11 +9,11 @@ TOGGLE_VIRTUALEDIT = false
 vim.opt.virtualedit = nil
 vim.keymap.set("n", "<leader>ve", function()
     if TOGGLE_VIRTUALEDIT then
-        print("INFO: setting virtualedit=nil")
+        print("setting virtualedit=nil")
         vim.opt.virtualedit = nil
         TOGGLE_VIRTUALEDIT = true
     else
-        print("INFO: setting virtualedit=all")
+        print("setting virtualedit=all")
         vim.opt.virtualedit = "all"
         TOGGLE_VIRTUALEDIT = true
     end
