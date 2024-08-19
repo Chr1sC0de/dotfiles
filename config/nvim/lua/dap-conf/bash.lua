@@ -23,6 +23,7 @@ return {
             args = {},
             env = {},
             terminalKind = "integrated",
+            repl_lang = "bash"
         }
     }
 }

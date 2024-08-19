@@ -64,7 +64,8 @@ return {
                 "--reload"
             },
             subProcess = false,
-            pythonPath = get_pythonpath()
+            pythonPath = get_pythonpath(),
+            repl_lang = "python"
         },
         {
             type = 'python',
@@ -73,7 +74,8 @@ return {
             -- Options below are for debugpy,
             -- see https://github.com/microsoft/debugpy/wiki/Debug-configuration-settings for supported options
             program = "${file}",
-            pythonPath = get_pythonpath()
+            pythonPath = get_pythonpath(),
+            repl_lang = "python"
         },
     }
 }

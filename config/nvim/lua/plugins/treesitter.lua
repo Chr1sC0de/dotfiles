@@ -1,12 +1,13 @@
 return {
     'nvim-treesitter/nvim-treesitter',
-    build=":TSUpdate",
+    dependencies = "LiadOz/nvim-dap-repl-highlights",
+    build = ":TSUpdate",
     config = function()
         require("nvim-treesitter.configs").setup({
             -- A list of parser names, or "all"
             ensure_installed = {
                 "vimdoc", "javascript", "typescript", "c", "lua", "rust", "python",
-                "jsdoc", "bash", "json", "html", "css"
+                "jsdoc", "bash", "json", "html", "css", "dap_repl"
             },
 
             -- Install parsers synchronously (only applied to `ensure_installed`)
@@ -36,12 +37,11 @@ return {
         treesitter_parser_config.templ = {
             install_info = {
                 url = "https://github.com/vrischmann/tree-sitter-templ.git",
-                files = {"src/parser.c", "src/scanner.c"},
+                files = { "src/parser.c", "src/scanner.c" },
                 branch = "master",
             },
         }
 
         vim.treesitter.language.register("templ", "templ")
-
     end
 }
