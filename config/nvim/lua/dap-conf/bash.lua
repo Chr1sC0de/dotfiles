@@ -6,9 +6,9 @@ return {
     },
     configuration = {
         {
+            name = "Launch File: Bash",
             type = 'bashdb',
             request = 'launch',
-            name = "Launch file",
             showDebugOutput = true,
             pathBashdb = vim.fn.stdpath("data") .. '/mason/packages/bash-debug-adapter/extension/bashdb_dir/bashdb',
             pathBashdbLib = vim.fn.stdpath("data") .. '/mason/packages/bash-debug-adapter/extension/bashdb_dir',

@@ -19,7 +19,7 @@ return {
     },
     configuration = {
         {
-            name = 'Current file (local-lua-dbg, nlua)',
+            name = 'Launch File: Lua',
             type = 'local-lua',
             request = 'launch',
             cwd = '${workspaceFolder}',

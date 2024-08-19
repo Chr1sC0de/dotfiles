@@ -21,5 +21,4 @@ return {
             })
         end,
     },
-    library = { plugins = { "nvim-dap-ui" }, types = true }
 }

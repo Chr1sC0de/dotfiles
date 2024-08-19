@@ -1,7 +1,11 @@
 return {
     "jay-babu/mason-nvim-dap.nvim",
-    dependencies = { "williamboman/mason.nvim" },
-    config = function()
-        require("mason-nvim-dap").setup({})
-    end
+    dependencies = "mason.nvim",
+    cmd = { "DapInstall", "DapUninstall" },
+    opts = {
+        automatic_installation = true,
+        handlers = {},
+        ensure_installed = {},
+    },
+    config = function() end,
 }
