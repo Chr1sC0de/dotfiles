@@ -16,3 +16,9 @@ map ctrl+page_down previous_tab
 map ctrl+shift+6 none
 
 include current-theme.conf
+
+
+# BEGIN_KITTY_THEME
+# Atelier Cave Dark
+include current-theme.conf
+# END_KITTY_THEME
