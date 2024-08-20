@@ -1,21 +1,3 @@
-local lspconfigs = {
-    pyright = {
-        setup = {
-            settings = {
-                pyright = {
-                    -- Using Ruff's import organizer
-                    disableOrganizeImports = true,
-                },
-                python = {
-                    analysis = {
-                        -- Ignore all files for analysis to exclusively use Ruff for linting
-                        ignore = { '*' },
-                    },
-                },
-            }
-        }
-    },
-}
 return {
     "VonHeikemen/lsp-zero.nvim",
     branch = "v4.x",
@@ -26,7 +8,6 @@ return {
         "hrsh7th/nvim-cmp",
     },
     config = function()
-        -- load lsp-zero
         local lsp_zero = require("lsp-zero")
         local lsp_attach = function(_, bufnr)
             local opts = { buffer = bufnr }
@@ -41,10 +22,12 @@ return {
             vim.keymap.set("n", "<c-a-l>", "<cmd>lua vim.lsp.buf.format({async = true})<cr>", opts)
             vim.keymap.set("n", "<F4>", "<cmd>lua vim.lsp.buf.code_action()<cr>", opts)
         end
+        local capabilities = require("cmp_nvim_lsp").default_capabilities()
+
         lsp_zero.extend_lspconfig({
             sign_text = true,
             lsp_attach = lsp_attach,
-            capabilities = require("cmp_nvim_lsp").default_capabilities()
+            capabilities = capabilities
         })
 
         require("mason").setup({
@@ -52,6 +35,54 @@ return {
                 border = "rounded"
             }
         })
+
+        -- list out the configurations for each lsp
+        local lspconfigs = {
+            pyright = {
+                settings = {
+                    pyright = {
+                        -- Using Ruff's import organizer
+                        disableOrganizeImports = true,
+                    },
+                    python = {
+                        analysis = {
+                            -- Ignore all files for analysis to exclusively use Ruff for linting
+                            ignore = { '*' },
+                        },
+                    },
+                }
+            },
+            tailwindcss = {
+                filetypes = {
+                    "aspnetcorerazor", "astro", "astro-markdown", "blade",
+                    "clojure", "django-html", "htmldjango", "edge", "eelixir",
+                    "elixir", "ejs", "erb", "eruby", "gohtml", "gohtmltmpl", "haml",
+                    "handlebars", "hbs", "html", "htmlangular", "html-eex", "heex",
+                    "jade", "leaf", "liquid", "mdx", "mustache", "njk",
+                    "nunjucks", "php", "razor", "slim", "twig", "css", "less",
+                    "postcss", "sass", "scss", "stylus", "sugarss", "javascript", "javascriptreact",
+                    "reason", "rescript", "typescript", "typescriptreact", "vue", "svelte", "templ"
+                }
+            },
+            markdown_oxide = {
+                capabilities = vim.tbl_deep_extend(
+                    'force',
+                    capabilities,
+                    {
+                        workspace = {
+                            didChangeWatchedFiles = {
+                                dynamicRegistration = true,
+                            },
+                        },
+                    }
+                ),
+            },
+            cbfmt = {
+                filetypes = { "markdown" }
+            }
+
+        }
+
         require("mason-lspconfig").setup({
             handlers = {
                 function(server_name)
