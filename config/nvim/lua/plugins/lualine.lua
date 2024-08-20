@@ -7,7 +7,7 @@ return {
             {
                 options = {
                     icons_enabled = true,
-                    theme = 'nightfly',
+                    theme = 'catppuccin',
                     component_separators = { left = '', right = '' },
                     section_separators = { left = '', right = '' },
                     disabled_filetypes = {
