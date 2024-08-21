@@ -1,6 +1,6 @@
 -- run formatting on save
 
-local languages = { "lua", "python", "markdown", "bash" }
+local languages = { "lua", "python", "markdown", "bash", "sh" }
 local route = {}
 
 for _, language in pairs(languages) do
