@@ -24,4 +24,6 @@ vim.opt.incsearch = true
 
 vim.opt.scrolloff = 10
 vim.opt.cmdheight = 2
-vim.opt.conceallevel = 1
+vim.opt.conceallevel = 2
+
+vim.opt.scrolloff = 8

@@ -41,6 +41,9 @@ return {
                     node_decremental = "<bs>",
                 },
             },
+            fold = {
+                enable = true
+            },
             highlight = {
                 enable = true,
                 additional_vim_regex_highlighting = { "markdown" },

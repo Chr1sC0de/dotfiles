@@ -38,7 +38,9 @@ return {
 
         -- list out the configurations for each lsp
         local lspconfigs = {
+            ruff = { filetypes = { "python" } },
             pyright = {
+                filetypes = { "python" },
                 settings = {
                     pyright = {
                         -- Using Ruff's import organizer
@@ -77,10 +79,6 @@ return {
                     }
                 ),
             },
-            cbfmt = {
-                filetypes = { "markdown" }
-            }
-
         }
 
         require("mason-lspconfig").setup({
