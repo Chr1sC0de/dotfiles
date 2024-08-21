@@ -17,6 +17,10 @@ vim.opt.shiftwidth = 4
 
 -- disable swap files
 vim.opt.swapfile = false
+vim.opt.backup = false
+vim.opt.undodir = os.getenv("HOME") .. "/.vim/undodir"
+vim.opt.undofile = true
+
 
 -- incremental search
 vim.opt.hlsearch = false
@@ -26,4 +30,5 @@ vim.opt.scrolloff = 10
 vim.opt.cmdheight = 2
 vim.opt.conceallevel = 2
 
+vim.opt.updatetime = 50
 vim.opt.scrolloff = 8
