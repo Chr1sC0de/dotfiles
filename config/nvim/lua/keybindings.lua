@@ -19,6 +19,16 @@ vim.keymap.set("n", "<leader>ve", function()
     end
 end, { desc = "Toggle virtualedit mode from nil <-> all" })
 
+-- sort imports
+vim.keymap.set("n", "<leader>si",
+    function()
+        vim.lsp.buf.code_action({ context = { only = { "source.organizeImports" } }, apply = true, })
+    end
+    , { desc = "sort imports" }
+)
+
+
+
 -- THE PRIMEGEN REMAPS --
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
@@ -38,8 +48,8 @@ vim.keymap.set({ "n", "v" }, "<leader>d", [["_d]])
 vim.keymap.set("n", "Q", "<nop>")
 vim.keymap.set("n", "<leader>f", vim.lsp.buf.format)
 
-vim.keymap.set("n", "<C-k>", "<cmd>cnext<CR>zz")
-vim.keymap.set("n", "<C-j>", "<cmd>cprev<CR>zz")
+vim.keymap.set("n", "<C-s-k>", "<cmd>cnext<CR>zz")
+vim.keymap.set("n", "<C-s-j>", "<cmd>cprev<CR>zz")
 vim.keymap.set("n", "<leader>k", "<cmd>lnext<CR>zz")
 vim.keymap.set("n", "<leader>j", "<cmd>lprev<CR>zz")
 
