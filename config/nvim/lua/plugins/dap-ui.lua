@@ -15,5 +15,8 @@ return {
         dap.listeners.before.event_exited.dapui_config = function()
             dapui.close()
         end
+
+        vim.keymap.set({ "n", "v" }, "<leader>de", function() dapui.eval(nil, { enter = true }) end,
+            { desc = "dapui: evaluate" })
     end
 }
