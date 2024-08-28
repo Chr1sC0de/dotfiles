@@ -19,6 +19,8 @@ vim.keymap.set("n", "<leader>ve", function()
     end
 end, { desc = "Toggle virtualedit mode from nil <-> all" })
 
+vim.keymap.set("n", "<leader>cc", ":cclose<cr>", { desc = "close quick fix list" })
+
 -- sort imports
 vim.keymap.set("n", "<leader>si",
     function()
