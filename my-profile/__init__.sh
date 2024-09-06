@@ -18,6 +18,7 @@ source "$PROFILE_FOLDER/nvm.sh"
 source "$PROFILE_FOLDER/starship.sh"
 source "$PROFILE_FOLDER/fzf.sh"
 source "$PROFILE_FOLDER/eza.sh"
+source "$PROFILE_FOLDER/popos_fast_switching.sh"
 
 # disable ctrl+s in terminal
 stty -ixon
