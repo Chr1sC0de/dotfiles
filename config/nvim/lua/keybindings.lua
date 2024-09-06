@@ -4,6 +4,13 @@ vim.g.maplocalleader = "\\"
 vim.keymap.set("n", "<c-s>", ":w<cr>", { desc = "Save file" })
 vim.keymap.set("n", "<c-z>", "u", { desc = "Undo" })
 
+-- quick shortcuts for global marks
+vim.keymap.set("n", "<leader>ma", "mA", { desc = "global mark: A" })
+vim.keymap.set("n", "<leader>ms", "mS", { desc = "global mark: S" })
+vim.keymap.set("n", "<leader>md", "mD", { desc = "global mark: D" })
+vim.keymap.set("n", "<leader>mf", "mF", { desc = "global mark: F" })
+vim.keymap.set("n", "<leader>mg", "mG", { desc = "global mark: G" })
+
 -- setup a toggle for the virtual edit command
 TOGGLE_VIRTUALEDIT = false
 vim.opt.virtualedit = nil
@@ -29,8 +36,6 @@ vim.keymap.set("n", "<leader>si",
     , { desc = "sort imports" }
 )
 
-
-
 -- THE PRIMEGEN REMAPS --
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
@@ -52,8 +57,8 @@ vim.keymap.set("n", "<leader>f", vim.lsp.buf.format)
 
 vim.keymap.set("n", "<C-s-k>", "<cmd>cnext<CR>zz")
 vim.keymap.set("n", "<C-s-j>", "<cmd>cprev<CR>zz")
-vim.keymap.set("n", "<leader>k", "<cmd>lnext<CR>zz")
-vim.keymap.set("n", "<leader>j", "<cmd>lprev<CR>zz")
+vim.keymap.set("n", "<leader>ek", "<cmd>lnext<CR>zz")
+vim.keymap.set("n", "<leader>ej", "<cmd>lprev<CR>zz")
 
 vim.keymap.set("n", "<leader>s", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]])
 vim.keymap.set("n", "<leader>x", "<cmd>!chmod +x %<CR>", { silent = true })
