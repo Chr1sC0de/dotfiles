@@ -8,7 +8,10 @@ as it will cause an error
 # shellcheck disable=SC1091
 source "$HOME/.my-profile/variables.sh"
 source "$PROFILE_FOLDER/utils/__init__.sh"
-source "$PROFILE_FOLDER/private-variables/__init__.sh"
+
+if [[ -d $PROFILE_FOLDER/private-variables ]]; then
+    source "$PROFILE_FOLDER/private-variables/__init__.sh"
+fi
 
 source "$PROFILE_FOLDER/rye.sh"
 source "$PROFILE_FOLDER/nvm.sh"
