@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ $(cmd <"/etc/os-release" | grep ^NAME= | cut -d= -f2) = "Pop!_OS" ]]; then
+if [[ $(grep ^NAME= "/etc/os-release" | cut -d= -f2) = "Pop!_OS" ]]; then
     gsettings set org.gnome.mutter dynamic-workspaces false
     gsettings set org.gnome.desktop.wm.preferences num-workspaces 9
     for i in {1..9}; do
