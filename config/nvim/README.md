@@ -2,7 +2,8 @@
 
 ## Installed Language Servers
 
-- ruff
+- rustywind
+- eslint-lsp
 - bash-debug-adapter
 - bash-language-server
 - debugpy
@@ -12,8 +13,11 @@
 - lua-language-server
 - markdown-oxide
 - markdownlint
+- prettierd
 - pyright
+- ruff
 - shellcheck
 - shfmt
 - tailwindcss-language-server
+- typescript-language-server
 - write-good
