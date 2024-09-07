@@ -85,6 +85,10 @@ return {
             handlers = {
                 function(server_name)
                     local setup
+
+                    if server_name == "tsserver" then
+                        server_name = "ts_ls"
+                    end
                     if lspconfigs[server_name] == nil then
                         setup = {}
                     else
