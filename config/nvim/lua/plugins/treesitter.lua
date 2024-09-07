@@ -24,7 +24,7 @@ return {
             -- A list of parser names, or "all"
             ensure_installed = {
                 "vimdoc", "javascript", "typescript", "c", "lua", "rust", "python",
-                "jsdoc", "bash", "json", "html", "css", "dap_repl"
+                "jsdoc", "bash", "json", "html", "css", "dap_repl", "tsx"
             },
             sync_install = false,
             auto_install = true,
