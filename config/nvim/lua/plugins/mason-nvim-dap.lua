@@ -7,5 +7,5 @@ return {
         handlers = {},
         ensure_installed = {},
     },
-    config = function() end,
+    config = function() end
 }
