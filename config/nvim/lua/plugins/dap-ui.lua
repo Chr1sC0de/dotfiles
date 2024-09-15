@@ -11,7 +11,6 @@ return {
         end
         vim.keymap.set({ "n", "v" }, "<leader>de", function() dapui.eval(nil, { enter = true }) end,
             { desc = "dapui: evaluate" })
-
         vim.keymap.set({ "n", "v" }, "<leader>dt", function() dapui.toggle() end, { desc = "dapui: toggle" })
     end
 }

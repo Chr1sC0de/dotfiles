@@ -4,14 +4,14 @@ vim.g.maplocalleader = "\\"
 vim.keymap.set("n", "<c-s>", ":w<cr>", { desc = "Save file" })
 vim.keymap.set("n", "<c-z>", "u", { desc = "Undo" })
 
--- quick shortcuts for global marks
+-- QUICK SHORTCUTS FOR GLOBAL MARKS
 vim.keymap.set("n", "<leader>ma", "mA", { desc = "global mark: A" })
 vim.keymap.set("n", "<leader>ms", "mS", { desc = "global mark: S" })
 vim.keymap.set("n", "<leader>md", "mD", { desc = "global mark: D" })
 vim.keymap.set("n", "<leader>mf", "mF", { desc = "global mark: F" })
 vim.keymap.set("n", "<leader>mg", "mG", { desc = "global mark: G" })
 
--- setup a toggle for the virtual edit command
+-- SETUP A TOGGLE FOR THE VIRTUAL EDIT COMMAND
 TOGGLE_VIRTUALEDIT = false
 vim.opt.virtualedit = nil
 vim.keymap.set("n", "<leader>ve", function()
@@ -27,8 +27,9 @@ vim.keymap.set("n", "<leader>ve", function()
 end, { desc = "Toggle virtualedit mode from nil <-> all" })
 
 vim.keymap.set("n", "<leader>cc", ":cclose<cr>", { desc = "close quick fix list" })
+vim.keymap.set("n", "<leader>ot", ":ObsidianTags<cr>", { desc = "Obsidian Tags" })
 
--- sort imports
+-- SORT IMPORTS
 vim.keymap.set("n", "<leader>si",
     function()
         vim.lsp.buf.code_action({ context = { only = { "source.organizeImports" } }, apply = true, })
