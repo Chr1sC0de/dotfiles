@@ -6,9 +6,9 @@ URL=$1
 BASENAME=${URL##*/}
 NAME=${2:-${BASENAME%.*}}
 
-echoinfo "url=$URL"
-echoinfo "basename=$BASENAME"
-echoinfo "reponame=$NAME"
+echo "url=$URL"
+echo "basename=$BASENAME"
+echo "reponame=$NAME"
 
 mkdir "$NAME"
 cd "$NAME" || exit
