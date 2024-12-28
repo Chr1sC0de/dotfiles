@@ -13,7 +13,6 @@ if [[ -d $PROFILE_FOLDER/private-variables ]]; then
     source "$PROFILE_FOLDER/private-variables/__init__.sh"
 fi
 
-source "$PROFILE_FOLDER/rye.sh"
 source "$PROFILE_FOLDER/nvm.sh"
 source "$PROFILE_FOLDER/starship.sh"
 source "$PROFILE_FOLDER/fzf.sh"
