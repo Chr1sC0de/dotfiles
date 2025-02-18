@@ -1,6 +1,6 @@
 return -- install with yarn or npm
 {
-    "iamcco/markdown-preview.nvim",
+    "Carus11/markdown-preview.nvim",
     cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
     build = "cd app && yarn install",
     init = function()
