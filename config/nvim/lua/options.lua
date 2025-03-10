@@ -32,3 +32,7 @@ vim.opt.conceallevel = 2
 
 vim.opt.updatetime = 50
 vim.opt.scrolloff = 10
+
+-- disable word wrappings
+
+vim.o.wrap = false
