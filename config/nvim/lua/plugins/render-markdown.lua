@@ -5,7 +5,7 @@ return {
     config = function()
         require('render-markdown').setup({
             -- Whether Markdown should be rendered by default or not
-            enabled = false,
+            enabled = true,
             -- Maximum file size (in MB) that this plugin will attempt to render
             -- Any file larger than this will effectively be ignored
             max_file_size = 10.0,
@@ -17,7 +17,7 @@ return {
             --  obsidian: mimic Obsidian UI
             --  lazy:     will attempt to stay up to date with LazyVim configuration
             --  none:     does nothing
-            preset = 'none',
+            preset = 'obsidian',
             -- Capture groups that get pulled from markdown
             markdown_query = [[
         (section) @section
@@ -115,7 +115,7 @@ return {
                 -- Turn on / off heading icon & background rendering
                 enabled = true,
                 -- Turn on / off any sign column related rendering
-                sign = true,
+                sign = false,
                 -- Determines how icons fill the available space:
                 --  inline:  underlying '#'s are concealed resulting in a left aligned icon
                 --  overlay: result is left padded with spaces to hide any additional '#'
@@ -187,25 +187,29 @@ return {
                 language_pad = 0,
                 -- An array of language names for which background highlighting will be disabled
                 -- Likely because that language has background highlights itself
-                disable_background = { 'diff' },
+                -- disable_background = { 'diff' },
+                disable_background = true,
                 -- Width of the code block background:
                 --  block: width of the code block
                 --  full:  full width of the window
                 width = 'block',
                 -- Amount of padding to add to the left of code blocks
-                left_pad = 5,
+                left_pad = 0,
                 -- Amount of padding to add to the right of code blocks when width is 'block'
-                right_pad = 5,
+                right_pad = 0,
                 -- Minimum width to use for code blocks when width is 'block'
                 min_width = 0,
                 -- Determins how the top / bottom of code block are rendered:
                 --  thick: use the same highlight as the code body
                 --  thin:  when lines are empty overlay the above & below icons
-                border = 'thin',
+                -- border = 'thin',
+                border = 'none',
                 -- Used above code blocks for thin border
-                above = '▄',
+                -- above = '▄',
+                above = 'none',
                 -- Used below code blocks for thin border
-                below = '▀',
+                -- below = '▄',
+                below = 'none',
                 -- Highlight for code blocks
                 highlight = 'RenderMarkdownCode',
                 -- Highlight for inline code
@@ -235,7 +239,7 @@ return {
                 -- Padding to add to the left of bullet point
                 left_pad = 0,
                 -- Padding to add to the right of bullet point
-                right_pad = 0,
+                right_pad = 1,
                 -- Highlight for the bullet icon
                 highlight = 'RenderMarkdownBullet',
             },

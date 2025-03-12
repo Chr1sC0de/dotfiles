@@ -14,7 +14,6 @@ return {
     dependencies = {
         -- Required.
         "nvim-lua/plenary.nvim",
-
         -- see below for full list of optional dependencies 👇
     },
     config = function()
@@ -27,7 +26,7 @@ return {
                     },
                 },
                 wiki_link_func = "use_alias_only",
-                ui = { enable = false }
+                ui = { enable = true }
             }
 
         )
