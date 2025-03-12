@@ -12,7 +12,7 @@ return {
             adapters = {
                 require("neotest-python")({
                     dap = { justMyCode = true },
-                    runner = { "pytest" },
+                    runner = "pytest",
                     python = ".venv/bin/python"
                 }),
             },
