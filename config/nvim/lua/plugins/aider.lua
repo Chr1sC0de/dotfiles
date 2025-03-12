@@ -10,7 +10,7 @@ return {
                 debug = false,              -- enable debug logging
             }
         )
-        vim.api.nvim_set_keymap('n', '<leader>Ao', ':AiderOpen "--multiline" editor<CR>',
+        vim.api.nvim_set_keymap('n', '<leader>Ao', ':AiderOpen "--multiline"<CR><C-w>l:close<CR>',
             { noremap = true, silent = true, desc = "Aider Open" })
         vim.api.nvim_set_keymap('n', '<leader>Am', ':AiderAddModifiedFiles<CR>',
             { noremap = true, silent = true, desc = "AiderAddModifiedFailes" })
