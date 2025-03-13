@@ -25,7 +25,8 @@ return {
         vim.keymap.set("n", "<leader>fg", extensions.live_grep, { desc = "Telescope: live grep" })
         vim.keymap.set("n", "<leader>fb", builtin.current_buffer_fuzzy_find,
             { desc = "Telescope: search inside the current open buffer" })
-        vim.keymap.set("n", "<leader>fh", builtin.help_tags, { desc = "Telescope: search help tags" })
+        vim.keymap.set("n", "<leader>fH", builtin.help_tags, { desc = "Telescope: search help tags" })
+        vim.keymap.set("n", "<leader>fh", builtin.man_pages, { desc = "Telescope: search man pages" })
         vim.keymap.set("n", "<leader>fld", builtin.lsp_dynamic_workspace_symbols,
             { desc = "Telescope: dynamic workspace lsp symbols" })
         vim.keymap.set("n", "<leader>fls", builtin.lsp_document_symbols, { desc = "Telescope: lsp document symbols" })
@@ -51,7 +52,7 @@ return {
 
         -- delete the buffer
 
-        local buffer_searcher = function()
+        buffer_searcher = function()
             builtin.buffers {
                 sort_mru = true,
                 ignore_current_buffer = true,
