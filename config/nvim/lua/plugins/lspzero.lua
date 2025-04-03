@@ -39,12 +39,16 @@ return {
         -- list out the configurations for each lsp
         local lspconfigs = {
             ruff = { filetypes = { "python" } },
+
             basedpyright = {
                 filetypes = { "python" },
                 settings = {
-                    pyright = {
+                    basedpyright = {
                         -- Using Ruff's import organizer
                         disableOrganizeImports = true,
+                        analysis = {
+                            stubPath = os.getenv("HOME") .. "/Stubs"
+                        }
                     },
                     python = {
                         analysis = {
