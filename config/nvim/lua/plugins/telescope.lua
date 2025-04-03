@@ -60,7 +60,14 @@ return {
                 attach_mappings = function(prompt_bufnr, map)
                     local refresh_buffer_searcher = function()
                         actions.close(prompt_bufnr)
-                        vim.schedule(buffer_searcher)
+                        vim.schedule(
+                            function()
+                                buffer_searcher()
+                                vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true),
+                                    "n",
+                                    false)
+                            end
+                        )
                     end
 
                     local delete_buf = function()

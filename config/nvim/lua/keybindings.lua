@@ -29,6 +29,9 @@ end, { desc = "Toggle virtualedit mode from nil <-> all" })
 vim.keymap.set("n", "<leader>cc", ":cclose<cr>", { desc = "close quick fix list" })
 vim.keymap.set("n", "<leader>ot", ":ObsidianTags<cr>", { desc = "Obsidian Tags" })
 
+vim.keymap.set("n", "<C-Tab>", ":tabnext<cr>", { desc = "tabnext", silent = false })
+vim.keymap.set("n", "<C-S-Tab>", ":tabprevious<cr>", { desc = "tabprevious", silent = false })
+
 -- SORT IMPORTS
 vim.keymap.set("n", "<leader>si",
     function()
