@@ -39,7 +39,7 @@ return {
         -- list out the configurations for each lsp
         local lspconfigs = {
             ruff = { filetypes = { "python" } },
-            pyright = {
+            basedpyright = {
                 filetypes = { "python" },
                 settings = {
                     pyright = {

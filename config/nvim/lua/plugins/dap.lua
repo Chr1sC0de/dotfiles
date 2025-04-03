@@ -5,6 +5,8 @@ return {
 
     dependencies = {
         "rcarriga/nvim-dap-ui",
+        -- python
+        "mfussenegger/nvim-dap-python",
         -- virtual text for the debugger
         {
             "theHamsta/nvim-dap-virtual-text",
@@ -46,12 +48,15 @@ return {
         vim.api.nvim_set_hl(0, "DapStoppedLine", { default = true, link = "Visual" })
 
         -- setup the dap configurations per use case
-        local python_config = require("dap-conf.python")
+        -- local python_config = require("dap-conf.python")
         local bash_config = require("dap-conf.bash")
         local lua_config = require("dap-conf.lua")
 
-        dap.adapters.python = python_config.adapter
-        dap.configurations.python = python_config.configuration
+        -- dap.adapters.python = python_config.adapter
+        -- dap.configurations.python = python_config.configuration
+
+        require("dap-python").setup("uv")
+        require('dap-python').test_runner = 'pytest'
 
         dap.adapters.bashdb = bash_config.adapter
         dap.configurations.sh = bash_config.configuration

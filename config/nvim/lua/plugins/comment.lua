@@ -32,7 +32,7 @@ return {
             --              otherwise
             comment_style = "line",
             doc_width = 100, -- width of the document
-            box_width = 80,  -- width of the boxes
+            box_width = 90,  -- width of the boxes
             borders = {      -- symbols used to draw a box
                 top = "─",
                 bottom = "─",
