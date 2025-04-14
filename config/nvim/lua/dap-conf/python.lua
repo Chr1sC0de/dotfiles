@@ -14,10 +14,6 @@ return {
         else
             cb({
                 type = 'executable',
-                -- use the debugpy installed by mason
-                -- command = vim.fn.stdpath("data") .. '/mason/packages/debugpy/venv/bin/python',
-                -- use the debugpy installed
-                -- command = './.venv/bin/python',
                 command = "uv run",
                 args = { '-m', 'debugpy.adapter' },
                 options = {
