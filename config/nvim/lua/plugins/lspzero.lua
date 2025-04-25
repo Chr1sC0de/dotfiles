@@ -4,8 +4,8 @@ return {
     dependencies = {
         "williamboman/mason.nvim",
         "williamboman/mason-lspconfig.nvim",
-        "hrsh7th/cmp-nvim-lsp",
-        "hrsh7th/nvim-cmp",
+        -- "hrsh7th/cmp-nvim-lsp",
+        -- "hrsh7th/nvim-cmp",
     },
     config = function()
         local lsp_zero = require("lsp-zero")
@@ -22,7 +22,7 @@ return {
             vim.keymap.set("n", "<c-a-l>", "<cmd>lua vim.lsp.buf.format({async = true})<cr>", opts)
             vim.keymap.set("n", "<F4>", "<cmd>lua vim.lsp.buf.code_action()<cr>", opts)
         end
-        local capabilities = require("cmp_nvim_lsp").default_capabilities()
+        local capabilities = require('blink.cmp').get_lsp_capabilities()
 
         lsp_zero.extend_lspconfig({
             sign_text = true,
