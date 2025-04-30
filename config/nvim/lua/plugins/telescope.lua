@@ -1,6 +1,5 @@
 return {
     "nvim-telescope/telescope.nvim",
-    tag = "0.1.8",
     dependencies = { "nvim-lua/plenary.nvim", "nvim-tree/nvim-web-devicons", 'nvim-telescope/telescope-fzf-native.nvim' },
     config = function()
         require("telescope").setup({
@@ -20,18 +19,37 @@ return {
         local action_state = require('telescope.actions.state')
 
         vim.keymap.set("n", "<leader>ff", extensions.find_files, { desc = "Telescope: find files" })
+
         vim.keymap.set("n", "<leader>ft", builtin.treesitter, { desc = "Telescope: treesitter" })
+
         vim.keymap.set("n", "<leader>fs", extensions.grep_string, { desc = "Telescope: grep string" })
+
         vim.keymap.set("n", "<leader>fg", extensions.live_grep, { desc = "Telescope: live grep" })
+
         vim.keymap.set("n", "<leader>fb", builtin.current_buffer_fuzzy_find,
             { desc = "Telescope: search inside the current open buffer" })
+
         vim.keymap.set("n", "<leader>fH", builtin.help_tags, { desc = "Telescope: search help tags" })
+
         vim.keymap.set("n", "<leader>fh", builtin.man_pages, { desc = "Telescope: search man pages" })
-        vim.keymap.set("n", "<leader>fld", builtin.lsp_dynamic_workspace_symbols,
+
+        vim.keymap.set("n", "<leader>fld", builtin.lsp_workspace_symbols,
             { desc = "Telescope: dynamic workspace lsp symbols" })
+
         vim.keymap.set("n", "<leader>fls", builtin.lsp_document_symbols, { desc = "Telescope: lsp document symbols" })
+
         vim.keymap.set("n", "<leader>fm", builtin.marks, { desc = "Telescope: search marks" })
+
+        vim.keymap.set("n", "<leader>fr", builtin.lsp_references,
+            { desc = "Telescope: search for refrences for symbol under cursor" })
+
+        vim.keymap.set("n", "<leader>fd", builtin.diagnostics, { desc = "Telescope: list diagnostics" })
+
         vim.keymap.set("n", "<leader>fk", ":Telescope keymaps<cr>", { desc = "Telescope: search keymaps" })
+
+        vim.keymap.set("n", "<leader>cs", builtin.treesitter, { desc = "Telescope: treesitter symbols" })
+
+        vim.keymap.set("n", "gd", builtin.lsp_definitions, { desc = "Telescope: definitions", noremap = true })
 
         -- git stuff
         vim.keymap.set("n", "<leader>gk", builtin.git_bcommits,
