@@ -64,7 +64,8 @@ vim.keymap.set("n", "<C-s-j>", "<cmd>cprev<CR>zz")
 vim.keymap.set("n", "<leader>ek", "<cmd>lnext<CR>zz")
 vim.keymap.set("n", "<leader>ej", "<cmd>lprev<CR>zz")
 
-vim.keymap.set("n", "<leader>s", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]])
+vim.keymap.set("n", "<leader>rw", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]],
+    { desc = "rename text under cursor" })
 vim.keymap.set("n", "<leader>x", "<cmd>!chmod +x %<CR>", { silent = true })
 
 vim.keymap.set("n", "<leader>so", function() vim.cmd("so") end)

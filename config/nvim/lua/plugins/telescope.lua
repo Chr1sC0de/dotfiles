@@ -26,30 +26,38 @@ return {
 
         vim.keymap.set("n", "<leader>fg", extensions.live_grep, { desc = "Telescope: live grep" })
 
-        vim.keymap.set("n", "<leader>fb", builtin.current_buffer_fuzzy_find,
+        vim.keymap.set("n", "<leader>fbb", builtin.current_buffer_fuzzy_find,
             { desc = "Telescope: search inside the current open buffer" })
 
-        vim.keymap.set("n", "<leader>fH", builtin.help_tags, { desc = "Telescope: search help tags" })
+        vim.keymap.set("n", "<leader>fht", builtin.help_tags, { desc = "Telescope: search help tags" })
 
-        vim.keymap.set("n", "<leader>fh", builtin.man_pages, { desc = "Telescope: search man pages" })
+        vim.keymap.set("n", "<leader>fmp", builtin.man_pages, { desc = "Telescope: search man pages" })
 
-        vim.keymap.set("n", "<leader>fld", builtin.lsp_workspace_symbols,
+        vim.keymap.set("n", "<leader>lds", builtin.lsp_document_symbols, { desc = "Telescope: lsp document symbols" })
+
+        vim.keymap.set("n", "<leader>lws", builtin.lsp_workspace_symbols,
             { desc = "Telescope: dynamic workspace lsp symbols" })
 
-        vim.keymap.set("n", "<leader>fls", builtin.lsp_document_symbols, { desc = "Telescope: lsp document symbols" })
-
-        vim.keymap.set("n", "<leader>fm", builtin.marks, { desc = "Telescope: search marks" })
-
-        vim.keymap.set("n", "<leader>fr", builtin.lsp_references,
+        vim.keymap.set("n", "<leader>lr", builtin.lsp_references,
             { desc = "Telescope: search for refrences for symbol under cursor" })
 
-        vim.keymap.set("n", "<leader>fd", builtin.diagnostics, { desc = "Telescope: list diagnostics" })
+        vim.keymap.set("n", "<leader>lic", builtin.lsp_incoming_calls,
+            { desc = "Telescope: lsp incoming calls" })
 
-        vim.keymap.set("n", "<leader>fk", ":Telescope keymaps<cr>", { desc = "Telescope: search keymaps" })
-
-        vim.keymap.set("n", "<leader>cs", builtin.treesitter, { desc = "Telescope: treesitter symbols" })
+        vim.keymap.set("n", "<leader>fmm", builtin.marks, { desc = "Telescope: search marks" })
 
         vim.keymap.set("n", "gd", builtin.lsp_definitions, { desc = "Telescope: definitions", noremap = true })
+
+        vim.keymap.set("n", "<leader>lim", builtin.lsp_implementations,
+            { desc = "Telescope: lsp implementations", noremap = true })
+
+
+
+        vim.keymap.set("n", "<leader>fbd", function() builtin.diagnostics({ bufnr = 0 }) end,
+            { desc = "Telescope: list diagnostics" })
+        vim.keymap.set("n", "<leader>fad", builtin.diagnostics, { desc = "Telescope: list diagnostics" })
+
+        vim.keymap.set("n", "<leader>fk", ":Telescope keymaps<cr>", { desc = "Telescope: search keymaps" })
 
         -- git stuff
         vim.keymap.set("n", "<leader>gk", builtin.git_bcommits,
@@ -113,7 +121,7 @@ return {
         end
 
 
-        vim.keymap.set("n", "<leader>fB", buffer_searcher, { desc = "Telescope: search buffers" })
+        vim.keymap.set("n", "<leader>fob", buffer_searcher, { desc = "Telescope: search buffers" })
 
         require('telescope').load_extension('fzf')
     end

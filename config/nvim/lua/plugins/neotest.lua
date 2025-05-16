@@ -48,5 +48,7 @@ return {
             { desc = "neotest: attach the nearest test" })
         vim.keymap.set("n", "<leader>tp", function() require("neotest").output.open() end,
             { desc = "neotest: open test panel" })
+        vim.keymap.set("n", "<leader>tS", function() require("neotest").summary.toggle() end,
+            { desc = "neotest: open summary" })
     end
 }
