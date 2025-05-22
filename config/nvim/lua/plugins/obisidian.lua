@@ -32,7 +32,6 @@ return {
         )
         vim.keymap.set("n", "<leader>ot", ":ObsidianTags<cr>", { desc = "Obsidian Tags" })
         vim.keymap.set("n", "<leader>on", ":ObsidianNew<cr>", { desc = "Obsidian New" })
-        vim.keymap.set("n", "<leader>on", ":ObsidianNew<cr>", { desc = "Obsidian New" })
         vim.keymap.set("n", "<leader>fa", ":ObsidianSearch<cr>", { desc = "Obsidian Search" })
     end
 }
