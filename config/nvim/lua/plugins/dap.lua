@@ -4,17 +4,11 @@ return {
     desc = "Debugging support. Requires language specific adapters to be configured. (see lang extras)",
 
     dependencies = {
-        "rcarriga/nvim-dap-ui",
-        -- python
+        "igorlfs/nvim-dap-view",
         "mfussenegger/nvim-dap-python",
-        -- virtual text for the debugger
-        {
-            "theHamsta/nvim-dap-virtual-text",
-            opts = {},
-        },
+        "theHamsta/nvim-dap-virtual-text",
     },
     config = function()
-        require("dapui").setup()
         local dap = require("dap")
         -- set the keymaps
         vim.keymap.set('n', '<F5>', function() dap.continue() end, { desc = "dap: continue" })
