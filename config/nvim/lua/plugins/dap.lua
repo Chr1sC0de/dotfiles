@@ -75,5 +75,7 @@ return {
                 { text = sign[1], texthl = sign[2] or "DiagnosticInfo", linehl = sign[3], numhl = sign[3] }
             )
         end
+
+        vim.api.nvim_set_hl(0, "DapStoppedLine", { bg = "#24272e" }) -- Change bg to your preferred color
     end
 }
