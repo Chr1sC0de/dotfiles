@@ -1,14 +1,16 @@
 local augroup = vim.api.nvim_create_augroup("LspFormatting", {})
+
 return {
     "nvimtools/none-ls.nvim",
     requires = { "nvim-lua/plenary.nvim" },
     config = function()
-        local none_ls = require("null-ls")
-        none_ls.setup({
+        local null_ls = require("null-ls")
+        null_ls.setup({
             sources = {
-                none_ls.builtins.formatting.markdownlint,
-                none_ls.builtins.formatting.cbfmt,
-                none_ls.builtins.formatting.prettierd,
+                null_ls.builtins.formatting.markdownlint,
+                null_ls.builtins.formatting.cbfmt,
+                null_ls.builtins.formatting.prettierd,
+                null_ls.builtins.formatting.djlint,
             },
         })
     end
