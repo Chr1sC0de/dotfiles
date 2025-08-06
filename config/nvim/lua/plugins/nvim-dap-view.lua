@@ -4,48 +4,6 @@ return {
         local dap = require("dap")
 
         require("dap-view.setup").setup({
-            winbar = {
-                show = true,
-                -- You can add a "console" section to merge the terminal with the other views
-                sections = { "watches", "scopes", "exceptions", "breakpoints", "threads", "repl" },
-                -- Must be one of the sections declared above
-                default_section = "watches",
-                headers = {
-                    breakpoints = "Breakpoints [B]",
-                    scopes = "Scopes [S]",
-                    exceptions = "Exceptions [E]",
-                    watches = "Watches [W]",
-                    threads = "Threads [T]",
-                    repl = "REPL [R]",
-                    console = "Console [C]",
-                },
-                controls = {
-                    enabled = false,
-                    position = "right",
-                    buttons = {
-                        "play",
-                        "step_into",
-                        "step_over",
-                        "step_out",
-                        "step_back",
-                        "run_last",
-                        "terminate",
-                        "disconnect",
-                    },
-                    icons = {
-                        pause = "",
-                        play = "",
-                        step_into = "",
-                        step_over = "",
-                        step_out = "",
-                        step_back = "",
-                        run_last = "",
-                        terminate = "",
-                        disconnect = "",
-                    },
-                    custom_buttons = {},
-                },
-            },
             windows = {
                 height = 12,
                 terminal = {

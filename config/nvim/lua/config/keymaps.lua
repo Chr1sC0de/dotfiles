@@ -40,6 +40,27 @@ vim.keymap.set("n", "<leader>si",
     , { desc = "sort imports" }
 )
 
+-- copy paths
+vim.keymap.set('n', '<leader>cp', function()
+    local path = vim.fn.expand('%')
+    vim.fn.setreg('+', path)
+    print('Copied: ' .. path)
+end, { desc = 'Copy relative path to clipboard' })
+
+vim.keymap.set('n', '<leader>cP',
+    function()
+        local path = vim.fn.expand('%:p')
+        vim.fn.setreg('+', path)
+        print('Copied: ' .. path)
+    end, { desc = 'Copy absolute path to clipboard' })
+
+-- Copy just filename to clipboard
+vim.keymap.set('n', '<leader>cf', function()
+    local filename = vim.fn.expand('%:t')
+    vim.fn.setreg('+', filename)
+    print('Copied: ' .. filename)
+end, { desc = 'Copy filename to clipboard' })
+
 -- THE PRIMEGEN REMAPS --
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")

@@ -56,3 +56,41 @@ vim.api.nvim_create_autocmd("LspAttach", {
     end,
 
 })
+
+-- Define filetypes you want to auto-format
+local auto_format_filetypes = {
+    'javascript',
+    'typescript',
+    'javascriptreact',
+    'typescriptreact',
+    'python',
+    'lua',
+    'rust',
+    'go',
+    'json',
+    'yaml',
+    'html',
+    'css',
+    'scss'
+}
+
+-- Create autocmd for auto-formatting
+vim.api.nvim_create_autocmd("BufWritePre", {
+    pattern = "*",
+    callback = function(args)
+        local bufnr = args.buf
+        local filetype = vim.bo[bufnr].filetype
+
+        -- Check if current filetype should be auto-formatted
+        if vim.tbl_contains(auto_format_filetypes, filetype) then
+            -- Check if LSP client supports formatting
+            local clients = vim.lsp.get_active_clients({ bufnr = bufnr })
+            for _, client in pairs(clients) do
+                if client.supports_method("textDocument/formatting") then
+                    vim.lsp.buf.format({ bufnr = bufnr })
+                    break
+                end
+            end
+        end
+    end,
+})
