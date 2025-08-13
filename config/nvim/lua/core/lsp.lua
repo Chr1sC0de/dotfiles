@@ -1,4 +1,5 @@
 vim.lsp.enable({
+    "ty",
     "basedpyright",
     "bashls",
     "docker_compose_language_service",
