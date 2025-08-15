@@ -1,5 +1,6 @@
 vim.lsp.enable({
-    "ty",
+    -- "ty",
+    -- "pyrefly",
     "basedpyright",
     "bashls",
     "docker_compose_language_service",
@@ -33,6 +34,19 @@ vim.lsp.config('lua_ls', {
         },
     },
 })
+vim.lsp.config(
+    'pyrefly', {
+        filetypes = { "python" },
+        settings = {
+            python = {
+                analysis = {
+                    typeCheckingMode = "basic", -- or "strict"
+                    autoImportCompletions = true
+                }
+            }
+        }
+    }
+)
 
 vim.lsp.config(
     'basedpyright', {
@@ -55,7 +69,7 @@ vim.lsp.config(
 
 vim.lsp.config(
     'jinja_lsp', {
-        filetypes = { 'jinja', 'rust', 'python', 'html', 'htmldjango' },
+        filetypes = { 'jinja', 'htmldjango' },
     }
 )
 

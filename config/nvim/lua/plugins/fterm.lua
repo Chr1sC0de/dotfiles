@@ -4,8 +4,8 @@ return {
         require 'FTerm'.setup({
             border     = 'rounded',
             dimensions = {
-                height = 0.8,
-                width = 0.8,
+                height = 0.9,
+                width = 0.9,
             },
         })
         -- Example keybindings
@@ -19,8 +19,8 @@ return {
             ft = 'FTerm2', -- You can also override the default filetype, if you want
             cmd = os.getenv('SHELL'),
             dimensions = {
-                height = 0.8,
-                width = 0.8
+                height = 0.9,
+                width = 0.9
             }
         })
 

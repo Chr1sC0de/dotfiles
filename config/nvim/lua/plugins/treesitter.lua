@@ -26,7 +26,7 @@ return {
                 "vimdoc", "javascript", "typescript", "c", "lua", "rust", "python",
                 "jsdoc", "bash", "json", "html", "css", "dap_repl", "tsx"
             },
-            sync_install = false,
+            sync_install = true,
             auto_install = true,
             autotag = { enable = true },
             indent = {

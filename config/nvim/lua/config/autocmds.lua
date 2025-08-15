@@ -57,6 +57,14 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
 })
 
+
+-- vim.api.nvim_create_autocmd("BufWritePre", {
+--     pattern = "*",
+--     callback = function(args)
+--         require("conform").format({ bufnr = args.buf })
+--     end,
+-- })
+
 -- Define filetypes you want to auto-format
 local auto_format_filetypes = {
     'javascript',

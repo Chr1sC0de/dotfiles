@@ -74,11 +74,13 @@ vim.keymap.set("n", "N", "Nzzzv")
 vim.keymap.set("x", "<leader>p", [["_dP]])
 
 vim.keymap.set({ "n", "v" }, "<leader>y", [["+y]])
+vim.keymap.set({ "n", "v" }, "<c-c>", [["+y]])
 vim.keymap.set("n", "<leader>Y", [["+Y]])
 vim.keymap.set({ "n", "v" }, "<leader>D", [["_d]])
 
 vim.keymap.set("n", "Q", "<nop>")
 vim.keymap.set("n", "<leader>fl", vim.lsp.buf.format)
+-- vim.keymap.set("n", "<leader>fl", require("conform").format)
 
 vim.keymap.set("n", "<C-s-k>", "<cmd>cnext<CR>zz")
 vim.keymap.set("n", "<C-s-j>", "<cmd>cprev<CR>zz")
