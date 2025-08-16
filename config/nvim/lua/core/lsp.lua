@@ -18,6 +18,13 @@ vim.lsp.enable({
     "htmx"
 })
 
+local capabilities = vim.lsp.protocol.make_client_capabilities()
+
+-- enable dynamic registration for watched files
+capabilities.workspace.didChangeWatchedFiles = {
+    dynamicRegistration = true,
+}
+
 vim.lsp.config('lua_ls', {
     settings = {
         ['lua_ls'] = {
@@ -50,6 +57,7 @@ vim.lsp.config(
 
 vim.lsp.config(
     'basedpyright', {
+        capabilities = capabilities,
         filetypes = { "python" },
         settings = {
             basedpyright = {
