@@ -5,7 +5,7 @@ return {
     config = function()
         require("conform").setup({
             formatters_by_ft = {
-                python = { "ruff", lsp_forma = "fallback" },
+                python = { "ruff_format" },
 
             },
             format_on_save = {
@@ -21,5 +21,12 @@ return {
                 timeout_ms = 1000,
             })
         end, { desc = "Format file or range (in visual mode)" })
+
+        vim.api.nvim_create_autocmd("BufWritePre", {
+            pattern = "*",
+            callback = function(args)
+                require("conform").format({ bufnr = args.buf })
+            end,
+        })
     end
 }
