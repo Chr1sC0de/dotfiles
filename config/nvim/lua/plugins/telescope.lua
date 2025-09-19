@@ -151,14 +151,14 @@ return {
 					map("n", "<CR>", open_man_fullscreen)
 					return true
 				end,
-				previewer = false, -- Optional: disable preview window
+				previewer = true, -- Optional: disable preview window
 			})
 		end, { desc = "Telescope: search man pages in fullscreen" })
 
 		-- Keymap to trigger the Telescope help tags with the custom action
 		-- vim.keymap.set("n", "<leader>fht", builtin.help_tags, { desc = "Telescope: search help tags" })
 		vim.keymap.set("n", "<leader>fht", function()
-			builtin.man_pages({
+			builtin.help_tags({
 				attach_mappings = function(_, map)
 					local function open_help_tags_fullscreen(prompt_bufnr)
 						local entry = action_state.get_selected_entry()
@@ -171,7 +171,7 @@ return {
 					map("n", "<CR>", open_help_tags_fullscreen)
 					return true
 				end,
-				previewer = false, -- Optional: disable preview window
+				previewer = true, -- Optional: disable preview window
 			})
 		end, { desc = "Telescope: search help tags" })
 	end,
