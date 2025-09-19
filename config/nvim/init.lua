@@ -1,9 +1,9 @@
-require "core.lazy"
-require "core.lsp"
+require("core.lazy")
+require("core.lsp")
 
-require "config.options"
-require "config.autocmds"
-require "config.keymaps"
+require("config.options")
+require("config.autocmds")
+require("config.keymaps")
 
 local border_colors = "#85adf3"
 
