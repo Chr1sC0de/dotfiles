@@ -4,26 +4,19 @@ vim.g.maplocalleader = "\\"
 vim.keymap.set("n", "<c-s>", ":w<cr>", { desc = "Save file" })
 vim.keymap.set("n", "<c-z>", "u", { desc = "Undo" })
 
--- QUICK SHORTCUTS FOR GLOBAL MARKS
-vim.keymap.set("n", "<leader>ma", "mA", { desc = "global mark: A" })
-vim.keymap.set("n", "<leader>ms", "mS", { desc = "global mark: S" })
-vim.keymap.set("n", "<leader>md", "mD", { desc = "global mark: D" })
-vim.keymap.set("n", "<leader>mf", "mF", { desc = "global mark: F" })
-vim.keymap.set("n", "<leader>mg", "mG", { desc = "global mark: G" })
-
 -- SETUP A TOGGLE FOR THE VIRTUAL EDIT COMMAND
 TOGGLE_VIRTUALEDIT = false
 vim.opt.virtualedit = nil
 vim.keymap.set("n", "<leader>ve", function()
-    if TOGGLE_VIRTUALEDIT then
-        print("Setting virtualedit=nil")
-        vim.opt.virtualedit = nil
-        TOGGLE_VIRTUALEDIT = true
-    else
-        print("Setting virtualedit=all")
-        vim.opt.virtualedit = "all"
-        TOGGLE_VIRTUALEDIT = true
-    end
+	if TOGGLE_VIRTUALEDIT then
+		print("Setting virtualedit=nil")
+		vim.opt.virtualedit = nil
+		TOGGLE_VIRTUALEDIT = true
+	else
+		print("Setting virtualedit=all")
+		vim.opt.virtualedit = "all"
+		TOGGLE_VIRTUALEDIT = true
+	end
 end, { desc = "Toggle virtualedit mode from nil <-> all" })
 
 vim.keymap.set("n", "<leader>cc", ":cclose<cr>", { desc = "close quick fix list" })
@@ -33,33 +26,29 @@ vim.keymap.set("n", "<C-Tab>", ":tabnext<cr>", { desc = "tabnext", silent = fals
 vim.keymap.set("n", "<C-S-Tab>", ":tabprevious<cr>", { desc = "tabprevious", silent = false })
 
 -- SORT IMPORTS
-vim.keymap.set("n", "<leader>si",
-    function()
-        vim.lsp.buf.code_action({ context = { only = { "source.organizeImports" } }, apply = true, })
-    end
-    , { desc = "sort imports" }
-)
+vim.keymap.set("n", "<leader>si", function()
+	vim.lsp.buf.code_action({ context = { only = { "source.organizeImports" } }, apply = true })
+end, { desc = "sort imports" })
 
 -- copy paths
-vim.keymap.set('n', '<leader>cp', function()
-    local path = vim.fn.expand('%')
-    vim.fn.setreg('+', path)
-    print('Copied: ' .. path)
-end, { desc = 'Copy relative path to clipboard' })
+vim.keymap.set("n", "<leader>cp", function()
+	local path = vim.fn.expand("%")
+	vim.fn.setreg("+", path)
+	print("Copied: " .. path)
+end, { desc = "Copy relative path to clipboard" })
 
-vim.keymap.set('n', '<leader>cP',
-    function()
-        local path = vim.fn.expand('%:p')
-        vim.fn.setreg('+', path)
-        print('Copied: ' .. path)
-    end, { desc = 'Copy absolute path to clipboard' })
+vim.keymap.set("n", "<leader>cP", function()
+	local path = vim.fn.expand("%:p")
+	vim.fn.setreg("+", path)
+	print("Copied: " .. path)
+end, { desc = "Copy absolute path to clipboard" })
 
 -- Copy just filename to clipboard
-vim.keymap.set('n', '<leader>cf', function()
-    local filename = vim.fn.expand('%:t')
-    vim.fn.setreg('+', filename)
-    print('Copied: ' .. filename)
-end, { desc = 'Copy filename to clipboard' })
+vim.keymap.set("n", "<leader>cf", function()
+	local filename = vim.fn.expand("%:t")
+	vim.fn.setreg("+", filename)
+	print("Copied: " .. filename)
+end, { desc = "Copy filename to clipboard" })
 
 -- THE PRIMEGEN REMAPS --
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
@@ -87,10 +76,16 @@ vim.keymap.set("n", "<C-s-j>", "<cmd>cprev<CR>zz")
 vim.keymap.set("n", "<leader>ek", "<cmd>lnext<CR>zz")
 vim.keymap.set("n", "<leader>ej", "<cmd>lprev<CR>zz")
 
-vim.keymap.set("n", "<leader>rw", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]],
-    { desc = "rename text under cursor" })
+vim.keymap.set(
+	"n",
+	"<leader>rw",
+	[[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]],
+	{ desc = "rename text under cursor" }
+)
 vim.keymap.set("n", "<leader>x", "<cmd>!chmod +x %<CR>", { silent = true })
 
-vim.keymap.set("n", "<leader>so", function() vim.cmd("so") end)
+vim.keymap.set("n", "<leader>so", function()
+	vim.cmd("so")
+end)
 
-vim.api.nvim_set_keymap('t', "<M-t>", [[<C-\><C-n>]], { noremap = true, desc = "exit terminal mode using escape" })
+vim.api.nvim_set_keymap("t", "<M-t>", [[<C-\><C-n>]], { noremap = true, desc = "exit terminal mode using escape" })
