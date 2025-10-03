@@ -38,6 +38,7 @@ alias la="ls -la"
 export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
 export EDITOR=nvim
 export VISUAL=nvim
+export MANPAGER="nvim -c 'Man!' -"
 
 # if type fastfetch >/dev/null; then
 #     fastfetch
