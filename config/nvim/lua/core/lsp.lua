@@ -1,6 +1,7 @@
 vim.lsp.enable({
 	-- "ty",
 	-- "pyrefly",
+	"tombi",
 	"codebook",
 	"basedpyright",
 	"bashls",
@@ -25,6 +26,9 @@ local capabilities = vim.lsp.protocol.make_client_capabilities()
 capabilities.workspace.didChangeWatchedFiles = {
 	dynamicRegistration = true,
 }
+vim.lsp.config("tombi", {
+	filetypes = { "toml" },
+})
 
 vim.lsp.config("lua_ls", {
 	settings = {
