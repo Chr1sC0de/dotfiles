@@ -7,15 +7,16 @@ return {
                 height = 0.9,
                 width = 0.9,
             },
+            auto_close = true,
         })
         -- Example keybindings
         vim.keymap.set('n', '<A-i>', '<CMD>lua require("FTerm").toggle()<CR>', { desc = "Toggle Terminal: Terminal 1" })
         vim.keymap.set('t', '<A-i>', '<C-\\><C-n><CMD>lua require("FTerm").toggle()<CR>',
             { desc = "Toggle Terminal: Terminal 1" })
 
-        local fterm = require("FTerm")
+        local float_terminal = require("FTerm")
 
-        local fterm2 = fterm:new({
+        local float_terminal_2 = float_terminal:new({
             ft = 'FTerm2', -- You can also override the default filetype, if you want
             cmd = os.getenv('SHELL'),
             dimensions = {
@@ -24,11 +25,25 @@ return {
             }
         })
 
-        vim.keymap.set('n', '<A-e>', function() fterm2:toggle() end, { desc = "Toggle Terminal: Terminal 2" })
+        vim.keymap.set('n', '<A-e>', function() float_terminal_2:toggle() end, { desc = "Toggle Terminal: Terminal 2" })
+
         vim.keymap.set('t', '<A-e>', function()
             vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-\\><C-n>', true, true, true), 'n', false)
-            fterm2:toggle()
+            float_terminal_2:toggle()
         end, { desc = "Toggle Terminal: Terminal 2" })
+
+        vim.keymap.set(
+            'n',
+            '<leader>tmg',
+            function() require('FTerm').run({ 'tms' }) end,
+            { desc = "Float Term: tmux sessionizer github" })
+
+        vim.keymap.set(
+            'n',
+            '<leader>tms',
+            function() require('FTerm').run({ 'tms switch' }) end,
+            { desc = "Float Term: tmux sessionizer switch" }
+        )
     end
 
 }

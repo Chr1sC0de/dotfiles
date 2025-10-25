@@ -9,7 +9,7 @@ return {
 		require("telescope").setup({
 			extensions = {
 				fzf = {
-					fuzzy = true, -- false will only do exact matching
+					fuzzy = true,    -- false will only do exact matching
 					override_generic_sorter = true, -- override the generic sorter
 					override_file_sorter = true, -- override the file sorter
 					case_mode = "smart_case", -- or "ignore_case" or "respect_case"
@@ -37,12 +37,12 @@ return {
 			{ desc = "Telescope: search inside the current open buffer" }
 		)
 
-		vim.keymap.set("n", "<leader>lds", builtin.lsp_document_symbols, { desc = "Telescope: lsp document symbols" })
+		vim.keymap.set("n", "<leader>ld", builtin.lsp_document_symbols, { desc = "Telescope: lsp document symbols" })
 
 		vim.keymap.set(
 			"n",
-			"<leader>lws",
-			builtin.lsp_workspace_symbols,
+			"<leader>lw",
+			builtin.lsp_dynamic_workspace_symbols,
 			{ desc = "Telescope: dynamic workspace lsp symbols" }
 		)
 
@@ -50,7 +50,7 @@ return {
 			"n",
 			"<leader>lr",
 			builtin.lsp_references,
-			{ desc = "Telescope: search for refrences for symbol under cursor" }
+			{ desc = "Telescope: search for references for symbol under cursor" }
 		)
 
 		vim.keymap.set("n", "<leader>lic", builtin.lsp_incoming_calls, { desc = "Telescope: lsp incoming calls" })
@@ -81,13 +81,15 @@ return {
 			{ desc = "Telescope: buffer commits with diff preview and checks them out on <cr>" }
 		)
 		vim.keymap.set("n", "<leader>gK", builtin.git_commits, {
-			desc = "Telescope: list git commits with diff preview checkout: <cr>, reset mixed: <c-r>m, reset soft: <c-r>s, reset hard: <c-s>h",
+			desc =
+			"Telescope: list git commits with diff preview checkout: <cr>, reset mixed: <c-r>m, reset soft: <c-r>s, reset hard: <c-s>h",
 		})
 		vim.keymap.set("n", "<leader>gs", builtin.git_status, { desc = "Telescope: git status" })
 		vim.keymap.set("n", "<leader>gS", builtin.git_stash, { desc = "Telescope: git stash" })
 		vim.keymap.set("n", "<leader>gf", extensions.git_files, { desc = "Telescope: git files" })
 		vim.keymap.set("n", "<leader>gb", builtin.git_branches, {
-			desc = "Telescope: git branch Lists all branches with log preview, checkout action <cr>, track action <C-t>, rebase action<C-r>, create action <C-a>, switch action <C-s>, delete action <C-d> and merge action <C-y>",
+			desc =
+			"Telescope: git branch Lists all branches with log preview, checkout action <cr>, track action <C-t>, rebase action<C-r>, create action <C-a>, switch action <C-s>, delete action <C-d> and merge action <C-y>",
 		})
 
 		buffer_searcher = function()
