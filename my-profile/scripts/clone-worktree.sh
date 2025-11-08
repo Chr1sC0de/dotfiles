@@ -13,8 +13,8 @@ echo "reponame=$NAME"
 mkdir "$NAME"
 cd "$NAME" || exit
 
-git clone --bare "$URL" .root
-cd .root
+git clone --bare "$URL" $NAME
+cd $NAME
 echo "gitdir: ." >.git
 
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
