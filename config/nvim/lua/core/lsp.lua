@@ -1,28 +1,18 @@
 vim.lsp.enable({
+	-- configurations
 	"tombi",
 	"codebook",
+	"jsonls",
+	"dockerls",
+	-- python
 	"basedpyright",
-	"bashls",
-	"json_lsp",
-	"lua_ls",
-	"markdown_oxide",
 	"ruff",
-})
-
-local capabilities = vim.lsp.protocol.make_client_capabilities()
-
--- enable dynamic registration for watched files
-capabilities.workspace.didChangeWatchedFiles = {
-	dynamicRegistration = true,
-}
-
-vim.lsp.config("tombi", {
-	filetypes = { "toml" },
-})
-
-vim.lsp.config("basedpyright", {
-	capabilities = capabilities,
-	filetypes = { "python" },
+	-- lua
+	"lua_ls",
+	-- markdown
+	"markdown_oxide",
+	-- bash
+	"bashls",
 })
 
 vim.diagnostic.config({

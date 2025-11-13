@@ -1,4 +1,6 @@
-vim.cmd.colorscheme "catppuccin"
+vim.cmd.colorscheme("catppuccin")
+
+vim.o.shell = os.getenv("SHELL") or vim.fn.exepath("bash")
 
 vim.opt.number = true
 vim.opt.relativenumber = true
@@ -20,7 +22,6 @@ vim.opt.swapfile = false
 vim.opt.backup = false
 vim.opt.undodir = os.getenv("HOME") .. "/.vim/undodir"
 vim.opt.undofile = true
-
 
 -- incremental search
 vim.opt.hlsearch = false

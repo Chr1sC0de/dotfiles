@@ -7,6 +7,7 @@ return {
 			formatters_by_ft = {
 				python = { "ruff_fix", "ruff_format", "ruff_organize_imports" },
 				lua = { "stylua" },
+				json = { "fixjson" },
 			},
 			format_on_save = {
 				lsp_fallback = true,
