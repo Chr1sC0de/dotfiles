@@ -15,6 +15,12 @@ vim.lsp.enable({
 	"bashls",
 })
 
+local capabilities = vim.lsp.protocol.make_client_capabilities()
+
+capabilities.workspace.didChangeWatchedFiles = {
+	dynamicRegistration = true,
+}
+
 vim.diagnostic.config({
 	-- virtual_lines = true,
 	-- virtual_text = true,
