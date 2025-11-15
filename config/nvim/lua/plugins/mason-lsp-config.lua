@@ -8,7 +8,7 @@ return {
 			"jsonls",
 			"dockerls",
 			-- python
-			"basedpyright",
+			"ty",
 			"ruff",
 			-- lua
 			"lua_ls",

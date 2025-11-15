@@ -5,7 +5,7 @@ vim.lsp.enable({
 	"jsonls",
 	"dockerls",
 	-- python
-	"basedpyright",
+	"ty",
 	"ruff",
 	-- lua
 	"lua_ls",
@@ -20,6 +20,17 @@ local capabilities = vim.lsp.protocol.make_client_capabilities()
 capabilities.workspace.didChangeWatchedFiles = {
 	dynamicRegistration = true,
 }
+
+vim.lsp.config("ty", {
+	settings = {
+		ty = {
+			diagnosticMode = "workspace",
+			experimental = {
+				rename = true,
+			},
+		},
+	},
+})
 
 vim.diagnostic.config({
 	-- virtual_lines = true,
