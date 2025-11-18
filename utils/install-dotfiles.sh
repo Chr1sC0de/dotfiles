@@ -6,5 +6,5 @@ SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 source "$SCRIPT_DIR/core.sh"
 
 for DOTNAME in "${DOTNAMES[@]}"; do
-    "$SCRIPT_DIR"/"create-symlink.sh" "$DOTNAME"
+    "$SCRIPT_DIR"/"create-symlink.sh" "$DOTNAME" -v -f
 done
