@@ -35,7 +35,10 @@ alias la="ls -la"
 #                                  setup path                                  #
 # ---------------------------------------------------------------------------- #
 
-export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
+if [[ $PATH != *"/opt/nvim-linux-x86_64/bin"* ]]; then
+    export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
+fi
+
 export EDITOR=nvim
 export VISUAL=nvim
 export MANPAGER="nvim -c 'Man!' -"
