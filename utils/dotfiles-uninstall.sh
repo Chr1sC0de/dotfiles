@@ -6,5 +6,5 @@ SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 source "$SCRIPT_DIR/common.sh"
 
 for DOTNAME in "${DOTNAMES[@]}"; do
-    "$SCRIPT_DIR"/"remove-symlink.sh" "$DOTNAME"
+    "$SCRIPT_DIR"/"symlink-remove.sh" "$DOTNAME"
 done
