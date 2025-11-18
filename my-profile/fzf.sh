@@ -3,7 +3,7 @@ FZF_BASH="$HOME/.fzf.bash"
 
 if [[ -f $FZF_BASH ]]; then
     #shellcheck disable=SC1090
-    [ -f "$FZF_BASH" ] && source "$FZF_BASH"
+    . "$FZF_BASH"
 
     if type fd &>/dev/null; then
         export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
@@ -22,5 +22,5 @@ if [[ -f $FZF_BASH ]]; then
         echoinfo "fd not installed, shortcuts excluded"
     fi
 
-    source "$PROFILE_FOLDER/fzf-git.sh"
+    . "$PROFILE_FOLDER/fzf-git.sh"
 fi

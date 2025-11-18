@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/user/bin/env bash
 
 : '
 Setup for eza
