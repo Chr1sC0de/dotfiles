@@ -26,7 +26,7 @@ return {
 
 		vim.keymap.set("n", "<leader>ff", extensions.find_files, { desc = "Telescope: find files" })
 
-		vim.keymap.set("n", "<leader>ft", builtin.treesitter, { desc = "Telescope: treesitter" })
+		vim.keymap.set("n", "<leader>fT", builtin.treesitter, { desc = "Telescope: treesitter" })
 
 		vim.keymap.set("n", "<leader>fs", extensions.grep_string, { desc = "Telescope: grep string" })
 
