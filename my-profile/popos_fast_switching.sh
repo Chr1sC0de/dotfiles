@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ $(grep ^NAME= "/etc/os-release" | cut -d= -f2) = "Pop!_OS" ]]; then
     gsettings set org.gnome.mutter dynamic-workspaces false

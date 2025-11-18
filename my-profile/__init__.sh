@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
 : '
 Source this from the .bashrc file not the .profile file

@@ -1,4 +1,6 @@
-get_script_dir ( ) {
+#!/usr/bin/env bash
+
+get_script_dir() {
     echo "$(dirname -- "$(readlink -f "${BASH_SOURCE[1]}")")"
 
 }

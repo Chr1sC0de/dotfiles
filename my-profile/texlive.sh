@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 TEXLIVE_DIR="/usr/local/texlive/2024/bin/x86_64-linux"
 
