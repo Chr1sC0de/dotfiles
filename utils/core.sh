@@ -18,7 +18,10 @@ DOTNAMES=(
 )
 
 echoinfo() {
-    echo -e "\e[32mINFO:\e[0m $1"
+    [[ -n "$VERBOSE" ]] &&
+        if $VERBOSE; then
+            echo -e "\e[32mINFO:\e[0m $1"
+        fi
 }
 
 export DOTFILE_DIR DOTNAMES

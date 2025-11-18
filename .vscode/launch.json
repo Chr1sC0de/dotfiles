@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Bash Debug Current File",
+            "type": "bashdb",
+            "request": "launch",
+            "showDebugOutput": false,
+            "pathBashdb": "${env:HOME}/.local/share/nvim/mason/packages/bash-debug-adapter/extension/bashdb_dir/bashdb",
+            "pathBashdbLib": "${env:HOME}/.local/share/nvim/mason/packages/bash-debug-adapter/extension/bashdb_dir",
+            "trace": true,
+            "file": "${file}",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}",
+            "pathCat": "bat",
+            "pathBash": "/bin/bash",
+            "pathMkfifo": "mkfifo",
+            "pathPkill": "pkill",
+            "args": [
+                "-v",
+                "-f",
+                "inputrc"
+            ],
+            "env": [],
+            "terminalKind": "integrated",
+            "repl_lang": "bash"
+        }
+    ]
+}

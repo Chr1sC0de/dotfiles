@@ -5,15 +5,47 @@ SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 # import the DOTFILE_DIR variable, echoinfo function, DOTNAMES
 source "$SCRIPT_DIR/core.sh"
 
-if [[ -z $1 ]]; then
+FORCE=false
+export VERBOSE=false
+
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+    -h | --help)
+        echo "Usage: create-symlink.sh [OPTIONS] [TARGET]"
+        echo "create symbolic links for the following valid targets"
+        for LINK in "${DOTNAMES[@]}"; do
+            echo "  $LINK"
+        done
+        echo "-h, --help        display this message"
+        echo "-f, --force       forcibly remove symlink if exists"
+        echo "-v, --verbose     show logs"
+        exit 0
+        ;;
+    -f | --force)
+        FORCE=true
+        ;;
+    -v | --verbose)
+        VERBOSE=true
+        ;;
+    *)
+        if [[ -z $TARGET ]]; then
+            TARGET=$1
+        fi
+        ;;
+    esac
+    shift
+done
+
+set -e
+
+if [[ -z $TARGET ]]; then
     echoinfo "No input provided, skipping"
     exit 1
 fi
 
-DOTNAME="$1"
-COLORDOTNAME="\e[36m$DOTNAME\e[0m"
+COLORDOTNAME="\e[36m$TARGET\e[0m"
 
-if [[ ! ${DOTNAMES[*]} =~ $DOTNAME ]]; then
+if [[ ! ${DOTNAMES[*]} =~ $TARGET ]]; then
     echoinfo "$COLORDOTNAME not in available dotfiles\e[36m"
     echo "["
     for NAME in "${DOTNAMES[@]}"; do
@@ -26,11 +58,16 @@ fi
 
 echoinfo "Creating symlink for $COLORDOTNAME"
 
-SYMLINK_TARGET="$HOME/.$DOTNAME"
+SYMLINK_TARGET="$HOME/.$TARGET"
 
 if [[ ! -L $SYMLINK_TARGET ]]; then
     echoinfo "$COLORDOTNAME symlink not found, creating"
-    ln -s "$DOTFILE_DIR/$DOTNAME" "$SYMLINK_TARGET"
+    ln -s -v "$DOTFILE_DIR/$TARGET" "$SYMLINK_TARGET"
+    echoinfo "Finished creating $COLORDOTNAME symlink"
+elif $FORCE; then
+    echoinfo "Forcefully creating symlink"
+    rm -f "$SYMLINK_TARGET"
+    ln -s -v "$DOTFILE_DIR/$TARGET" "$SYMLINK_TARGET"
     echoinfo "Finished creating $COLORDOTNAME symlink"
 else
     echoinfo "$COLORDOTNAME symlink already exists, skipping"
