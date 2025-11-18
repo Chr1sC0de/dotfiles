@@ -22,7 +22,7 @@ while [[ "$#" -gt 0 ]]; do
         exit 0
         ;;
     -k | --kitty)
-        TO_INSTALL+=("kitty" "config/kitty")
+        TO_INSTALL+=("config/kitty")
         ;;
     -t | --tmux)
         TO_INSTALL+=("tmux.conf")
