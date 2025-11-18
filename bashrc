@@ -117,7 +117,7 @@ if ! shopt -oq posix; then
     fi
 fi
 
-source "$HOME/.my-profile/__init__.sh"
+. "$HOME/.my-profile/__init__.sh"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm

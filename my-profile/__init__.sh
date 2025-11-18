@@ -6,19 +6,19 @@ as it will cause an error
 '
 
 # shellcheck disable=SC1091
-source "$HOME/.my-profile/variables.sh"
-source "$PROFILE_FOLDER/utils/__init__.sh"
+. "$HOME/.my-profile/variables.sh"
+. "$PROFILE_FOLDER/utils/__init__.sh"
 
 if [[ -d $PROFILE_FOLDER/private-variables ]]; then
-    source "$PROFILE_FOLDER/private-variables/__init__.sh"
+    . "$PROFILE_FOLDER/private-variables/__init__.sh"
 fi
 
-source "$PROFILE_FOLDER/nvm.sh"
-source "$PROFILE_FOLDER/starship.sh"
-source "$PROFILE_FOLDER/fzf.sh"
-source "$PROFILE_FOLDER/eza.sh"
-source "$PROFILE_FOLDER/popos_fast_switching.sh"
-source "$PROFILE_FOLDER/texlive.sh"
+. "$PROFILE_FOLDER/nvm.sh"
+. "$PROFILE_FOLDER/starship.sh"
+. "$PROFILE_FOLDER/fzf.sh"
+. "$PROFILE_FOLDER/eza.sh"
+. "$PROFILE_FOLDER/popos_fast_switching.sh"
+. "$PROFILE_FOLDER/texlive.sh"
 
 # disable ctrl+s in terminal
 stty -ixon
