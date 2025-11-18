@@ -4,6 +4,8 @@ return {
 		"nvim-lua/plenary.nvim",
 		"nvim-tree/nvim-web-devicons",
 		"nvim-telescope/telescope-fzf-native.nvim",
+		"nvim-telescope/telescope-dap.nvim"
+
 	},
 	config = function()
 		require("telescope").setup({
@@ -176,5 +178,7 @@ return {
 				previewer = true, -- Optional: disable preview window
 			})
 		end, { desc = "Telescope: search help tags" })
+		-- plugins
+		require('telescope').load_extension('dap')
 	end,
 }
