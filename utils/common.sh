@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
@@ -6,16 +6,20 @@ DOTFILE_DIR="$(
     cd "$SCRIPT_DIR/.." || exit && pwd
 )"
 
-DOTNAMES=(
+DEFAULTS=(
     "my-profile"
-    "bashrc"
+    "config/nvim"
     "inputrc"
+)
+
+EXTRAS=(
     "tmux.conf"
     "gitconfig"
-    "config/nvim"
     "config/kitty"
     "config/xdg-terminals.list"
 )
+
+DOTNAMES=("${DEFAULTS[@]}" "${EXTRAS[@]}")
 
 echoinfo() {
     [[ -n "$VERBOSE" ]] &&
@@ -24,5 +28,5 @@ echoinfo() {
         fi
 }
 
-export DOTFILE_DIR DOTNAMES
+export DOTFILE_DIR DEFAULTS EXTRAS DOTNAMES
 export -f echoinfo

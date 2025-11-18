@@ -1,9 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-# import the DOTFILE_DIR variable, echoinfo function, DOTNAMES
-source "$SCRIPT_DIR/core.sh"
+source "$SCRIPT_DIR/common.sh"
 
 FORCE=false
 export VERBOSE=false
@@ -16,9 +15,10 @@ while [[ "$#" -gt 0 ]]; do
         for LINK in "${DOTNAMES[@]}"; do
             echo "  $LINK"
         done
-        echo "-h, --help        display this message"
-        echo "-f, --force       forcibly remove symlink if exists"
-        echo "-v, --verbose     show logs"
+        echo "Options:"
+        echo "  -h, --help        display this message"
+        echo "  -f, --force       forcibly remove symlink if exists"
+        echo "  -v, --verbose     show logs"
         exit 0
         ;;
     -f | --force)
