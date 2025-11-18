@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-export NVIM_CONFIG=~/.config/nvim
+export NVIM_CONFIG=$HOME/.config/nvim
