@@ -3,7 +3,7 @@
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
 # import the DOTFILE_DIR variable, echoinfo function, DOTNAMES
-source "$SCRIPT_DIR/common.sh"
+. "$SCRIPT_DIR/common.sh"
 
 if [[ -z $1 ]]; then
     echoinfo "No input provided, skipping"

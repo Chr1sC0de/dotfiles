@@ -6,6 +6,8 @@ DOTFILE_DIR="$(
     cd "$SCRIPT_DIR/.." || exit && pwd
 )"
 
+DEPENDENCIES_SCRIPTS="$SCRIPT_DIR/dependencies-scripts"
+
 DEFAULTS=(
     "my-profile"
     "config/nvim"

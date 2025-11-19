@@ -2,7 +2,7 @@
 
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-source "$SCRIPT_DIR/common.sh"
+. "$SCRIPT_DIR/common.sh"
 
 FORCE=false
 export VERBOSE=false

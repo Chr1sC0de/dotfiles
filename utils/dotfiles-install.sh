@@ -1,6 +1,6 @@
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-source "$SCRIPT_DIR/common.sh"
+. "$SCRIPT_DIR/common.sh"
 
 TO_INSTALL=("${DEFAULTS[@]}")
 KWARGS=()
