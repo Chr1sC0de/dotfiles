@@ -1,29 +1,4 @@
-sudo apt-get update && \
-    apt-get install -y --no-install-recommends \
-    git \
-    curl \
-    ca-certificates \
-    bat \
-    unzip \
-    ripgrep \
-    fd-find \
-    build-essential \
-    cmake \
-    gettext \
-    libtool \
-    libtool-bin \
-    pkg-config \
-    python3 \
-    python3-pip \
-    python3-venv \
-    sudo \
-    && rm -rf /var/lib/apt/lists/*;
-
-cd $HOME/Downloads/;
-
-curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz;
-tar -xzf nvim-linux-x86_64.tar.gz;
-cp -a nvim-linux-x86_64/*
+#!/usr/bin/env bash
 
 (type -p wget >/dev/null || (sudo apt update && sudo apt install wget -y)) \
 	&& sudo mkdir -p -m 755 /etc/apt/keyrings \
@@ -33,4 +8,4 @@ cp -a nvim-linux-x86_64/*
 	&& sudo mkdir -p -m 755 /etc/apt/sources.list.d \
 	&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
 	&& sudo apt update \
-    && sudo apt install gh -y)
+	&& sudo apt install gh -y;

@@ -5,6 +5,29 @@ Source this from the .bashrc file not the .profile file
 as it will cause an error
 '
 
+
+if [[ $PATH != *"/opt/nvim-linux-x86_64/bin"* ]]; then
+    export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
+fi
+
+
+# set PATH so it includes user's private bin if it exists
+if [[ $PATH != "$HOME/.local/bin" ]] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+
+# set PATH so it includes user's private bin if it exists
+if [[ $PATH != "$HOME/.local/bin" ]] ; then
+    PATH="$HOME/bin:$PATH"
+fi
+
+# source fzf
+if [[ ! "$PATH" == */home/cmamon/.fzf/bin* ]]; then
+  PATH="${PATH:+${PATH}:}/home/cmamon/.fzf/bin"
+fi
+
+eval "$(fzf --bash)"
+
 # shellcheck disable=SC1091
 . "$HOME/.my-profile/variables.sh"
 . "$PROFILE_FOLDER/utils/__init__.sh"
@@ -34,22 +57,6 @@ alias la="ls -la"
 # ---------------------------------------------------------------------------- #
 #                                  setup path                                  #
 # ---------------------------------------------------------------------------- #
-
-if [[ $PATH != *"/opt/nvim-linux-x86_64/bin"* ]]; then
-    export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
-fi
-
-
-# set PATH so it includes user's private bin if it exists
-if [[ $PATH != "$HOME/.local/bin" ]] ; then
-    PATH="$HOME/.local/bin:$PATH"
-fi
-
-# set PATH so it includes user's private bin if it exists
-if [[ $PATH != "$HOME/.local/bin" ]] ; then
-    PATH="$HOME/bin:$PATH"
-fi
-
 
 export EDITOR=nvim
 export VISUAL=nvim
