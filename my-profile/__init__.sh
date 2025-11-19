@@ -5,28 +5,30 @@ Source this from the .bashrc file not the .profile file
 as it will cause an error
 '
 
-
 if [[ $PATH != *"/opt/nvim-linux-x86_64/bin"* ]]; then
     export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
 fi
 
-
 # set PATH so it includes user's private bin if it exists
-if [[ $PATH != "$HOME/.local/bin" ]] ; then
+if [[ $PATH != *"$HOME/.local/bin"* ]]; then
     PATH="$HOME/.local/bin:$PATH"
 fi
 
 # set PATH so it includes user's private bin if it exists
-if [[ $PATH != "$HOME/.local/bin" ]] ; then
+if [[ $PATH != *"$HOME/bin"* ]]; then
     PATH="$HOME/bin:$PATH"
 fi
 
-# source fzf
-if [[ ! "$PATH" == */home/cmamon/.fzf/bin* ]]; then
-  PATH="${PATH:+${PATH}:}/home/cmamon/.fzf/bin"
+# set LD_LIBRARY_PATH so it includes user's private lib if it exists
+if [[ $LD_LIBRARY_PATH != *"$HOME/.local/lib"* ]]; then
+    LD_LIBRARY_PATH="$HOME/.local/lib:$LD_LIBRARY_PATH"
 fi
 
-eval "$(fzf --bash)"
+# source fzf
+if [[ ! "$PATH" == *"$HOME/.fzf/bin"* ]]; then
+    PATH="${PATH:+${PATH}:}$HOME/.fzf/bin"
+    eval "$(fzf --bash)"
+fi
 
 # shellcheck disable=SC1091
 . "$HOME/.my-profile/variables.sh"
@@ -36,7 +38,6 @@ if [[ -d $PROFILE_FOLDER/private-variables ]]; then
     . "$PROFILE_FOLDER/private-variables/__init__.sh"
 fi
 
-. "$PROFILE_FOLDER/nvm.sh"
 . "$PROFILE_FOLDER/starship.sh"
 . "$PROFILE_FOLDER/fzf.sh"
 . "$PROFILE_FOLDER/eza.sh"

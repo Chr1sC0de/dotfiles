@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 
-#shellcheck disable=SC1091
-FZF_BASH="$HOME/.fzf.bash"
-
-if [[ -f $FZF_BASH ]]; then
-    #shellcheck disable=SC1090
-    . "$FZF_BASH"
+if [[ "$(type fzf &>/dev/null)" ]]; then
 
     if type fd &>/dev/null; then
         export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
