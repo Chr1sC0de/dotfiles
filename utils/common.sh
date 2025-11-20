@@ -6,7 +6,7 @@ DOTFILE_DIR="$(
     cd "$SCRIPT_DIR/.." || exit && pwd
 )"
 
-DEPENDENCIES_SCRIPTS="$SCRIPT_DIR/dependencies-scripts"
+DEPENDENCIES_SCRIPTS_FOLDER="$SCRIPT_DIR/dependencies-scripts"
 
 DEFAULTS=(
     "my-profile"
@@ -30,5 +30,5 @@ echoinfo() {
         fi
 }
 
-export DOTFILE_DIR DEFAULTS EXTRAS DOTNAMES
+export DOTFILE_DIR DEFAULTS EXTRAS DOTNAMES DEPENDENCIES_SCRIPTS_FOLDER
 export -f echoinfo
