@@ -17,8 +17,8 @@ sudo apt install -y --no-install-recommends \
     libtool \
     libtool-bin \
     pkg-config \
-    \
-    sudo # python3 \
+    sudo
+# python3 \
 # python3-pip \
 # python3-venv \
 
