@@ -10,6 +10,7 @@ CORE_SCRIPTS=(
     'nvm-install.sh'
     'uv-install.sh'
     "grip-grab-install.sh"
+    "eza-install.sh"
     'neovim-install.sh'
 )
 
