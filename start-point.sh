@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-sudo apt install git openssh-server -y
+sudo apt install git -y
+
+cd "$HOME" || exit
 
 mkdir -p GitHub
 
