@@ -25,6 +25,8 @@ sudo apt install -y --no-install-recommends \
 
 sudo apt autoremove -y
 
+mkdir -p "$HOME/.local/bin"
+
 # create symbolic link fo fdfind
 if type fdfind &>/dev/null; then
     ln -sf "$(which fdfind)" "$HOME/.local/bin/fd"
