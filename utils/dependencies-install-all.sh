@@ -10,6 +10,7 @@ CORE_SCRIPTS=(
     'nvm-install.sh'
     'uv-install.sh'
     'neovim-install.sh'
+    "grip-grab-install.sh"
 )
 
 EXTRA_SCRIPTS=(
