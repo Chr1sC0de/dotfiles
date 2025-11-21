@@ -16,3 +16,5 @@ vim.api.nvim_set_hl(0, "FloatTitle", { fg = border_colors, bg = "none" })
 vim.api.nvim_set_hl(0, "FloatFooter", { fg = border_colors, bg = "none" })
 
 vim.opt.signcolumn = "yes"
+
+vim.env.IN_NEOVIM_TERMINAL = true

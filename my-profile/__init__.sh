@@ -66,3 +66,7 @@ export MANPAGER="nvim -c 'Man!' -"
 # if type fastfetch >/dev/null; then
 #     fastfetch
 # fi
+
+if [[ $IN_NEOVIM_TERMINAL ]]; then
+    alias nvim="nvr"
+fi
