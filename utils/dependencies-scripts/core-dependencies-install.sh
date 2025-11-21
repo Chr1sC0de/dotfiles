@@ -17,10 +17,11 @@ sudo apt install -y --no-install-recommends \
     libtool \
     libtool-bin \
     pkg-config \
+    openssh-server \
+    python3 \
+    python3-pip \
+    python3-venv \
     sudo
-# python3 \
-# python3-pip \
-# python3-venv \
 
 sudo apt autoremove -y
 
