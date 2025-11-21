@@ -18,26 +18,17 @@ return {
 	end,
 	keys = {
 		{ "<c-space>", desc = "Treesitter: Increment Selection" },
-		{ "<bs>", desc = "Treesitter: Decrement Selection", mode = "x" },
+		{ "<bs>",      desc = "Treesitter: Decrement Selection", mode = "x" },
 	},
 	config = function()
 		require("nvim-treesitter.configs").setup({
 			-- A list of parser names, or "all"
 			ensure_installed = {
-				"vimdoc",
-				"javascript",
-				"typescript",
-				"c",
 				"lua",
-				"rust",
-				"python",
-				"jsdoc",
 				"bash",
+				"python",
 				"json",
-				"html",
-				"css",
 				"dap_repl",
-				"tsx",
 			},
 			sync_install = true,
 			auto_install = true,
