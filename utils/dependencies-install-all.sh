@@ -9,8 +9,8 @@ CORE_SCRIPTS=(
     'rust-install.sh'
     'nvm-install.sh'
     'uv-install.sh'
-    'neovim-install.sh'
     "grip-grab-install.sh"
+    'neovim-install.sh'
 )
 
 EXTRA_SCRIPTS=(
