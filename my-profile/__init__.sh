@@ -74,3 +74,7 @@ if [[ $IN_NEOVIM_TERMINAL ]]; then
     fi
     alias nvim="nvr"
 fi
+
+if type direnv &>/dev/null; then
+    eval "$(direnv hook bash)"
+fi

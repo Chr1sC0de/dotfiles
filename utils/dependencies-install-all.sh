@@ -5,13 +5,14 @@ SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 . "$SCRIPT_DIR/common.sh"
 
 CORE_SCRIPTS=(
-    'core-dependencies-install.sh'
-    'rust-install.sh'
-    'nvm-install.sh'
-    'uv-install.sh'
+    "core-dependencies-install.sh"
+    "rust-install.sh"
+    "nvm-install.sh"
+    "uv-install.sh"
     "grip-grab-install.sh"
     "eza-install.sh"
-    'neovim-install.sh'
+    "neovim-install.sh"
+    "direnv-install.sh"
 )
 
 EXTRA_SCRIPTS=(
