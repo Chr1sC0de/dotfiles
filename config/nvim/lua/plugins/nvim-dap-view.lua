@@ -8,11 +8,11 @@ return {
                 height = 12,
                 terminal = {
                     -- 'left'|'right'|'above'|'below': Terminal position in layout
-                    position = "below",
+                    position = "right",
                     -- List of debug adapters for which the terminal should be ALWAYS hidden
-                    hide = { "debugpy", "neotest", "python", "neotest-python" },
+                    -- hide = { "debugpy", "neotest", "python", "neotest-python" },
                     -- Hide the terminal when starting a new session
-                    start_hidden = true,
+                    -- start_hidden = true,
                 },
             },
             -- Controls how to jump when selecting a breakpoint or navigating the stack
