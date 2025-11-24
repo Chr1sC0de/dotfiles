@@ -2,7 +2,7 @@ return {
 	"jay-babu/mason-nvim-dap.nvim",
 	dependencies = "mason.nvim",
 	cmd = { "DapInstall", "DapUninstall" },
-	ensure_installed = { "python", "bash" },
+	ensure_installed = { "debugpy", "bash-debug-adapter" },
 	automatic_installation = true,
 	opts = {
 		automatic_installation = true,
