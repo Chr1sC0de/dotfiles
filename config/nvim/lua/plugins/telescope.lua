@@ -56,11 +56,8 @@ return {
 		)
 
 		vim.keymap.set("n", "<leader>lic", builtin.lsp_incoming_calls, { desc = "Telescope: lsp incoming calls" })
-
 		vim.keymap.set("n", "<leader>fmm", builtin.marks, { desc = "Telescope: search marks" })
-
 		vim.keymap.set("n", "gd", builtin.lsp_definitions, { desc = "Telescope: definitions", noremap = true })
-
 		vim.keymap.set(
 			"n",
 			"<leader>lim",
@@ -71,8 +68,8 @@ return {
 		vim.keymap.set("n", "<leader>fbd", function()
 			builtin.diagnostics({ bufnr = 0 })
 		end, { desc = "Telescope: list diagnostics" })
-		vim.keymap.set("n", "<leader>fad", builtin.diagnostics, { desc = "Telescope: list diagnostics" })
 
+		vim.keymap.set("n", "<leader>fad", builtin.diagnostics, { desc = "Telescope: list diagnostics" })
 		vim.keymap.set("n", "<leader>fk", ":Telescope keymaps<cr>", { desc = "Telescope: search keymaps" })
 
 		-- git stuff
@@ -159,8 +156,6 @@ return {
 			})
 		end, { desc = "Telescope: search man pages in fullscreen" })
 
-		-- Keymap to trigger the Telescope help tags with the custom action
-		-- vim.keymap.set("n", "<leader>fht", builtin.help_tags, { desc = "Telescope: search help tags" })
 		vim.keymap.set("n", "<leader>fht", function()
 			builtin.help_tags({
 				attach_mappings = function(_, map)
@@ -178,6 +173,7 @@ return {
 				previewer = true, -- Optional: disable preview window
 			})
 		end, { desc = "Telescope: search help tags" })
+
 		-- plugins
 		require('telescope').load_extension('dap')
 	end,
