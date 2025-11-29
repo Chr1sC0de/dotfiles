@@ -13,6 +13,7 @@ CORE_SCRIPTS=(
     "eza-install.sh"
     "neovim-install.sh"
     "direnv-install.sh"
+    "homebrew-install.sh"
 )
 
 EXTRA_SCRIPTS=(

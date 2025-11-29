@@ -78,3 +78,7 @@ fi
 if type direnv &>/dev/null; then
     eval "$(direnv hook bash)"
 fi
+
+if [[ -f /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi
