@@ -14,6 +14,7 @@ CORE_SCRIPTS=(
     "neovim-install.sh"
     "direnv-install.sh"
     "homebrew-install.sh"
+    "lazygit.sh"
 )
 
 EXTRA_SCRIPTS=(
