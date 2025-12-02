@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-sudo apt install git -y
+sudo apt-get install git -y
 cd "$HOME" || exit
 mkdir -p GitHub
 cd GitHub || exit

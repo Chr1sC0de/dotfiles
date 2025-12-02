@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 # install core components
-sudo apt update -y
+sudo apt-get update -y
 
-sudo apt install -y --no-install-recommends \
+sudo apt-get install -y --no-install-recommends \
     git \
     curl \
     ca-certificates \
@@ -23,7 +23,7 @@ sudo apt install -y --no-install-recommends \
     python3-venv \
     sudo
 
-sudo apt autoremove -y
+sudo apt-get autoremove -y
 
 mkdir -p "$HOME/.local/bin"
 
