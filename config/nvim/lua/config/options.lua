@@ -37,3 +37,7 @@ vim.opt.scrolloff = 10
 -- disable word wrappings
 
 vim.o.wrap = false
+
+-- enable exrc for workspace enabled
+
+vim.o.exrc = true
