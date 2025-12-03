@@ -17,6 +17,8 @@ return {
         vim.g.db_ui_execute_on_save = 0
     end,
     config = function()
-
+        vim.g.dbs = {
+            { name = 'duckdb-interactive', url = 'duckdb:' },
+        }
     end
 }
