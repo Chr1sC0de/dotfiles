@@ -6,7 +6,7 @@ return {
 			"tombi",
 			"codebook",
 			"jsonls",
-			"dockerls",
+			"docker_language_server",
 			-- python
 			"ty",
 			"ruff",

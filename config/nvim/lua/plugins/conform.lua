@@ -6,6 +6,11 @@ return {
 		require("conform").setup({
 			formatters_by_ft = {
 				python = { "ruff_fix", "ruff_format", "ruff_organize_imports" },
+				sh = { "shfmt", "shellcheck" },
+				bash = { "shfmt", "shellcheck" },
+				containerfile = { "dockerfmt" },
+				dockerfile = { "dockerfmt" },
+				markdown = { "cbfmt", "mdformat" },
 				lua = { "stylua" },
 				json = { "fixjson" },
 			},
