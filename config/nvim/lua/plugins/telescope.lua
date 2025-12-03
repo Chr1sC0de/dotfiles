@@ -108,13 +108,11 @@ return {
 							)
 						end)
 					end
-
 					local delete_buf = function()
 						local selection = action_state.get_selected_entry()
 						vim.api.nvim_buf_delete(selection.bufnr, { force = true })
 						refresh_buffer_searcher()
 					end
-
 					local delete_multiple_buf = function()
 						local picker = action_state.get_current_picker(prompt_bufnr)
 						local selection = picker:get_multi_selection()
@@ -123,11 +121,9 @@ return {
 						end
 						refresh_buffer_searcher()
 					end
-
 					map("n", "dd", delete_buf)
 					map("n", "<C-d>", delete_multiple_buf)
 					map("i", "<C-d>", delete_multiple_buf)
-
 					return true
 				end,
 			})
@@ -176,5 +172,135 @@ return {
 
 		-- plugins
 		require('telescope').load_extension('dap')
+
+		-- code to search through only terminals
+		local pickers = require("telescope.pickers")
+		local finders = require("telescope.finders")
+		local conf = require("telescope.config").values
+		local previewers = require("telescope.previewers")
+		local actions = require("telescope.actions")
+		local action_state = require("telescope.actions.state")
+		local uv = vim.loop
+
+		---------------------------------------------------------------------
+		-- BAT PREVIEWER (works with terminal buffers)
+		---------------------------------------------------------------------
+		local function terminal_preview()
+			return previewers.new_buffer_previewer({
+				title = "Terminal Output",
+				define_preview = function(self, entry)
+					if not entry or not entry.bufnr then return end
+
+					local lines = vim.api.nvim_buf_get_lines(entry.bufnr, 0, -1, false)
+					local max_lines = 200
+
+					if #lines > max_lines then
+						lines = vim.list_slice(lines, #lines - max_lines, #lines)
+					end
+
+					vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+				end,
+			})
+		end
+
+
+		---------------------------------------------------------------------
+		-- DELETE TERMINAL BUFFER SAFELY
+		---------------------------------------------------------------------
+		local function delete_terminal_buffer(entry)
+			local bufnr = entry.bufnr
+			if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+				return
+			end
+
+			-- Kill job if running
+			local chan = vim.b[bufnr].terminal_job_id
+			if chan then
+				pcall(vim.fn.jobstop, chan)
+			end
+
+			-- Delete the buffer
+			vim.api.nvim_buf_delete(bufnr, { force = true })
+		end
+
+		---------------------------------------------------------------------
+		-- MAIN TELESCOP PICKER
+		---------------------------------------------------------------------
+		local function open_terminal_picker()
+			local terminal_bufs = {}
+			local current = vim.api.nvim_get_current_buf()
+
+			-- Collect terminal buffers except current
+			for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+				if vim.api.nvim_buf_is_loaded(buf)
+					and buf ~= current
+					and vim.api.nvim_buf_get_option(buf, "buftype") == "terminal"
+				then
+					table.insert(terminal_bufs, {
+						bufnr = buf,
+						name = vim.api.nvim_buf_get_name(buf),
+					})
+				end
+			end
+
+			pickers.new({}, {
+				prompt_title = "Terminal Buffers",
+				finder = finders.new_table({
+					results = terminal_bufs,
+					entry_maker = function(entry)
+						local name = entry.name ~= "" and entry.name or ("term://" .. entry.bufnr)
+						return {
+							value = entry.bufnr,
+							display = name,
+							ordinal = name,
+							bufnr = entry.bufnr,
+						}
+					end,
+				}),
+				sorter = conf.generic_sorter({}),
+				previewer = terminal_preview(),
+
+				attach_mappings = function(prompt_bufnr, map)
+					-----------------------------------------------------------------
+					-- OPEN BUFFER
+					-----------------------------------------------------------------
+					local function open_selection()
+						local selection = action_state.get_selected_entry()
+						actions.close(prompt_bufnr)
+						vim.api.nvim_set_current_buf(selection.bufnr)
+					end
+					map("i", "<CR>", open_selection)
+					map("n", "<CR>", open_selection)
+
+					-----------------------------------------------------------------
+					-- DELETE BUFFER (insert)
+					-----------------------------------------------------------------
+					map("i", "<C-d>", function()
+						local entry = action_state.get_selected_entry()
+						delete_terminal_buffer(entry)
+						actions.close(prompt_bufnr)
+						open_terminal_picker()
+					end)
+
+					-----------------------------------------------------------------
+					-- DELETE BUFFER (normal)
+					-----------------------------------------------------------------
+					map("n", "dd", function()
+						local entry = action_state.get_selected_entry()
+						delete_terminal_buffer(entry)
+						actions.close(prompt_bufnr)
+						open_terminal_picker()
+					end)
+
+					return true
+				end,
+			}):find()
+		end
+
+		---------------------------------------------------------------------
+		-- COMMAND
+		---------------------------------------------------------------------
+		vim.api.nvim_create_user_command("TelescopeTerminals", open_terminal_picker, {})
+		vim.keymap.set("n", "<leader>fot", "<cmd>TelescopeTerminals<CR>")
 	end,
 }
