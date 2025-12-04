@@ -67,6 +67,7 @@ return {
 
 		dap.adapters.bashdb = bash_config.adapter
 		dap.configurations.sh = bash_config.configuration
+		dap.configurations.bash = bash_config.configuration
 
 		dap.adapters["local-lua"] = lua_config.adapter
 		dap.configurations.lua = lua_config.configuration
