@@ -23,6 +23,7 @@ sudo apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
+    tmux \
     sudo
 
 sudo apt-get autoremove -y
@@ -43,3 +44,7 @@ fi
 git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
 
 "$HOME/.fzf/install" --all --no-bash
+
+# install dependencies for tmux plugins
+# now just press ctrl + leader r then `ctrl + leader I`
+git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm

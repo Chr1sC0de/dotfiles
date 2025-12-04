@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
 
-brew install lazygit
-
+if [[ -f /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    brew install lazygit
+fi
