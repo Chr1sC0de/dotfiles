@@ -1,11 +1,10 @@
 return {
     "igorlfs/nvim-dap-view",
+    dependencies = "mfussenegger/nvim-dap",
     config = function()
-        local dap = require("dap")
-
         require("dap-view.setup").setup({
             windows = {
-                height = 12,
+                height = 15,
                 terminal = {
                     -- 'left'|'right'|'above'|'below': Terminal position in layout
                     position = "right",
