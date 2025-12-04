@@ -71,7 +71,9 @@ export MANPAGER="nvim -c 'Man!' -"
 if [[ $IN_NEOVIM_TERMINAL ]]; then
     if ! (type nvr &>/dev/null); then
         # https://github.com/mhinz/neovim-remote
-        uv tool install neovim-remote
+        if (type uv &>/dev/null); then
+            uv tool install neovim-remote
+        fi
     fi
     alias nvim="nvr"
 fi
