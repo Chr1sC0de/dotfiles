@@ -54,6 +54,7 @@ stty -ixon
 alias clip="xclip -selection c"
 alias fdc="fd -d 1"
 alias la="ls -la"
+alias ll="ls -l"
 
 # ---------------------------------------------------------------------------- #
 #                                  setup path                                  #
