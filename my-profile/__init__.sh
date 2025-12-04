@@ -64,6 +64,7 @@ alias ll="ls -l"
 export EDITOR=nvim
 export VISUAL=nvim
 export MANPAGER="nvim -c 'Man!' -"
+export TERM=xterm-256color
 
 # if type fastfetch >/dev/null; then
 #     fastfetch
