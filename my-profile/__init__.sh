@@ -35,6 +35,7 @@ fi
 . "$PROFILE_FOLDER/utils/__init__.sh"
 
 if [[ -d $PROFILE_FOLDER/private-variables ]]; then
+    # shellcheck disable=SC1091
     . "$PROFILE_FOLDER/private-variables/__init__.sh"
 fi
 
