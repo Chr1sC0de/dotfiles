@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+export DEBIAN_FRONTEND=noninteractive
+
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
 UTILS_DIR="$SCRIPT_DIR/utils"
