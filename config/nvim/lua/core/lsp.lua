@@ -32,6 +32,18 @@ vim.lsp.config("ty", {
 	},
 })
 
+vim.lsp.config("jsonls", {
+	cmd = { "vscode-json-language-server", "--stdio" },
+	filetypes = { "json", "jsonc", "json5" },
+	root_markers = { ".git" },
+	settings = {
+		jsonls = {
+			format = { enable = true },
+			validate = { enable = true }
+		}
+	}
+})
+
 vim.diagnostic.config({
 	-- virtual_lines = true,
 	-- virtual_text = true,
