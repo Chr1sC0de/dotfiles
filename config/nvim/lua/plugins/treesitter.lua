@@ -25,8 +25,13 @@ return {
 			-- A list of parser names, or "all"
 			ensure_installed = {
 				"lua",
+				"regex",
+				"rust",
+				"go",
+				"c",
 				"bash",
 				"python",
+				"markdown",
 				"json",
 				"dap_repl",
 			},
