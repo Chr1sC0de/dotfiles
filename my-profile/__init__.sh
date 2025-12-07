@@ -5,10 +5,6 @@ Source this from the .bashrc file not the .profile file
 as it will cause an error
 '
 
-if [[ $PATH != *"/opt/nvim-linux-x86_64/bin"* ]]; then
-    export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
-fi
-
 # set PATH so it includes user's private bin if it exists
 if [[ $PATH != *"$HOME/.local/bin"* ]]; then
     PATH="$HOME/.local/bin:$PATH"
