@@ -6,7 +6,9 @@ return {
 		"igorlfs/nvim-dap-view",
 		"mfussenegger/nvim-dap-python",
 		"theHamsta/nvim-dap-virtual-text",
+		"jbyuki/one-small-step-for-vimkind",
 	},
+	lazy = false,
 	config = function()
 		local dap = require("dap")
 		-- set the keymaps
@@ -59,7 +61,6 @@ return {
 
 		-- setup the dap configurations per use case
 		local bash_config = require("dap-conf.bash")
-		local lua_config = require("dap-conf.lua")
 
 		require("dap-python").setup("uv")
 		require("dap-python").test_runner = "pytest"
@@ -68,12 +69,25 @@ return {
 		dap.configurations.sh = bash_config.configuration
 		dap.configurations.bash = bash_config.configuration
 
-		dap.adapters["local-lua"] = lua_config.adapter
-		dap.configurations.lua = lua_config.configuration
+		dap.configurations.lua = {
+			{
+				type = 'nlua',
+				request = 'attach',
+				name = "Attach to running Neovim instance",
+			}
+		}
+
+		dap.adapters.nlua = function(callback, config)
+			callback({ type = 'server', host = config.host or "127.0.0.1", port = config.port or 8086 })
+		end
+
+		vim.keymap.set('n', '<leader>dl', function()
+			require "osv".launch({ port = 8086 })
+		end, { noremap = true, desc = 'dap: launch one small step' })
 
 		for name, sign in pairs({
 			Stopped = { "󰁕 ", "DiagnosticWarn", "DapStoppedLine" },
-			Breakpoint = " ",
+			Breakpoint = "",
 			BreakpointCondition = " ",
 			BreakpointRejected = { " ", "DiagnosticError" },
 			LogPoint = ".>",
