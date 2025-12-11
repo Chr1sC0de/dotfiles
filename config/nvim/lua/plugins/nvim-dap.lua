@@ -82,7 +82,7 @@ return {
 		end
 
 		vim.keymap.set('n', '<leader>dl', function()
-			require "osv".launch({ port = 8086 })
+			require "osv".launch({ port = 8086, frozen_delay = 100 })
 		end, { noremap = true, desc = 'dap: launch one small step' })
 
 		for name, sign in pairs({
