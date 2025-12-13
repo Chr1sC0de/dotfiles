@@ -2,7 +2,5 @@
 
 sudo apt-get install git -y
 cd "$HOME" || exit
-mkdir -p GitHub
-cd GitHub || exit
-git clone https://github.com/Chr1sC0de/dotfiles.git
-cd dotfiles || exit
+git clone https://github.com/Chr1sC0de/dotfiles.git .dotfiles
+cd .dotfiles || exit
