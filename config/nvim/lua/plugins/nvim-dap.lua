@@ -71,19 +71,19 @@ return {
 
 		dap.configurations.lua = {
 			{
-				type = 'nlua',
-				request = 'attach',
+				type = "nlua",
+				request = "attach",
 				name = "Attach to running Neovim instance",
-			}
+			},
 		}
 
 		dap.adapters.nlua = function(callback, config)
-			callback({ type = 'server', host = config.host or "127.0.0.1", port = config.port or 8086 })
+			callback({ type = "server", host = config.host or "127.0.0.1", port = config.port or 8086 })
 		end
 
-		vim.keymap.set('n', '<leader>dl', function()
-			require "osv".launch({ port = 8086, frozen_delay = 100 })
-		end, { noremap = true, desc = 'dap: launch one small step' })
+		vim.keymap.set("n", "<leader>dl", function()
+			require("osv").launch({ port = 8086, frozen_delay = 100 })
+		end, { noremap = true, desc = "dap: launch one small step" })
 
 		for name, sign in pairs({
 			Stopped = { "󰁕 ", "DiagnosticWarn", "DapStoppedLine" },
@@ -100,5 +100,12 @@ return {
 		end
 
 		vim.api.nvim_set_hl(0, "DapStoppedLine", { bg = "#24272e" }) -- Change bg to your preferred color
+
+		local dap = require("dap")
+		vim.keymap.set("x", "<leader>di", function()
+			local lines = vim.fn.getregion(vim.fn.getpos("."), vim.fn.getpos("v"))
+			dap.repl.open()
+			dap.repl.execute(table.concat(lines, "\n"))
+		end)
 	end,
 }
