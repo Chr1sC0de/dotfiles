@@ -4,14 +4,13 @@ return {
 		"nvim-lua/plenary.nvim",
 		"nvim-tree/nvim-web-devicons",
 		"nvim-telescope/telescope-fzf-native.nvim",
-		"nvim-telescope/telescope-dap.nvim"
-
+		"nvim-telescope/telescope-dap.nvim",
 	},
 	config = function()
 		require("telescope").setup({
 			extensions = {
 				fzf = {
-					fuzzy = true,    -- false will only do exact matching
+					fuzzy = true, -- false will only do exact matching
 					override_generic_sorter = true, -- override the generic sorter
 					override_file_sorter = true, -- override the file sorter
 					case_mode = "smart_case", -- or "ignore_case" or "respect_case"
@@ -80,15 +79,13 @@ return {
 			{ desc = "Telescope: buffer commits with diff preview and checks them out on <cr>" }
 		)
 		vim.keymap.set("n", "<leader>gK", builtin.git_commits, {
-			desc =
-			"Telescope: list git commits with diff preview checkout: <cr>, reset mixed: <c-r>m, reset soft: <c-r>s, reset hard: <c-s>h",
+			desc = "Telescope: list git commits with diff preview checkout: <cr>, reset mixed: <c-r>m, reset soft: <c-r>s, reset hard: <c-s>h",
 		})
 		vim.keymap.set("n", "<leader>gs", builtin.git_status, { desc = "Telescope: git status" })
 		vim.keymap.set("n", "<leader>gS", builtin.git_stash, { desc = "Telescope: git stash" })
 		vim.keymap.set("n", "<leader>gf", extensions.git_files, { desc = "Telescope: git files" })
 		vim.keymap.set("n", "<leader>gb", builtin.git_branches, {
-			desc =
-			"Telescope: git branch Lists all branches with log preview, checkout action <cr>, track action <C-t>, rebase action<C-r>, create action <C-a>, switch action <C-s>, delete action <C-d> and merge action <C-y>",
+			desc = "Telescope: git branch Lists all branches with log preview, checkout action <cr>, track action <C-t>, rebase action<C-r>, create action <C-a>, switch action <C-s>, delete action <C-d> and merge action <C-y>",
 		})
 
 		buffer_searcher = function()
@@ -171,7 +168,7 @@ return {
 		end, { desc = "Telescope: search help tags" })
 
 		-- plugins
-		require('telescope').load_extension('dap')
+		require("telescope").load_extension("dap")
 
 		-- code to search through only terminals
 		local pickers = require("telescope.pickers")
@@ -189,7 +186,9 @@ return {
 			return previewers.new_buffer_previewer({
 				title = "Terminal Output",
 				define_preview = function(self, entry)
-					if not entry or not entry.bufnr then return end
+					if not entry or not entry.bufnr then
+						return
+					end
 
 					local lines = vim.api.nvim_buf_get_lines(entry.bufnr, 0, -1, false)
 					local max_lines = 200
@@ -202,7 +201,6 @@ return {
 				end,
 			})
 		end
-
 
 		---------------------------------------------------------------------
 		-- DELETE TERMINAL BUFFER SAFELY
@@ -232,9 +230,11 @@ return {
 
 			-- Collect terminal buffers except current
 			for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-				if vim.api.nvim_buf_is_loaded(buf)
+				if
+					vim.api.nvim_buf_is_loaded(buf)
 					and buf ~= current
-					and vim.api.nvim_buf_get_option(buf, "buftype") == "terminal"
+					and vim.bo[buf].buftype == "terminal"
+					and vim.startswith(vim.api.nvim_buf_get_name(buf), "term:")
 				then
 					table.insert(terminal_bufs, {
 						bufnr = buf,
@@ -243,58 +243,60 @@ return {
 				end
 			end
 
-			pickers.new({}, {
-				prompt_title = "Terminal Buffers",
-				finder = finders.new_table({
-					results = terminal_bufs,
-					entry_maker = function(entry)
-						local name = entry.name ~= "" and entry.name or ("term://" .. entry.bufnr)
-						return {
-							value = entry.bufnr,
-							display = name,
-							ordinal = name,
-							bufnr = entry.bufnr,
-						}
+			pickers
+				.new({}, {
+					prompt_title = "Terminal Buffers",
+					finder = finders.new_table({
+						results = terminal_bufs,
+						entry_maker = function(entry)
+							local name = entry.name ~= "" and entry.name or ("term://" .. entry.bufnr)
+							return {
+								value = entry.bufnr,
+								display = name,
+								ordinal = name,
+								bufnr = entry.bufnr,
+							}
+						end,
+					}),
+					sorter = conf.generic_sorter({}),
+					previewer = terminal_preview(),
+
+					attach_mappings = function(prompt_bufnr, map)
+						-----------------------------------------------------------------
+						-- OPEN BUFFER
+						-----------------------------------------------------------------
+						local function open_selection()
+							local selection = action_state.get_selected_entry()
+							actions.close(prompt_bufnr)
+							vim.api.nvim_set_current_buf(selection.bufnr)
+						end
+						map("i", "<CR>", open_selection)
+						map("n", "<CR>", open_selection)
+
+						-----------------------------------------------------------------
+						-- DELETE BUFFER (insert)
+						-----------------------------------------------------------------
+						map("i", "<C-d>", function()
+							local entry = action_state.get_selected_entry()
+							delete_terminal_buffer(entry)
+							actions.close(prompt_bufnr)
+							open_terminal_picker()
+						end)
+
+						-----------------------------------------------------------------
+						-- DELETE BUFFER (normal)
+						-----------------------------------------------------------------
+						map("n", "dd", function()
+							local entry = action_state.get_selected_entry()
+							delete_terminal_buffer(entry)
+							actions.close(prompt_bufnr)
+							open_terminal_picker()
+						end)
+
+						return true
 					end,
-				}),
-				sorter = conf.generic_sorter({}),
-				previewer = terminal_preview(),
-
-				attach_mappings = function(prompt_bufnr, map)
-					-----------------------------------------------------------------
-					-- OPEN BUFFER
-					-----------------------------------------------------------------
-					local function open_selection()
-						local selection = action_state.get_selected_entry()
-						actions.close(prompt_bufnr)
-						vim.api.nvim_set_current_buf(selection.bufnr)
-					end
-					map("i", "<CR>", open_selection)
-					map("n", "<CR>", open_selection)
-
-					-----------------------------------------------------------------
-					-- DELETE BUFFER (insert)
-					-----------------------------------------------------------------
-					map("i", "<C-d>", function()
-						local entry = action_state.get_selected_entry()
-						delete_terminal_buffer(entry)
-						actions.close(prompt_bufnr)
-						open_terminal_picker()
-					end)
-
-					-----------------------------------------------------------------
-					-- DELETE BUFFER (normal)
-					-----------------------------------------------------------------
-					map("n", "dd", function()
-						local entry = action_state.get_selected_entry()
-						delete_terminal_buffer(entry)
-						actions.close(prompt_bufnr)
-						open_terminal_picker()
-					end)
-
-					return true
-				end,
-			}):find()
+				})
+				:find()
 		end
 
 		---------------------------------------------------------------------
