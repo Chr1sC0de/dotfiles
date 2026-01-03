@@ -13,6 +13,8 @@ vim.lsp.enable({
 	"markdown_oxide",
 	-- bash
 	"bashls",
+	-- r
+	"air",
 })
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
@@ -39,9 +41,9 @@ vim.lsp.config("jsonls", {
 	settings = {
 		jsonls = {
 			format = { enable = true },
-			validate = { enable = true }
-		}
-	}
+			validate = { enable = true },
+		},
+	},
 })
 
 vim.diagnostic.config({

@@ -29,6 +29,7 @@ return {
 				"rust",
 				"go",
 				"c",
+				"r",
 				"bash",
 				"python",
 				"markdown",
