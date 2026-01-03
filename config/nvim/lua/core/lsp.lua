@@ -14,7 +14,6 @@ vim.lsp.enable({
 	-- bash
 	"bashls",
 	-- r
-	"air",
 })
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
