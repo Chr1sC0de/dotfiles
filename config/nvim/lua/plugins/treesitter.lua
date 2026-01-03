@@ -38,6 +38,7 @@ return {
 				"markdown",
 				"rnoweb",
 				"yaml",
+				"tmux",
 			},
 			sync_install = true,
 			auto_install = true,
