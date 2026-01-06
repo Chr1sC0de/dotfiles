@@ -1,6 +1,6 @@
 return {
 	"nvim-treesitter/nvim-treesitter",
-	brach = "master",
+	branch = "master",
 	build = ":TSUpdate",
 	dependencies = {
 		"windwp/nvim-ts-autotag",
