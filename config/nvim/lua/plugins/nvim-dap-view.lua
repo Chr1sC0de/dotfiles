@@ -4,7 +4,6 @@ return {
     config = function()
         require("dap-view.setup").setup({
             windows = {
-                height = 15,
                 terminal = {
                     -- 'left'|'right'|'above'|'below': Terminal position in layout
                     position = "right",
