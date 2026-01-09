@@ -46,13 +46,13 @@ return {
 		vim.keymap.set("n", "<leader>tmg", function()
 			-- require("FTerm").run({ "tms" })
 			term = require("FTerm"):new({ auto_close = true })
-			term:run('tms;exit')
+			term:run("tms;exit")
 		end, { desc = "Float Term: tmux sessionizer github" })
 
 		vim.keymap.set("n", "<leader>tms", function()
 			-- require("FTerm").run({ "tms switch" })
 			term = require("FTerm"):new({ auto_close = true })
-			term:run('tms switch;exit')
+			term:run("tms switch;exit")
 		end, { desc = "Float Term: tmux sessionizer switch" })
 	end,
 }

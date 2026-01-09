@@ -5,6 +5,7 @@ return {
 		"nvim-tree/nvim-web-devicons",
 		"nvim-telescope/telescope-fzf-native.nvim",
 		"nvim-telescope/telescope-dap.nvim",
+		"molecule-man/telescope-menufacture",
 	},
 	config = function()
 		require("telescope").setup({
