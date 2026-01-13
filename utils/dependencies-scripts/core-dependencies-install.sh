@@ -1,30 +1,45 @@
 #!/usr/bin/env bash
 
 # install core components
-sudo apt-get update -y
+if [[ $EUID -ne 0 ]]; then
+    sudo apt-get update -y
+else
+    apt-get update -y
+fi
 
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    git \
-    curl \
-    ca-certificates \
-    bat \
-    unzip \
-    ripgrep \
-    fd-find \
-    build-essential \
-    cmake \
-    gettext \
-    libtool \
-    libtool-bin \
-    pkg-config \
-    openssh-server \
-    python3 \
-    python3-pip \
-    python3-venv \
-    tmux \
-    sudo
+dependencies=(
+    "git"
+    "curl"
+    "ca-certificates"
+    "bat"
+    "unzip"
+    "ripgrep"
+    "fd-find"
+    "build-essential"
+    "cmake"
+    "gettext"
+    "libtool"
+    "libtool-bin"
+    "pkg-config"
+    "openssh-server"
+    "python3"
+    "python3-pip"
+    "python3-venv"
+    "tmux"
+    "sudo"
+)
 
-sudo apt-get autoremove -y
+if [[ $EUID -ne 0 ]]; then
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${dependencies[@]}"
+else
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${dependencies[@]}"
+fi
+
+if [[ $EUID -ne 0 ]]; then
+    sudo apt-get autoremove -y
+else
+    apt-get autoremove -y
+fi
 
 mkdir -p "$HOME/.local/bin"
 
