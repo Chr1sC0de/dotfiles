@@ -15,6 +15,8 @@ vim.lsp.enable({
 	"bashls",
 	-- r
 	"r_language_server",
+	-- azure pipelines ls
+	"azure_pipelines_ls",
 })
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
