@@ -10,6 +10,7 @@ fi
 dependencies=(
     "git"
     "curl"
+    "wget"
     "ca-certificates"
     "bat"
     "unzip"
