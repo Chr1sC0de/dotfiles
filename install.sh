@@ -1,6 +1,7 @@
 #!/usr/bin/env -S bash -x
 
 export DEBIAN_FRONTEND=noninteractive
+export TAR_OPTIONS="--no-same-owner --no-same-permissions"
 
 # install core components
 if [[ $EUID -ne 0 ]]; then
