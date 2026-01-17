@@ -1,13 +1,21 @@
 #!/usr/bin/env -S bash -x
 
-sudo apt-get install git -y
+export DEBIAN_FRONTEND=noninteractive
+
+# install core components
+if [[ $EUID -ne 0 ]]; then
+    sudo apt-get update -y
+    sudo apt-get install git curl wget -y
+else
+    apt-get update -y
+    apt-get install git curl wget -y
+fi
+
 cd "$HOME" || exit 1
 mkdir -p GitHub
 cd GitHub || exit 1
 git clone https://github.com/Chr1sC0de/dotfiles.git
 cd dotfiles || exit 1
-
-export DEBIAN_FRONTEND=noninteractive
 
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 

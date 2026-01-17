@@ -1,16 +1,9 @@
 #!/usr/bin/env -S bash -x
 
-# install core components
-if [[ $EUID -ne 0 ]]; then
-    sudo apt-get update -y
-else
-    apt-get update -y
-fi
-
 dependencies=(
-    "git"
-    "curl"
-    "wget"
+    # "git"
+    # "curl"
+    # "wget"
     "ca-certificates"
     "bat"
     "unzip"
