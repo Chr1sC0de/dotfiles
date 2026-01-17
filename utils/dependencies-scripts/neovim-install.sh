@@ -25,7 +25,7 @@ wget -P /tmp "$release"
 
 echo extracting $downloaded_file to $extract_folder
 mkdir -p $extract_folder
-tar -xvzf $downloaded_file -C $extract_folder
+tar --no-same-owner --no-same-permissions -xvzf $downloaded_file -C $extract_folder
 
 echo moving files "$extracted_files" to "$target_folder"
 cp -afr $extracted_files/* "$HOME/.local"
