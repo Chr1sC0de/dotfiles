@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env -S bash -x
 
 # install core components
 if [[ $EUID -ne 0 ]]; then

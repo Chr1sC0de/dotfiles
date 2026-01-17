@@ -13,13 +13,13 @@ CORE_SCRIPTS=(
     "eza-install.sh"
     "neovim-install.sh"
     "direnv-install.sh"
-    "homebrew-install.sh"
     "lazygit.sh"
 )
 
 EXTRA_SCRIPTS=(
     'gh-install.sh'
     'ghostty-install.sh'
+    "homebrew-install.sh"
 )
 
 TO_INSTALL=("${CORE_SCRIPTS[@]}")
