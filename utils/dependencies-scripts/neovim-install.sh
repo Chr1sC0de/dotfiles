@@ -1,4 +1,4 @@
-#!/usr/bin/env -S bash -x
+#!/usr/bin/env bash
 
 if [[ $EUID -ne 0 ]]; then
     curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz

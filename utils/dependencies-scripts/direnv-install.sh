@@ -1,3 +1,3 @@
-#!/usr/bin/env -S bash -x
+#!/usr/bin/env bash
 
 curl -sfL https://direnv.net/install.sh | bash

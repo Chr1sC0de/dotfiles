@@ -1,4 +1,4 @@
-#!/usr/bin/env -S bash -x
+#!/usr/bin/env bash
 
 tag=v0.58.1 && echo "tag=$tag"
 owner=jesseduffield && echo "owner=$owner"

@@ -1,4 +1,4 @@
-#!/usr/bin/env -S bash -x
+#!/usr/bin/env bash
 
 tag=v0.23.4
 file=eza_x86_64-unknown-linux-gnu.tar.gz
