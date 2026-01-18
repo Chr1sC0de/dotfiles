@@ -1,7 +1,6 @@
 #!/usr/bin/env -S bash -x
 
 export DEBIAN_FRONTEND=noninteractive
-export TAR_OPTIONS="--no-same-owner --no-same-permissions"
 
 # install core components
 if [[ $EUID -ne 0 ]]; then
@@ -13,8 +12,6 @@ else
 fi
 
 cd "$HOME" || exit 1
-mkdir -p GitHub
-cd GitHub || exit 1
 git clone https://github.com/Chr1sC0de/dotfiles.git
 cd dotfiles || exit 1
 
