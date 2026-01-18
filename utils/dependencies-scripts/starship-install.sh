@@ -1,3 +1,3 @@
 #!/usr/env/bin bash
 
-curl -sS https://starship.rs/install.sh | bash -s -- -y
+curl -sS https://starship.rs/install.sh | sh -s -- -y
