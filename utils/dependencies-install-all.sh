@@ -13,7 +13,8 @@ CORE_SCRIPTS=(
     "eza-install.sh"
     "neovim-install.sh"
     "direnv-install.sh"
-    "lazygit.sh"
+    "lazygit-install.sh"
+    "starship-install.sh"
 )
 
 EXTRA_SCRIPTS=(
