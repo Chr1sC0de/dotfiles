@@ -15,6 +15,7 @@ CORE_SCRIPTS=(
     "direnv-install.sh"
     "lazygit-install.sh"
     "starship-install.sh"
+    "duckdb-install.sh"
 )
 
 EXTRA_SCRIPTS=(
