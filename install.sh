@@ -13,7 +13,7 @@ fi
 
 cd "$HOME" || exit 1
 git clone https://github.com/Chr1sC0de/dotfiles.git .dotfiles
-cd dotfiles || exit 1
+cd .dotfiles || exit 1
 
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
