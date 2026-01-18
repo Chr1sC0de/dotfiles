@@ -18,7 +18,7 @@ return {
 	end,
 	keys = {
 		{ "<c-space>", desc = "Treesitter: Increment Selection" },
-		{ "<bs>", desc = "Treesitter: Decrement Selection", mode = "x" },
+		{ "<bs>",      desc = "Treesitter: Decrement Selection", mode = "x" },
 	},
 	config = function()
 		require("nvim-treesitter.configs").setup({
@@ -36,7 +36,6 @@ return {
 				"json",
 				"dap_repl",
 				"markdown",
-				"rnoweb",
 				"yaml",
 				"tmux",
 			},
