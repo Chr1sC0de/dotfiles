@@ -13,8 +13,9 @@ return {
 				"lua-language-server",
 				"codebook",
 				"bash-language-server",
-				"docker_language_server",
+				"dockerls",
 				"docker-compose-language-service",
+				"azure-pipelines-language-server",
 				"json-lsp",
 				"markdown-oxide",
 				-- language servers
