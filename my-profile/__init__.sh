@@ -20,6 +20,12 @@ if [[ $LD_LIBRARY_PATH != *"$HOME/.local/lib"* ]]; then
     LD_LIBRARY_PATH="$HOME/.local/lib:$LD_LIBRARY_PATH"
 fi
 
+nvim_path=/opt/nvim-linux-x86_64/bin
+
+if [[ $PATH != *"$nvim_path"* ]]; then
+    export PATH="$PATH":$nvim_path
+fi
+
 # source fzf
 if [[ ! "$PATH" == *"$HOME/.fzf/bin"* ]]; then
     PATH="${PATH:+${PATH}:}$HOME/.fzf/bin"
