@@ -16,7 +16,7 @@ if [[ "$(type fzf &>/dev/null)" ]]; then
         }
 
     else
-        echoinfo "fd not installed, shortcuts excluded"
+        echo "fd not installed, shortcuts excluded"
     fi
 
     . "$PROFILE_FOLDER/fzf-git.sh"
