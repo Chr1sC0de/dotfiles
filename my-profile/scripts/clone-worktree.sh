@@ -19,9 +19,6 @@ echo "url=$URL"
 echo "basename=$BASENAME"
 echo "reponame=$NAME"
 
-mkdir "$NAME"
-cd "$NAME" || exit
-
 git clone --bare "$URL" "$NAME"
 cd "$NAME"
 echo "gitdir: ." >.git
