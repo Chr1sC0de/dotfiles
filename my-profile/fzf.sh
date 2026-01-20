@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# source fzf
+if [[ ! "$PATH" == *"$HOME/.fzf/bin"* ]]; then
+    PATH="${PATH:+${PATH}:}$HOME/.fzf/bin"
+    eval "$(fzf --bash)"
+fi
+
 if [[ "$(type fzf &>/dev/null)" ]]; then
 
     if type fd &>/dev/null; then

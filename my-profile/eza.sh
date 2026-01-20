@@ -10,4 +10,5 @@ if type eza &>/dev/null; then
     alias la='eza -a'
 else
     alias ll='ls -l'
+    alias la='ls -la'
 fi
