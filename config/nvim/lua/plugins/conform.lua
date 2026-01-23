@@ -13,7 +13,8 @@ return {
 				markdown = { "cbfmt", "mdformat" },
 				lua = { "stylua" },
 				json = { "fixjson" },
-				toml = { "pyproject-fmt" },
+				yaml = { "yamlfmt" },
+				["pyproject.toml"] = { "pyproject-fmt" },
 			},
 			format_on_save = {
 				lsp_fallback = true,

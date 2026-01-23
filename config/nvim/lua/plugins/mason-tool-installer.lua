@@ -9,20 +9,23 @@ return {
 				-- lsp
 				"tombi",
 				"ty",
-				"ruff",
 				"lua-language-server",
 				"codebook",
 				"bash-language-server",
 				"dockerls",
 				"docker-compose-language-service",
 				"azure-pipelines-language-server",
+				"yaml-language-server",
 				"json-lsp",
 				"markdown-oxide",
-				-- language servers
+				-- debuggers
 				"debugpy",
 				"bash-debug-adapter",
 				-- linter
+				"ruff",
 				"shellcheck",
+				"yamllint",
+				"yamlfmt",
 				-- formatters
 				"pyproject-fmt",
 				"cbfmt",

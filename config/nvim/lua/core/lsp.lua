@@ -4,6 +4,7 @@ vim.lsp.enable({
 	"codebook",
 	"jsonls",
 	"dockerls",
+	"yamlls",
 	-- python
 	"ty",
 	"ruff",
@@ -16,7 +17,7 @@ vim.lsp.enable({
 	-- r
 	"r_language_server",
 	-- azure pipelines ls
-	"azure_pipelines_ls",
+	-- "azure_pipelines_ls",
 })
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
@@ -46,6 +47,22 @@ vim.lsp.config("jsonls", {
 			validate = { enable = true },
 		},
 	},
+})
+
+vim.lsp.config('yamlls', {
+	settings = {
+		yaml = {
+			schemas = {
+				["https://json.schemastore.org/github-workflow.json"] = "/.github/workflows/*",
+				["https://raw.githubusercontent.com/microsoft/azure-pipelines-vscode/master/service-schema.json"] = {
+					"/azure-pipeline*.y*l",
+					"/*.azure*",
+					"Azure-Pipelines/**/*.y*l",
+					"Pipelines/*.y*l",
+				},
+			},
+		},
+	}
 })
 
 vim.diagnostic.config({
