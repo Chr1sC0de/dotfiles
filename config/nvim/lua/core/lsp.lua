@@ -52,6 +52,7 @@ vim.lsp.config("jsonls", {
 vim.lsp.config('yamlls', {
 	settings = {
 		yaml = {
+			format = { enable = false },
 			schemas = {
 				["https://json.schemastore.org/github-workflow.json"] = "/.github/workflows/*",
 				["https://raw.githubusercontent.com/microsoft/azure-pipelines-vscode/master/service-schema.json"] = {
