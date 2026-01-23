@@ -7,7 +7,7 @@ return {
 			-- start
 			ensure_installed = {
 				-- lsp
-				"tombi",
+				"taplo",
 				"ty",
 				"lua-language-server",
 				"codebook",

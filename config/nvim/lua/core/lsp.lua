@@ -1,6 +1,6 @@
 vim.lsp.enable({
 	-- configurations
-	"tombi",
+	"taplo",
 	"codebook",
 	"jsonls",
 	"dockerls",
