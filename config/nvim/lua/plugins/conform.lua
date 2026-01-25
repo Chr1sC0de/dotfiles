@@ -14,7 +14,14 @@ return {
 				lua = { "stylua" },
 				json = { "fixjson" },
 				yaml = { "yamlfmt" },
-				["pyproject.toml"] = { "pyproject-fmt" },
+				toml = function(bufnr)
+					if vim.api.nvim_buf_get_name(bufnr):match("pyproject%.toml$") then
+						return { "pyproject-fmt" }
+					end
+					-- Return another formatter for standard .toml files, or nil
+					return {}
+				end,
+
 			},
 			format_on_save = {
 				lsp_fallback = true,
