@@ -11,6 +11,7 @@ return {
 	lazy = false,
 	config = function()
 		local dap = require("dap")
+
 		-- set the keymaps
 		vim.keymap.set("n", "<F5>", function()
 			dap.continue()
@@ -61,9 +62,10 @@ return {
 
 		-- setup the dap configurations per use case
 		local bash_config = require("dap-conf.bash")
+		local dap_python = require("dap-python")
 
-		require("dap-python").setup("uv")
-		require("dap-python").test_runner = "pytest"
+		dap_python.setup("uv")
+		dap_python.test_runner = "pytest"
 
 		dap.adapters.bashdb = bash_config.adapter
 		dap.configurations.sh = bash_config.configuration
@@ -100,12 +102,5 @@ return {
 		end
 
 		vim.api.nvim_set_hl(0, "DapStoppedLine", { bg = "#24272e" }) -- Change bg to your preferred color
-
-		local dap = require("dap")
-		vim.keymap.set("x", "<leader>di", function()
-			local lines = vim.fn.getregion(vim.fn.getpos("."), vim.fn.getpos("v"))
-			dap.repl.open()
-			dap.repl.execute(table.concat(lines, "\n"))
-		end)
 	end,
 }

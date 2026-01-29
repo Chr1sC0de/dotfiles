@@ -156,7 +156,6 @@ return {
 					local function open_help_tags_fullscreen(prompt_bufnr)
 						local entry = action_state.get_selected_entry()
 						actions.close(prompt_bufnr)
-						vim.cmd("tabnew")
 						vim.cmd("help " .. entry.value)
 						vim.cmd("only")
 					end
