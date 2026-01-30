@@ -13,7 +13,7 @@
   "dressing.nvim": { "branch": "master", "commit": "2d7c2db2507fa3c4956142ee607431ddb2828639" },
   "friendly-snippets": { "branch": "main", "commit": "6cd7280adead7f586db6fccbd15d2cac7e2188b9" },
   "gitsigns.nvim": { "branch": "main", "commit": "abf82a65f185bd54adc0679f74b7d6e1ada690c9" },
-  "grug-far.nvim": { "branch": "main", "commit": "1f7a722a9b9f0206a345377c13e62542f484398a" },
+  "grug-far.nvim": { "branch": "main", "commit": "14babc9b4520184d9696ef282eb7ac20687d4373" },
   "guess-indent.nvim": { "branch": "main", "commit": "84a4987ff36798c2fc1169cbaff67960aed9776f" },
   "inc-rename.nvim": { "branch": "main", "commit": "2597bccb57d1b570fbdbd4adf88b955f7ade715b" },
   "incline.nvim": { "branch": "main", "commit": "8b54c59bcb23366645ae10edca6edfb9d3a0853e" },
