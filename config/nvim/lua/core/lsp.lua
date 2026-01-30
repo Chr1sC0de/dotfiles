@@ -37,7 +37,6 @@ vim.lsp.config("ty", {
 	},
 })
 
-
 vim.lsp.config("jsonls", {
 	cmd = { "vscode-json-language-server", "--stdio" },
 	filetypes = { "json", "jsonc", "json5" },
@@ -50,7 +49,7 @@ vim.lsp.config("jsonls", {
 	},
 })
 
-vim.lsp.config('yamlls', {
+vim.lsp.config("yamlls", {
 	settings = {
 		yaml = {
 			format = { enable = false },
@@ -64,7 +63,7 @@ vim.lsp.config('yamlls', {
 				},
 			},
 		},
-	}
+	},
 })
 
 vim.diagnostic.config({
