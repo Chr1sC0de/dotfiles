@@ -25,32 +25,12 @@ return {
 
 		local float_terminal = require("FTerm")
 
-		local float_terminal_2 = float_terminal:new({
-			ft = "FTerm2", -- You can also override the default filetype, if you want
-			cmd = CMD,
-			dimensions = {
-				height = 0.9,
-				width = 0.9,
-			},
-		})
-
-		vim.keymap.set("n", "<A-e>", function()
-			float_terminal_2:toggle()
-		end, { desc = "Toggle Terminal: Terminal 2" })
-
-		vim.keymap.set("t", "<A-e>", function()
-			vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, true, true), "n", false)
-			float_terminal_2:toggle()
-		end, { desc = "Toggle Terminal: Terminal 2" })
-
 		vim.keymap.set("n", "<leader>tmg", function()
-			-- require("FTerm").run({ "tms" })
 			term = require("FTerm"):new({ auto_close = true })
 			term:run("tms;exit")
 		end, { desc = "Float Term: tmux sessionizer github" })
 
 		vim.keymap.set("n", "<leader>tms", function()
-			-- require("FTerm").run({ "tms switch" })
 			term = require("FTerm"):new({ auto_close = true })
 			term:run("tms switch;exit")
 		end, { desc = "Float Term: tmux sessionizer switch" })
