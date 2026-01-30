@@ -6,6 +6,7 @@ return {
 		require("conform").setup({
 			formatters_by_ft = {
 				python = { "ruff_fix", "ruff_format", "ruff_organize_imports" },
+				make = { "bake" },
 				sh = { "shfmt", "shellcheck" },
 				bash = { "shfmt", "shellcheck" },
 				containerfile = { "dockerfmt" },
@@ -21,7 +22,6 @@ return {
 					-- Return another formatter for standard .toml files, or nil
 					return {}
 				end,
-
 			},
 			format_on_save = {
 				lsp_fallback = true,

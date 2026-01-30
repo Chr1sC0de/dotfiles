@@ -28,6 +28,7 @@ return {
 				"yamlfmt",
 				-- formatters
 				"pyproject-fmt",
+				"mbake",
 				"cbfmt",
 				"mdformat",
 				"shfmt",
