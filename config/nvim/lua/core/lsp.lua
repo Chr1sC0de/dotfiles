@@ -44,6 +44,7 @@ vim.lsp.config("jsonls", {
 	settings = {
 		jsonls = {
 			format = { enable = true },
+			schemas = require("schemastore").json.schemas(),
 			validate = { enable = true },
 		},
 	},
@@ -53,15 +54,14 @@ vim.lsp.config("yamlls", {
 	settings = {
 		yaml = {
 			format = { enable = false },
-			schemas = {
-				["https://json.schemastore.org/github-workflow.json"] = "/.github/workflows/*",
-				["https://raw.githubusercontent.com/microsoft/azure-pipelines-vscode/master/service-schema.json"] = {
-					"/azure-pipeline*.y*l",
-					"/*.azure*",
-					"Azure-Pipelines/**/*.y*l",
-					"Pipelines/*.y*l",
-				},
+			schemaStore = {
+				-- You must disable built-in schemaStore support if you want to use
+				-- this plugin and its advanced options like `ignore`.
+				enable = false,
+				-- Avoid TypeError: Cannot read properties of undefined (reading 'length')
+				url = "",
 			},
+			schemas = require("schemastore").yaml.schemas(),
 		},
 	},
 })
