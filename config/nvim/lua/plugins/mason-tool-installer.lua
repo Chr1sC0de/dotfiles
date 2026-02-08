@@ -14,7 +14,6 @@ return {
 				"bash-language-server",
 				"dockerls",
 				"docker-compose-language-service",
-				"azure-pipelines-language-server",
 				"yaml-language-server",
 				"json-lsp",
 				"markdown-oxide",
