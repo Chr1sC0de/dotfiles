@@ -12,11 +12,6 @@ vim.cmd("hi LineNrAbove guifg=#888888 guibg=NONE")
 vim.cmd("hi LineNr guifg=#d3e0eb guibg=NONE")
 vim.cmd("hi LineNrBelow guifg=#888888 guibg=NONE")
 
--- spaces instead of tabs with 4 spaces for the shift width
-vim.opt.expandtab = false
-vim.opt.tabstop = 4
-vim.opt.shiftwidth = 0
-
 -- disable swap files
 vim.opt.swapfile = false
 vim.opt.backup = false
