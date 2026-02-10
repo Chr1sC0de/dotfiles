@@ -1,1 +1,1 @@
-return {'isobit/vim-caddyfile'}
+return { "isobit/vim-caddyfile" }
