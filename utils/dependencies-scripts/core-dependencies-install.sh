@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
 dependencies=(
+    "git"
+    "curl"
+    "wget"
     "ca-certificates"
     "bat"
     "unzip"
     "ripgrep"
     "fd-find"
     "build-essential"
+    "libclang-dev"
     "cmake"
     "gettext"
     "libtool"
