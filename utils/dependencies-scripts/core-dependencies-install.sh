@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 
 dependencies=(
-    # "git"
-    # "curl"
-    # "wget"
     "ca-certificates"
     "bat"
     "unzip"
