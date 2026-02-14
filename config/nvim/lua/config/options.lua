@@ -36,3 +36,6 @@ vim.o.wrap = false
 -- enable exrc for workspace enabled
 
 vim.o.exrc = true
+
+--  allow treesitter to take priority for highlighting
+vim.highlight.priorities.semantic_tokens = 95

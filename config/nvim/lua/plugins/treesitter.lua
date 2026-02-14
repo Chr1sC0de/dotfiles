@@ -5,6 +5,7 @@ return {
 	dependencies = {
 		{
 			"nvim-treesitter/nvim-treesitter-context",
+			"LiadOz/nvim-dap-repl-highlights",
 			opts = {
 				max_lines = 4,
 				multiline_threshold = 2,
@@ -15,6 +16,24 @@ return {
 	branch = "main",
 	build = ":TSUpdate",
 	config = function()
-		require("nvim-treesitter").install({ "all" })
+		require("nvim-dap-repl-highlights").setup()
+		require("nvim-treesitter").install({
+			"lua",
+			"regex",
+			"rust",
+			"go",
+			"c",
+			"r",
+			"bash",
+			"python",
+			"markdown",
+			"json",
+			"yaml",
+			"tmux",
+			"dap_repl",
+			"dockerfile",
+			"toml",
+			"query",
+		})
 	end,
 }
