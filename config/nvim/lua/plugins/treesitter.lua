@@ -34,6 +34,9 @@ return {
 			"dockerfile",
 			"toml",
 			"query",
+			"sql",
+			"jinja",
+			"jija_inline",
 		})
 	end,
 }
