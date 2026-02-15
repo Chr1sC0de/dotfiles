@@ -16,7 +16,7 @@ CORE_SCRIPTS=(
     "lazygit-install.sh"
     "starship-install.sh"
     "duckdb-install.sh"
-    "treesitter-cli"
+    "treesitter-cli.sh"
 )
 
 EXTRA_SCRIPTS=(
