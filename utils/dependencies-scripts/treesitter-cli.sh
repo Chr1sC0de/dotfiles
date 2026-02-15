@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-cargo install --locked tree-sitter-cli
+. "$HOME/.cargo/env"
+
+cargo install tree-sitter-cli
