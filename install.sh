@@ -4,11 +4,11 @@ export DEBIAN_FRONTEND=noninteractive
 
 # install core components
 if [[ $EUID -ne 0 ]]; then
-    sudo apt-get update -y
-    sudo apt-get install git curl wget -y
+	sudo apt-get update -y
+	sudo apt-get install git curl wget -y
 else
-    apt-get update -y
-    apt-get install git curl wget -y
+	apt-get update -y
+	apt-get install git curl wget -y
 fi
 
 cd "$HOME" || exit 1
