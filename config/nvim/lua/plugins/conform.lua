@@ -11,7 +11,7 @@ return {
 				bash = { "shfmt", "shellcheck" },
 				containerfile = { "dockerfmt" },
 				dockerfile = { "dockerfmt" },
-				markdown = { "cbfmt", "mdformat" },
+				-- markdown = { "cbfmt", "mdformat" },
 				lua = { "stylua" },
 				json = { "fixjson" },
 				yaml = { "yamlfmt" },
