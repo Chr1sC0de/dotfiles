@@ -32,7 +32,7 @@ ENV DOTFILES_INSTALL_SCRIPT=https://raw.githubusercontent.com/Chr1sC0de/dotfiles
 
 RUN apt-get update -y \
     && apt-get install curl -y \
-    && curl $DOTFILES_INSTALL_SCRIPT  | bash -
+    && curl $DOTFILES_INSTALL_SCRIPT | bash -
 
 RUN bash -lic "\. $HOME/.bashrc && nvim --headless '+Lazy! sync\' +MasonToolsInstallSync +q!"
 ```

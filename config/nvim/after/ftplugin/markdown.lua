@@ -1,9 +1,9 @@
-vim.opt.expandtab = false
-vim.opt.tabstop = 3
+vim.opt.expandtab = true
+vim.opt.tabstop = 4
 vim.opt.shiftwidth = 0
 
 vim.api.nvim_create_autocmd("FileType", {
-	pattern = { "lua" },
+	pattern = { "markdown" },
 	callback = function()
 		vim.treesitter.start()
 	end,

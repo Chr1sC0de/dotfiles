@@ -16,11 +16,12 @@ CORE_SCRIPTS=(
     "lazygit-install.sh"
     "starship-install.sh"
     "duckdb-install.sh"
+    "treesitter-cli"
 )
 
 EXTRA_SCRIPTS=(
-    'gh-install.sh'
-    'ghostty-install.sh'
+    "gh-install.sh"
+    "ghostty-install.sh"
     "homebrew-install.sh"
 )
 

@@ -36,3 +36,20 @@ vim.o.wrap = false
 -- enable exrc for workspace enabled
 
 vim.o.exrc = true
+
+--  allow treesitter to take priority for highlighting
+vim.highlight.priorities.semantic_tokens = 95
+
+vim.filetype.add({
+	pattern = {
+		[".*/Caddyfile"] = "caddy",
+	},
+})
+
+vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
+	pattern = "Caddyfile",
+	callback = function(args)
+		vim.bo[args.buf].filetype = "caddy"
+		vim.treesitter.start(args.buf, "caddy")
+	end,
+})

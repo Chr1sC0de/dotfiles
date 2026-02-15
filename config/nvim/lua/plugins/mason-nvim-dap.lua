@@ -4,8 +4,8 @@ return {
 	cmd = { "DapInstall", "DapUninstall" },
 	lazy = false,
 	opts = {
-		ensure_installed = { "python", "bash" },
-		automatic_installation = true,
+		ensure_installed = {},
+		automatic_installation = false,
 		handlers = {},
 	},
 }
