@@ -34,5 +34,5 @@ RUN apt-get update -y \
     && apt-get install curl -y \
     && curl $DOTFILES_INSTALL_SCRIPT | bash -
 
-RUN bash -lic "\. $HOME/.bashrc && nvim --headless '+Lazy! sync\' +MasonToolsInstallSync +q!"
+RUN bash -l -i -c "\. $HOME/.bashrc && nvim --headless '+Lazy! sync\' +MasonToolsInstallSync +q!"
 ```

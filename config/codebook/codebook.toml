@@ -1,0 +1,10 @@
+words = ["nvim"]
+
+ignore_patterns = [
+    '\b[ATCG]+\b',              # DNA sequences
+    '\d{3}-\d{2}-\d{4}',        # Social Security Number format
+    '^[A-Z]{2,}$',              # All caps words like "HTML", "CSS"
+    'https?://[^\s]+',          # URLs
+    '^\-*',                     # flags
+    '\B-{1,2}[a-zA-Z][\w-]*\b', # CLI flags like -f, -abc, --help, --long-option
+]

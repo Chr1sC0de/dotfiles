@@ -11,6 +11,7 @@ DEPENDENCIES_SCRIPTS_FOLDER="$SCRIPT_DIR/dependencies-scripts"
 DEFAULTS=(
     "my-profile"
     "config/nvim"
+    "config/codebook"
     "inputrc"
 )
 
