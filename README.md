@@ -28,11 +28,11 @@ in docker images during build
 
 ```dockerfile
 ENV TAR_OPTIONS="--no-same-owner --no-same-permissions"
-ENV DOTFILES_INSTALL_SCRIPT=https://raw.githubusercontent.com/Chr1sC0de/dotfiles/refs/heads/master/install.sh
+ENV DOTFILES_INSTALL_SCRIPT=https://raw.githubusercontent.com/Chr1sC0de/dotfiles/refs/heads/master/install.sh;
 
 RUN apt-get update -y \
     && apt-get install curl -y \
-    && curl $DOTFILES_INSTALL_SCRIPT | bash -
+    && curl $DOTFILES_INSTALL_SCRIPT | bash -;
 
-RUN bash -l -i -c "\. $HOME/.bashrc && nvim --headless '+Lazy! sync\' +MasonToolsInstallSync +q!"
+RUN bash -l -i -c "\. $HOME/.bashrc && nvim --headless '+Lazy! sync\' +MasonToolsInstallSync +q!";
 ```
