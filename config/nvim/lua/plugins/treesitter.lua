@@ -36,7 +36,7 @@ return {
 			"query",
 			"sql",
 			"jinja",
-			"jija_inline",
+			"jinja_inline",
 			"caddy",
 		})
 	end,
