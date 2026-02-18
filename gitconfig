@@ -7,3 +7,5 @@
 	editor = nvim
 [init]
 	defaultbranch = main
+[worktree]
+	useRelativePaths = true
