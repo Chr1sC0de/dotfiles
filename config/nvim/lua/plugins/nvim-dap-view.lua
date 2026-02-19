@@ -23,24 +23,24 @@ return {
 
 		local dap = require("dap")
 
-		dap.listeners.before.initialize["dap-view-config"] = function()
-			require("dap-view").open()
-		end
+		-- dap.listeners.before.initialize["dap-view-config"] = function()
+		-- 	require("dap-view").open()
+		-- end
 
-		dap.listeners.before.launch["dap-view-config"] = function()
-			require("dap-view").open()
-		end
+		-- dap.listeners.before.launch["dap-view-config"] = function()
+		-- 	require("dap-view").open()
+		-- end
 
 		dap.listeners.before.attach["dap-view-config"] = function()
 			require("dap-view").open()
 		end
 
-		dap.listeners.before.event_terminated["dap-view-config"] = function()
-			require("dap-view").close()
-		end
-		dap.listeners.before.event_exited["dap-view-config"] = function()
-			require("dap-view").close()
-		end
+		-- dap.listeners.before.event_terminated["dap-view-config"] = function()
+		-- 	require("dap-view").close()
+		-- end
+		-- dap.listeners.before.event_exited["dap-view-config"] = function()
+		-- 	require("dap-view").close()
+		-- end
 
 		vim.keymap.set({ "n", "v" }, "<leader>de", function()
 			require("dap-view").eval(nil, { enter = true })
