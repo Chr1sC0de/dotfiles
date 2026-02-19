@@ -16,7 +16,7 @@ return {
 		vim.keymap.set("n", "<F5>", function()
 			dap.continue()
 		end, { desc = "dap: continue" })
-		vim.keymap.set("n", "<s-F5>", function()
+		vim.keymap.set("n", "<F17>", function()
 			dap.terminate()
 		end, { desc = "dap: terminate session" })
 		vim.keymap.set("n", "<F10>", function()
