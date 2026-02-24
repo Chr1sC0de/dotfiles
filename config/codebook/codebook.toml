@@ -1,5 +1,6 @@
 words = [
     "autocmds",
+    "bashdb",
     "bashls",
     "debugpy",
     "dockerls",
