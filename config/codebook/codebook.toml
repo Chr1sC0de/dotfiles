@@ -9,6 +9,7 @@ words = [
     "lazyrepo",
     "mapleader",
     "maplocalleader",
+    "numhl",
     "nvim",
     "taplo",
     "vscode",
