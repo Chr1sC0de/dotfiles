@@ -19,8 +19,14 @@ echo "url=$URL"
 echo "basename=$BASENAME"
 echo "reponame=$NAME"
 
-git clone --bare "$URL" "$NAME"
+mkdir -p "$NAME"
+
 cd "$NAME"
+
+git clone --bare "$URL" "$NAME"
+
+cd "$NAME"
+
 echo "gitdir: ." >.git
 
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
