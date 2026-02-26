@@ -50,6 +50,31 @@ vim.keymap.set("n", "<leader>cf", function()
 	print("Copied: " .. filename)
 end, { desc = "Copy filename to clipboard" })
 
+-- toggle between terminals
+
+-- Keymap to toggle last terminal or create a new one
+local last_term_buf = nil
+
+vim.keymap.set("n", "<leader>jt", function()
+	-- If last terminal buffer exists and is valid, switch to it
+	if last_term_buf and vim.api.nvim_buf_is_valid(last_term_buf) then
+		vim.api.nvim_set_current_buf(last_term_buf)
+	else
+		-- Otherwise, create a new terminal
+		vim.cmd("terminal")
+		-- Save the new terminal buffer handle
+		last_term_buf = vim.api.nvim_get_current_buf()
+	end
+end, { noremap = true, desc = "Toggle or create terminal" })
+
+-- Optional: update last_term_buf when entering a terminal manually
+vim.api.nvim_create_autocmd("TermOpen", {
+	pattern = "*",
+	callback = function(args)
+		last_term_buf = args.buf
+	end,
+})
+
 -- THE PRIMEGEN REMAPS --
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
