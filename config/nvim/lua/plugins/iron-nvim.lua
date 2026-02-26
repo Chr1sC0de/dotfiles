@@ -16,6 +16,11 @@ return {
 						-- returns a table (see below)
 						command = { "bash" },
 					},
+					bash = {
+						-- Can be a table or a function that
+						-- returns a table (see below)
+						command = { "bash" },
+					},
 					python = {
 						command = { "python" }, -- or { "ipython", "--no-autoindent" }
 						format = common.bracketed_paste_python,
