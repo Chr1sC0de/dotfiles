@@ -9,3 +9,5 @@
 	defaultbranch = main
 [worktree]
 	useRelativePaths = true
+[push]
+	autoSetupRemote = true
