@@ -10,7 +10,7 @@ vim.lsp.enable({
 	"ruff",
 	-- lua
 	"lua_ls",
-	-- markdown
+	"markdown",
 	"markdown_oxide",
 	-- bash
 	"bashls",
