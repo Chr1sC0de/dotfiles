@@ -29,6 +29,10 @@ vim.opt.conceallevel = 2
 vim.opt.updatetime = 50
 vim.opt.scrolloff = 10
 
+vim.opt.expandtab = true
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 4
+
 -- disable word wrappings
 
 vim.o.wrap = false
@@ -42,14 +46,21 @@ vim.highlight.priorities.semantic_tokens = 95
 
 vim.filetype.add({
 	pattern = {
-		[".*/Caddyfile"] = "caddy",
+		["Caddyfile"] = "caddy",
+		["Caddyfile.*"] = "caddy",
 	},
 })
 
-vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
-	pattern = "Caddyfile",
-	callback = function(args)
-		vim.bo[args.buf].filetype = "caddy"
-		vim.treesitter.start(args.buf, "caddy")
-	end,
+-- automatically convert anything to bash if they have the bash shebang
+vim.filetype.add({
+	pattern = {
+		[".*"] = {
+			function(path, bufnr)
+				local first_line = vim.api.nvim_buf_get_lines(bufnr, 0, 1, false)[1]
+				if first_line and first_line:match("^#!.*bash") then
+					return "bash"
+				end
+			end,
+		},
+	},
 })

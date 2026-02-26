@@ -63,7 +63,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 -- DBUI DRAWER MAPPINGS (FileType = dbui)
 -----------------------------------------------------------
 vim.api.nvim_create_autocmd("FileType", {
-	pattern = "dbui",
+	pattern = { "dbui" },
 	callback = function(event)
 		local opts = { buffer = event.buf }
 

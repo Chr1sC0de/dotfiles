@@ -17,7 +17,7 @@ return {
 	build = ":TSUpdate",
 	config = function()
 		require("nvim-dap-repl-highlights").setup()
-		require("nvim-treesitter").install({
+		local languages = {
 			"lua",
 			"regex",
 			"rust",
@@ -38,6 +38,13 @@ return {
 			"jinja",
 			"jinja_inline",
 			"caddy",
+		}
+		require("nvim-treesitter").install()
+		vim.api.nvim_create_autocmd("FileType", {
+			pattern = languages,
+			callback = function(args)
+				vim.treesitter.start(args.buf)
+			end,
 		})
 	end,
 }
