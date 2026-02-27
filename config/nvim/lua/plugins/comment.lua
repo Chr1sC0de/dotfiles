@@ -21,7 +21,7 @@ return {
 			add_description(opts, "comment-box: named parts")
 		)
 
-		vim.keymap.set("n", "<Leader>cl", "<Cmd>CBline<CR>", add_description(opts, "comment-box: simple line"))
+		vim.keymap.set("n", "<Leader>cL", "<Cmd>CBline<CR>", add_description(opts, "comment-box: simple line"))
 
 		vim.keymap.set(
 			{ "n", "v" },
