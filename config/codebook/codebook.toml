@@ -24,6 +24,8 @@ words = [
     "maplocalleader",
     "mkfifo",
     "monkeypatch",
+    "nem",
+    "nemweb",
     "numhl",
     "nvim",
     "pkill",
