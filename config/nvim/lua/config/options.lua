@@ -13,9 +13,10 @@ vim.cmd("hi LineNr guifg=#d3e0eb guibg=NONE")
 vim.cmd("hi LineNrBelow guifg=#888888 guibg=NONE")
 
 -- disable swap files
+local home = vim.loop.os_homedir()
 vim.opt.swapfile = false
 vim.opt.backup = false
-vim.opt.undodir = os.getenv("HOME") .. "/.vim/undodir"
+vim.opt.undodir = home .. "/.vim/undodir"
 vim.opt.undofile = true
 
 -- incremental search
