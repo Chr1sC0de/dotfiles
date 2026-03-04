@@ -7,11 +7,13 @@ while [[ "$#" -gt 0 ]]; do
     -h | --help)
         echo "Usage: clone-worktree.sh [OPTIONS] [URL]"
         ;;
+    *)
+        URL=$1
+        ;;
     esac
     shift
 done
 
-URL=$1
 BASENAME=${URL##*/}
 NAME=${2:-${BASENAME%.*}}
 
@@ -23,7 +25,7 @@ mkdir -p "$NAME"
 
 cd "$NAME"
 
-git clone --bare "$URL" "$NAME"
+git clone --bare "$URL" "$NAME.worktree"
 
 cd "$NAME"
 
