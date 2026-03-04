@@ -1,6 +1,6 @@
-vim.cmd.colorscheme("catppuccin")
-
-vim.o.shell = os.getenv("SHELL") or vim.fn.exepath("bash")
+if not vim.g.vscode then
+	vim.cmd.colorscheme("catppuccin")
+end
 
 vim.opt.number = true
 vim.opt.relativenumber = true

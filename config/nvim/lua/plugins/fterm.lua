@@ -1,10 +1,6 @@
-CMD = os.getenv("SHELL") or vim.fn.exepath("bash")
-
--- sometimes the shell might not be set so we should set it
-vim.env.SHELL = CMD
-
 return {
 	"numToStr/FTerm.nvim",
+	enabled = not vim.g.vscode,
 	config = function()
 		require("FTerm").setup({
 			border = "rounded",

@@ -3,6 +3,7 @@ return {
 	opts = { headerMaxWidth = 80 },
 	lazy = false,
 	cmd = "GrugFar",
+	enabled = not vim.g.vscode,
 	config = function()
 		-- optional setup call to override plugin options
 		-- alternatively you can set options with vim.g.grug_far = { ... }

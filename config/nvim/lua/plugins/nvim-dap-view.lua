@@ -1,6 +1,7 @@
 return {
 	"igorlfs/nvim-dap-view",
 	dependencies = "mfussenegger/nvim-dap",
+	enabled = not vim.g.vscode,
 	config = function()
 		require("dap-view.setup").setup({
 			winbar = {

@@ -1,6 +1,7 @@
 return {
 	"NeogitOrg/neogit",
 	lazy = true,
+	enabled = not vim.g.vscode,
 	dependencies = {
 		"nvim-lua/plenary.nvim",
 		"sindrets/diffview.nvim",

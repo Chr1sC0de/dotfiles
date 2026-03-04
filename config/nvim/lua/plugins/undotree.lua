@@ -1,5 +1,6 @@
 return {
 	"jiaoshijie/undotree",
+	enabled = not vim.g.vscode,
 	opts = {
 		-- your options
 	},

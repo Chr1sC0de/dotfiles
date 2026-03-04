@@ -2,6 +2,7 @@ return {
 	"stevearc/conform.nvim",
 	opts = {},
 	event = { "BufReadPre", "BufNewFile" },
+	enabled = not vim.g.vscode,
 	config = function()
 		require("conform").setup({
 			formatters_by_ft = {
@@ -36,6 +37,8 @@ return {
 				timeout_ms = 1000,
 			})
 		end, { desc = "conform: Format file or range (in visual mode)" })
+
+		vim.keymap.set("n", "<leader>fl", require("conform").format, { desc = "conform: format" })
 
 		vim.api.nvim_create_autocmd("BufWritePre", {
 			pattern = "*",

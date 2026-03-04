@@ -1,6 +1,7 @@
 return {
 	{
 		"folke/lazydev.nvim",
+		enabled = not vim.g.vscode,
 		ft = "lua", -- only load on lua files
 		opts = {
 			library = {
@@ -10,9 +11,10 @@ return {
 			},
 		},
 	},
-	{ "Bilal2453/luvit-meta", lazy = true }, -- optional `vim.uv` typings
+	{ "Bilal2453/luvit-meta", lazy = true, enabled = not vim.g.vscode }, -- optional `vim.uv` typings
 	{ -- optional blink completion source for require statements and module annotations
 		"saghen/blink.cmp",
+		enabled = not vim.g.vscode,
 		opts = {
 			sources = {
 				-- add lazydev to your completion providers

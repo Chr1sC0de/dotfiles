@@ -1,6 +1,7 @@
 return {
 	"mfussenegger/nvim-dap",
 	recommended = true,
+	enabled = not vim.g.vscode,
 	desc = "Debugging support. Requires language specific adapters to be configured. (see lang extras)",
 	dependencies = {
 		"igorlfs/nvim-dap-view",

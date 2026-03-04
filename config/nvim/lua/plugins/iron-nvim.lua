@@ -1,5 +1,6 @@
 return {
 	"Vigemus/iron.nvim",
+	enabled = not vim.g.vscode,
 	config = function()
 		local iron = require("iron.core")
 		local view = require("iron.view")

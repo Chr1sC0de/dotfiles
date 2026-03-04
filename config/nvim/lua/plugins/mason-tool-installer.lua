@@ -1,5 +1,6 @@
 return {
 	"WhoIsSethDaniel/mason-tool-installer.nvim",
+	enabled = not vim.g.vscode,
 	config = function()
 		require("mason-tool-installer").setup({
 

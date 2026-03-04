@@ -3,6 +3,7 @@ return {
 	lazy = true,
 	name = "catppuccin",
 	priority = 1000,
+	enabled = not vim.g.vscode,
 	opts = {
 		integrations = {
 			aerial = true,

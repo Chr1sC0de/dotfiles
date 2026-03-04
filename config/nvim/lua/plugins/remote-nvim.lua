@@ -1,5 +1,6 @@
 return {
 	"amitds1997/remote-nvim.nvim",
+	enabled = not vim.g.vscode,
 	version = "*", -- Pin to GitHub releases
 	dependencies = {
 		"nvim-lua/plenary.nvim", -- For standard functions

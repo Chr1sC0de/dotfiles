@@ -1,6 +1,7 @@
 return {
 	"folke/noice.nvim",
 	event = "VeryLazy",
+	enabled = not vim.g.vscode,
 	opts = {
 		lsp = {
 			override = {

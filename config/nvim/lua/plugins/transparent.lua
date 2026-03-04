@@ -1,5 +1,6 @@
 return {
 	"xiyaowong/transparent.nvim",
+	enabled = not vim.g.vscode,
 	config = function()
 		-- Optional, you don't have to run setup.
 		require("transparent").setup({

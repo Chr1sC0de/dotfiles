@@ -2,6 +2,7 @@
 ---@type LazySpec
 return {
 	"nvim-treesitter/nvim-treesitter",
+	enabled = not vim.g.vscode,
 	dependencies = {
 		{
 			"nvim-treesitter/nvim-treesitter-context",

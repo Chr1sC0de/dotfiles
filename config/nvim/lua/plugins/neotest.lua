@@ -1,5 +1,6 @@
 return {
 	"nvim-neotest/neotest",
+	enabled = not vim.g.vscode,
 	dependencies = {
 		"nvim-neotest/neotest-python",
 		"nvim-neotest/nvim-nio",

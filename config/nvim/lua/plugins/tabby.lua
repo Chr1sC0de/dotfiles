@@ -1,5 +1,6 @@
 return {
 	"nanozuki/tabby.nvim",
+	enabled = not vim.g.vscode,
 	config = function()
 		require("tabby").setup({
 			preset = "tab_only",

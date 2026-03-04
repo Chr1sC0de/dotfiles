@@ -1,6 +1,7 @@
 return {
 	"hat0uma/csvview.nvim",
 	-- cmd = { "CsvViewEnable", "CsvViewDisable", "CsvViewToggle" },
+	enabled = not vim.g.vscode,
 	config = function()
 		local builtins = require("csvview")
 		builtins.setup({

@@ -1,5 +1,6 @@
 return {
 	"stevearc/overseer.nvim",
+	enabled = not vim.g.vscode,
 	config = function()
 		require("overseer").setup({})
 		vim.keymap.set("n", "<leader>oo", ":OverseerToggle<cr>", { desc = "Overseer: Toggle" })

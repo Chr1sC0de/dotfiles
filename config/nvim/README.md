@@ -12,5 +12,5 @@ git remote add nvim-config git@github.com:Chr1sC0de/nvim-config.git
 git subtree pull --prefix=config/nvim nvim-config main --squash
 
 # to push any changes to the main branch
-git subtree push --prefixconfig/nvim nvim-config main
+git subtree push --prefix=config/nvim nvim-config main
 ```

@@ -2,6 +2,7 @@
 return {
 	"nvim-lualine/lualine.nvim",
 	event = "VeryLazy",
+	enabled = not vim.g.vscode,
 	init = function()
 		vim.g.lualine_laststatus = vim.o.laststatus
 		if vim.fn.argc(-1) > 0 then
