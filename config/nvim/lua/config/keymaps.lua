@@ -112,3 +112,23 @@ vim.keymap.set("n", "<leader>so", function()
 end)
 
 vim.api.nvim_set_keymap("t", "<M-t>", [[<C-\><C-n>]], { noremap = true, desc = "exit terminal mode using escape" })
+
+-- map global marks to lowercase
+
+-- marking
+for c in ("abcdefghijklmnopqrstuvwxyz"):gmatch(".") do
+	local upper = c:upper()
+	vim.keymap.set("n", "m" .. c, "m" .. upper)
+end
+
+-- jumping
+for c in ("abcdefghijklmnopqrstuvwxyz"):gmatch(".") do
+	local upper = c:upper()
+	vim.keymap.set("n", "'" .. c, "'" .. upper)
+end
+
+-- jumping
+for c in ("abcdefghijklmnopqrstuvwxyz"):gmatch(".") do
+	local upper = c:upper()
+	vim.keymap.set("n", "`" .. c, "'" .. upper)
+end
