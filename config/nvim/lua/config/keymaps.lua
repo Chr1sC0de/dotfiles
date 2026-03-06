@@ -19,7 +19,29 @@ vim.keymap.set("n", "<leader>ve", function()
 	end
 end, { desc = "Toggle virtualedit mode from nil <-> all" })
 
-vim.keymap.set("n", "<leader>cc", ":cclose<cr>", { desc = "close quick fix list" })
+-- Toggle Quickfix list
+vim.api.nvim_set_keymap(
+	"n",
+	"<leader>cc",
+	":lua ToggleQuickfix()<CR>",
+	{ noremap = true, silent = true, desc = "toggle quick fix list" }
+)
+
+function ToggleQuickfix()
+	local qf_exists = false
+	for _, win in ipairs(vim.fn.getwininfo()) do
+		if win["quickfix"] == 1 then
+			qf_exists = true
+			break
+		end
+	end
+	if qf_exists then
+		vim.cmd("cclose")
+	else
+		vim.cmd("copen")
+	end
+end
+
 vim.keymap.set("n", "<leader>ot", ":ObsidianTags<cr>", { desc = "Obsidian Tags" })
 
 vim.keymap.set("n", "<C-Tab>", ":tabnext<cr>", { desc = "tabnext", silent = false })
@@ -130,5 +152,5 @@ end
 -- jumping
 for c in ("abcdefghijklmnopqrstuvwxyz"):gmatch(".") do
 	local upper = c:upper()
-	vim.keymap.set("n", "`" .. c, "'" .. upper)
+	vim.keymap.set("n", "'" .. c, "'" .. upper)
 end
