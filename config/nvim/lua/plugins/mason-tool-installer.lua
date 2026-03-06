@@ -1,5 +1,6 @@
 return {
 	"WhoIsSethDaniel/mason-tool-installer.nvim",
+	dependencies = { "mason-org/mason.nvim" },
 	enabled = not vim.g.vscode,
 	config = function()
 		require("mason-tool-installer").setup({
@@ -9,7 +10,7 @@ return {
 			ensure_installed = {
 				-- lsp
 				"taplo",
-				"ty",
+				"zuban",
 				"lua-language-server",
 				"codebook",
 				"bash-language-server",
