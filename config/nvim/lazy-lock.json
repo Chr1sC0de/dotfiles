@@ -57,7 +57,7 @@
   "pymple.nvim": { "branch": "main", "commit": "b8f25a18b7a4e7095d08bfdb933087f1aa913797" },
   "refactoring.nvim": { "branch": "master", "commit": "6784b54587e6d8a6b9ea199318512170ffb9e418" },
   "remote-nvim.nvim": { "branch": "main", "commit": "9992c2fb8bf4f11aca2c8be8db286b506f92efcb" },
-  "render-markdown.nvim": { "branch": "main", "commit": "907505549edc2f90c82fc429348af03ee8c3a825" },
+  "render-markdown.nvim": { "branch": "main", "commit": "fcea0776a3019f49360b7aaec3318630633c522d" },
   "schemastore.nvim": { "branch": "main", "commit": "e75f2362624698864957a694d80ca0c116bd24d3" },
   "tabby.nvim": { "branch": "main", "commit": "3c130e1fcb598ce39a9c292847e32d7c3987cf11" },
   "telescope-dap.nvim": { "branch": "master", "commit": "783366bd6c1e7fa0a5c59c07db37f49c805a28df" },

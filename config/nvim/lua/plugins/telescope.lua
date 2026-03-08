@@ -29,7 +29,12 @@ return {
 
 		vim.keymap.set("n", "<leader>fT", builtin.treesitter, { desc = "Telescope: treesitter" })
 
-		vim.keymap.set("n", "<leader>fs", extensions.grep_string, { desc = "Telescope: grep string" })
+		vim.keymap.set(
+			"n",
+			"<leader>fs",
+			extensions.grep_string,
+			{ desc = "Telescope: search for string under cursor" }
+		)
 
 		vim.keymap.set("n", "<leader>fg", extensions.live_grep, { desc = "Telescope: live grep" })
 
