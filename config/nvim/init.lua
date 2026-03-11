@@ -46,9 +46,11 @@ if sh == "cmd" then
 	vim.opt.shellcmdflag = "/c"
 	vim.opt.shellquote = ""
 	vim.opt.shellxquote = ""
-elseif sh == "pwsh" or sh == "powershell" then
+elseif sh == "pwsh" then
 	vim.opt.shell = shell
-	vim.opt.shellcmdflag = "-NoLogo -NoProfile -ExecutionPolicy RemoteSigned -Command"
+	vim.opt.shellcmdflag = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command"
+	vim.opt.shellredir = "2>&1 | Out-File -Encoding utf8 %s"
+	vim.opt.shellpipe = "2>&1 | Out-File -Encoding utf8 %s"
 	vim.opt.shellquote = ""
 	vim.opt.shellxquote = ""
 elseif sh == "bash" then
