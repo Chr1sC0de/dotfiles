@@ -89,14 +89,6 @@ vim.keymap.set("n", "<leader>jt", function()
 	end
 end, { noremap = true, desc = "Toggle or create terminal" })
 
--- Optional: update last_term_buf when entering a terminal manually
-vim.api.nvim_create_autocmd("TermOpen", {
-	pattern = "*",
-	callback = function(args)
-		last_term_buf = args.buf
-	end,
-})
-
 -- THE PRIMEGEN REMAPS --
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
