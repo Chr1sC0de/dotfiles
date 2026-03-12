@@ -15,17 +15,22 @@ vim.lsp.config("*", {
 })
 
 -- python
-vim.lsp.config("zuban", {
-	cmd = { "zuban", "server" },
-	filetypes = { "python" },
-	root_markers = { "pyproject.toml", ".git" },
+
+-- Optional: Only required if you need to update the language server settings
+
+vim.lsp.config("ty", {
 	settings = {
-		python = {
-			analysis = {
-				autoImportCompletions = true,
-			},
+		ty = {
+			diagnosticMode = "workspace",
 		},
 	},
+})
+
+vim.lsp.config("zuban", {
+	name = "zuban",
+	cmd = { "zuban", "server" },
+	root_markers = { "pyproject.toml", ".git" },
+	filetypes = { "python" },
 })
 
 vim.lsp.config("ruff", {
