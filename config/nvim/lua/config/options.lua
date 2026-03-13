@@ -1,5 +1,5 @@
 if not vim.g.vscode then
-	vim.cmd.colorscheme("catppuccin")
+	vim.cmd.colorscheme("catppuccin-nvim")
 end
 
 vim.opt.number = true
