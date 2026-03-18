@@ -17,7 +17,7 @@ return {
 		vim.keymap.set(
 			{ "n", "v" },
 			"<Leader>ct",
-			"<Cmd>CBllline<CR>",
+			"<Cmd>CBllline15<CR>",
 			add_description(opts, "comment-box: named parts")
 		)
 

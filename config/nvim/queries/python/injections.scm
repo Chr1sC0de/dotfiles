@@ -33,3 +33,16 @@
     (string_content) @injection.content)
   (#match? @script ".+_jinja_*.*")
   (#set! injection.language "jinja"))
+
+; python
+(string
+  (string_content) @injection.content
+  (#match? @injection.content "#!/.*python")
+  (#set! injection.language "python"))
+
+(assignment
+  left: (identifier) @script
+  right: (string
+    (string_content) @injection.content)
+  (#match? @script ".+_python_*.*")
+  (#set! injection.language "python"))

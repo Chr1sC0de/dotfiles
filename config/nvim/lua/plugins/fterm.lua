@@ -19,8 +19,6 @@ return {
 			{ desc = "Toggle Terminal: Terminal 1" }
 		)
 
-		local float_terminal = require("FTerm")
-
 		vim.keymap.set("n", "<leader>tmg", function()
 			term = require("FTerm"):new({ auto_close = true })
 			term:run("tms;exit")

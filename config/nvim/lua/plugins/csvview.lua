@@ -21,7 +21,7 @@ return {
 			},
 		})
 
-		vim.keymap.set("n", "<leader>vv", builtins.toggle, { desc = "CsvView: Tggle" })
+		vim.keymap.set("n", "<leader>vv", builtins.toggle, { desc = "CsvView: Toggle" })
 
 		local file_extensions = { "*.csv", "*.tsv", "*.CSV", "*.TSV" }
 
