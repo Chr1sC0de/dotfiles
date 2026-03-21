@@ -124,7 +124,7 @@ vim.keymap.set("n", "<leader>so", function()
 	vim.cmd("so")
 end)
 
-vim.api.nvim_set_keymap("t", "<esc>", [[<C-\><C-n>]], { noremap = true, desc = "exit terminal mode using escape" })
+vim.api.nvim_set_keymap("t", "<A-t>", [[<C-\><C-n>]], { noremap = true, desc = "exit terminal mode using escape" })
 
 -- map global marks to lowercase
 
