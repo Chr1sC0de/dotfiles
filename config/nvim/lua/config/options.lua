@@ -71,3 +71,11 @@ vim.filetype.add({
 		[".*/%.vscode/.*%.json"] = "jsonc",
 	},
 })
+
+vim.api.nvim_create_autocmd("TermOpen", {
+	desc = "Enable relative line numbers in terminal buffers",
+	callback = function()
+		vim.opt_local.number = true
+		vim.opt_local.relativenumber = true
+	end,
+})
