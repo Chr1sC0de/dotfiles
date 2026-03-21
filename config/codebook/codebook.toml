@@ -1,5 +1,6 @@
 words = [
     "aemo",
+    "augroup",
     "autocmds",
     "bashdb",
     "bashls",
@@ -19,9 +20,11 @@ words = [
     "keymaps",
     "lazypath",
     "lazyrepo",
+    "linters",
     "localstack",
     "mapleader",
     "maplocalleader",
+    "mfussenegger",
     "mkfifo",
     "monkeypatch",
     "nem",
