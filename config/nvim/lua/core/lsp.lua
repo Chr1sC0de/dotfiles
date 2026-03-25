@@ -97,7 +97,7 @@ vim.lsp.enable({
 	"yamlls",
 
 	-- python
-	"zuban",
+	"ty",
 	"ruff",
 
 	-- lua
