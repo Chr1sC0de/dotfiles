@@ -11,11 +11,7 @@ return {
 			windows = {
 				size = 0.4,
 				terminal = {
-					-- 'left'|'right'|'above'|'below': Terminal position in layout
 					position = "right",
-					-- List of debug adapters for which the terminal should be ALWAYS hidden
-					-- hide = { "debugpy", "neotest", "python", "neotest-python" },
-					-- Hide the terminal when starting a new session
 				},
 			},
 			-- Controls how to jump when selecting a breakpoint or navigating the stack
