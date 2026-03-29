@@ -13,6 +13,7 @@ vim.cmd("hi LineNr guifg=#d3e0eb guibg=NONE")
 vim.cmd("hi LineNrBelow guifg=#888888 guibg=NONE")
 
 -- disable swap files
+---@diagnostic disable-next-line: undefined-field
 local home = vim.loop.os_homedir()
 vim.opt.swapfile = false
 vim.opt.backup = false
@@ -33,6 +34,9 @@ vim.opt.scrolloff = 10
 vim.opt.expandtab = true
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
+
+vim.g.neovide_opacity = 0.4
+vim.g.neovide_normal_opacity = 0.4
 
 -- disable word wrappings
 
@@ -56,6 +60,7 @@ vim.filetype.add({
 vim.filetype.add({
 	pattern = {
 		[".*"] = {
+			---@diagnostic disable-next-line: unused-local
 			function(path, bufnr)
 				local first_line = vim.api.nvim_buf_get_lines(bufnr, 0, 1, false)[1]
 				if first_line and first_line:match("^#!.*bash") then
