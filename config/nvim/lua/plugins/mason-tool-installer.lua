@@ -10,6 +10,7 @@ return {
 			ensure_installed = {
 				-- lsp
 				"taplo",
+				"ty",
 				"zuban",
 				"lua-language-server",
 				"codebook",
