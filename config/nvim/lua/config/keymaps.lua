@@ -44,8 +44,8 @@ end
 
 vim.keymap.set("n", "<leader>ot", ":ObsidianTags<cr>", { desc = "Obsidian Tags" })
 
-vim.keymap.set("n", "<C-Tab>", ":tabnext<cr>", { desc = "tabnext", silent = false })
-vim.keymap.set("n", "<C-S-Tab>", ":tabprevious<cr>", { desc = "tabprevious", silent = false })
+vim.keymap.set("n", "<a-t>", ":tabnext<cr>", { desc = "tabnext", silent = false })
+vim.keymap.set("n", "<a-s-t>", ":tabprevious<cr>", { desc = "tabprevious", silent = false })
 
 -- SORT IMPORTS
 vim.keymap.set("n", "<leader>si", function()
