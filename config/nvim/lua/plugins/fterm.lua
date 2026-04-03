@@ -11,13 +11,6 @@ return {
 			auto_close = true,
 		})
 		-- Example keybindings
-		vim.keymap.set("n", "<A-i>", '<CMD>lua require("FTerm").toggle()<CR>', { desc = "Toggle Terminal: Terminal 1" })
-		vim.keymap.set(
-			"t",
-			"<A-i>",
-			'<C-\\><C-n><CMD>lua require("FTerm").toggle()<CR>',
-			{ desc = "Toggle Terminal: Terminal 1" }
-		)
 
 		vim.keymap.set("n", "<leader>tmg", function()
 			term = require("FTerm"):new({ auto_close = true })
