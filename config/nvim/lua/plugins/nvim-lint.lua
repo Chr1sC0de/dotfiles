@@ -41,14 +41,14 @@ return {
 			end,
 		})
 
-		-- zuban is a type checker — only run on save, not on every keystroke/enter
-		vim.api.nvim_create_autocmd("BufWritePost", {
-			group = lint_augroup,
-			pattern = "*.py",
-			callback = function()
-				lint.try_lint("zuban")
-			end,
-		})
+		-- -- zuban is a type checker — only run on save, not on every keystroke/enter
+		-- vim.api.nvim_create_autocmd("BufWritePost", {
+		-- 	group = lint_augroup,
+		-- 	pattern = "*.py",
+		-- 	callback = function()
+		-- 		lint.try_lint("zuban")
+		-- 	end,
+		-- })
 
 		vim.keymap.set("n", "<leader>l", function()
 			lint.try_lint()
