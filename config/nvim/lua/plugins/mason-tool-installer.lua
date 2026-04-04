@@ -19,7 +19,7 @@ return {
 				"docker-compose-language-service",
 				"yaml-language-server",
 				"json-lsp",
-				"markdown-oxide",
+				-- "markdown-oxide",
 				"ts_query_ls",
 				-- debuggers
 				"debugpy",

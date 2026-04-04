@@ -103,7 +103,7 @@ vim.lsp.enable({
 	-- lua
 	"lua_ls",
 	"markdown",
-	"markdown_oxide",
+	-- "markdown_oxide",
 
 	-- bash
 	"bashls",

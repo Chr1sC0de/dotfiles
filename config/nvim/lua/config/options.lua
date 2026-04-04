@@ -4,6 +4,7 @@ end
 
 vim.opt.number = true
 vim.opt.relativenumber = true
+vim.opt.autoread = true
 
 -- vim.cmd("hi Normal guibg=NONE ctermbg=NONE")
 
