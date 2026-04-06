@@ -22,7 +22,7 @@ return {
 					dap = { justMyCode = true },
 					-- Command line arguments for runner
 					-- Can also be a function to return dynamic values
-					args = { "--log-level", "DEBUG" },
+					args = { "--log-level", "DEBUG", "--ignore", ".venv" },
 					-- Runner to use. Will use pytest if available by default.
 					-- Can be a function to return dynamic value.
 					runner = "pytest",
@@ -34,8 +34,12 @@ return {
 					python = PYTHON_TARGET,
 					-- Returns if a given file path is a test file.
 					-- NB: This function is called a lot so don't perform any heavy tasks within it.
-					-- is_test_file = function(file_path)
-					-- end,
+					is_test_file = function(file_path)
+						if file_path:match(".venv") then
+							return false
+						end
+						return file_path:match("test_.*%.py$") or file_path:match(".*_test%.py$")
+					end,
 					-- !!EXPERIMENTAL!! Enable shelling out to `pytest` to discover test
 					-- instances for files containing a parametrize mark (default: false)
 					pytest_discover_instances = true,
