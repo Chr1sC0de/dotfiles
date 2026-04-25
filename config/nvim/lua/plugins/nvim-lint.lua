@@ -30,7 +30,7 @@ return {
 		}
 
 		-- python is excluded here; zuban runs only on BufWritePost below
-		lint.linters_by_ft = {}
+		lint.linters_by_ft = { dockerfile = { "hadolint" } }
 
 		local lint_augroup = vim.api.nvim_create_augroup("lint", { clear = true })
 

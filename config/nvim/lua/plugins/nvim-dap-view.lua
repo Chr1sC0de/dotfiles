@@ -9,8 +9,8 @@ return {
 				sections = { "watches", "scopes", "exceptions", "breakpoints", "threads", "repl", "console" },
 			},
 			windows = {
-				size = 0.4,
-				position = "right",
+				size = 0.3,
+				position = "below",
 				terminal = {
 					position = "right",
 				},

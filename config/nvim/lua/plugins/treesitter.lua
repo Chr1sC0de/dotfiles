@@ -21,6 +21,7 @@ return {
 			require("nvim-dap-repl-highlights").setup()
 			local languages = {
 				"lua",
+				"latex",
 				"regex",
 				"rust",
 				"go",
