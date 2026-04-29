@@ -33,12 +33,12 @@ return {
 			require("dap-view").open()
 		end
 
-		dap.listeners.before.event_terminated["dap-view-config"] = function()
-			require("dap-view").close()
-		end
-		dap.listeners.before.event_exited["dap-view-config"] = function()
-			require("dap-view").close()
-		end
+		-- dap.listeners.before.event_terminated["dap-view-config"] = function()
+		-- 	require("dap-view").close()
+		-- end
+		-- dap.listeners.before.event_exited["dap-view-config"] = function()
+		-- 	require("dap-view").close()
+		-- end
 
 		vim.keymap.set({ "n", "v" }, "<leader>de", function()
 			require("dap-view").eval(nil, { enter = true })
