@@ -2,6 +2,7 @@ local M = {}
 
 local CODEX_BUF_NAME = "codex://chat"
 local CODEX_JOBS_BUF_NAME = "codex://jobs"
+local CODEX_JOBS_HIGHLIGHT_NAMESPACE = vim.api.nvim_create_namespace("codex-jobs")
 local EPHEMERAL_RESULT_SUBDIR = "codex/ephemeral"
 local EPHEMERAL_DIAGNOSTIC_NAMESPACE = vim.api.nvim_create_namespace("codex-ephemeral")
 local EPHEMERAL_RECENT_JOB_LIMIT = 20
@@ -15,6 +16,7 @@ local EPHEMERAL_SPINNER_SIGNS = {
 local codex_buf = nil
 local codex_job_id = nil
 local codex_jobs_buf = nil
+local codex_jobs_line_highlights = {}
 local codex_jobs_line_to_id = {}
 local codex_jobs_win = nil
 local previous_buf = nil
@@ -26,6 +28,7 @@ local next_ephemeral_diagnostic_id = 1
 local next_ephemeral_result_id = 1
 local next_ephemeral_sign_id = 1
 local setup_done = false
+local VISUAL_BLOCK_MODE = "\022"
 
 local function notify(message, level)
 	level = level or vim.log.levels.INFO
@@ -167,15 +170,15 @@ local function paste_to_codex(text)
 	return true
 end
 
-local function get_selected_text_from_marks()
-	local mode = vim.fn.visualmode()
-	local start_pos = vim.fn.getpos("'<")
-	local end_pos = vim.fn.getpos("'>")
-
+local function get_selected_text_from_positions(mode, start_pos, end_pos)
 	local start_line = start_pos[2]
 	local start_col = start_pos[3]
 	local end_line = end_pos[2]
 	local end_col = end_pos[3]
+
+	if start_line == 0 or end_line == 0 then
+		return "", start_line, end_line
+	end
 
 	if start_line > end_line or (start_line == end_line and start_col > end_col) then
 		start_line, end_line = end_line, start_line
@@ -191,9 +194,12 @@ local function get_selected_text_from_marks()
 		return table.concat(lines, "\n"), start_line, end_line
 	end
 
-	if mode == "\022" then
+	if mode == VISUAL_BLOCK_MODE then
+		local col_start = math.min(start_col, end_col)
+		local col_end = math.max(start_col, end_col)
+
 		for i, line in ipairs(lines) do
-			lines[i] = line:sub(start_col, end_col)
+			lines[i] = line:sub(col_start, col_end)
 		end
 		return table.concat(lines, "\n"), start_line, end_line
 	end
@@ -204,10 +210,28 @@ local function get_selected_text_from_marks()
 	return table.concat(lines, "\n"), start_line, end_line
 end
 
+local function get_selected_text_from_live_visual()
+	local mode = vim.fn.mode()
+	if mode ~= "v" and mode ~= "V" and mode ~= VISUAL_BLOCK_MODE then
+		return nil, nil, nil
+	end
+
+	return get_selected_text_from_positions(mode, vim.fn.getpos("v"), vim.fn.getcurpos())
+end
+
+local function get_selected_text_from_marks()
+	return get_selected_text_from_positions(vim.fn.visualmode(), vim.fn.getpos("'<"), vim.fn.getpos("'>"))
+end
+
 local function get_selected_text(opts)
 	if opts and opts.range and opts.range > 0 then
 		local lines = vim.api.nvim_buf_get_lines(0, opts.line1 - 1, opts.line2, false)
 		return table.concat(lines, "\n"), opts.line1, opts.line2
+	end
+
+	local selected_text, start_line, end_line = get_selected_text_from_live_visual()
+	if selected_text ~= nil then
+		return selected_text, start_line, end_line
 	end
 
 	return get_selected_text_from_marks()
@@ -229,31 +253,10 @@ local function next_ephemeral_result_path()
 	local id = next_ephemeral_result_id
 	next_ephemeral_result_id = next_ephemeral_result_id + 1
 
-	return string.format(
-		"%s/codex-ephemeral-%s-%03d.md",
-		get_ephemeral_result_dir(),
-		os.date("%Y%m%d-%H%M%S"),
-		id
-	)
+	return string.format("%s/codex-ephemeral-%s-%03d.md", get_ephemeral_result_dir(), os.date("%Y%m%d-%H%M%S"), id)
 end
 
-local function leave_codex_jobs_window()
-	if not is_valid_window(codex_jobs_win) or vim.api.nvim_get_current_win() ~= codex_jobs_win then
-		return
-	end
-
-	for _, winid in ipairs(vim.api.nvim_list_wins()) do
-		if winid ~= codex_jobs_win and vim.api.nvim_win_get_config(winid).relative == "" then
-			vim.api.nvim_set_current_win(winid)
-			return
-		end
-	end
-
-	vim.api.nvim_win_close(codex_jobs_win, true)
-	codex_jobs_win = nil
-end
-
-local function open_result_file(lines)
+local function write_result_file(lines)
 	local path = next_ephemeral_result_path()
 	local ok = vim.fn.writefile(lines, path)
 
@@ -261,11 +264,6 @@ local function open_result_file(lines)
 		notify("Failed to write ephemeral Codex result: " .. path, vim.log.levels.ERROR)
 		return nil
 	end
-
-	leave_codex_jobs_window()
-	vim.cmd("botright split")
-	vim.cmd("edit " .. vim.fn.fnameescape(path))
-	vim.bo.filetype = "markdown"
 
 	return path
 end
@@ -433,6 +431,34 @@ local function update_ephemeral_job(job, attrs)
 	refresh_open_codex_jobs_panel()
 end
 
+local function delete_ephemeral_job(job)
+	if not job then
+		notify("Codex job not found", vim.log.levels.WARN)
+		return false
+	end
+
+	if is_ephemeral_job_active(job) then
+		notify("Codex job #" .. job.id .. " is still running; cancel it with x first", vim.log.levels.WARN)
+		return false
+	end
+
+	ephemeral_jobs[job.id] = nil
+	local next_order = {}
+	for _, id in ipairs(ephemeral_job_order) do
+		if id ~= job.id then
+			table.insert(next_order, id)
+		end
+	end
+	ephemeral_job_order = next_order
+	refresh_open_codex_jobs_panel()
+	notify("Deleted Codex job #" .. job.id .. " from the session list")
+	return true
+end
+
+local function delete_ephemeral_job_by_id(id)
+	return delete_ephemeral_job(ephemeral_jobs[tonumber(id)])
+end
+
 local function close_codex_jobs_panel()
 	if is_valid_window(codex_jobs_win) then
 		vim.api.nvim_win_close(codex_jobs_win, true)
@@ -507,6 +533,10 @@ local function cancel_selected_ephemeral_job()
 	notify("Cancelling Codex job #" .. job.id)
 end
 
+local function delete_selected_ephemeral_job()
+	delete_ephemeral_job(selected_ephemeral_job())
+end
+
 local function ensure_codex_jobs_buffer()
 	if is_valid_buffer(codex_jobs_buf) then
 		return codex_jobs_buf
@@ -531,6 +561,7 @@ local function ensure_codex_jobs_buffer()
 	vim.keymap.set("n", "<Esc>", close_codex_jobs_panel, opts)
 	vim.keymap.set("n", "r", refresh_open_codex_jobs_panel, opts)
 	vim.keymap.set("n", "<CR>", open_selected_ephemeral_job, opts)
+	vim.keymap.set("n", "d", delete_selected_ephemeral_job, opts)
 	vim.keymap.set("n", "g", jump_to_selected_ephemeral_job_source, opts)
 	vim.keymap.set("n", "o", open_selected_ephemeral_job_result, opts)
 	vim.keymap.set("n", "x", cancel_selected_ephemeral_job, opts)
@@ -538,7 +569,7 @@ local function ensure_codex_jobs_buffer()
 	return codex_jobs_buf
 end
 
-local function ordered_ephemeral_jobs()
+local function split_ephemeral_jobs()
 	local running = {}
 	local completed = {}
 
@@ -556,8 +587,7 @@ local function ordered_ephemeral_jobs()
 		end
 	end
 
-	vim.list_extend(running, completed)
-	return running
+	return running, completed
 end
 
 local function job_line_range(job)
@@ -578,54 +608,127 @@ local function job_age(job)
 end
 
 local function job_status_label(job)
-	if job.status == "success" then
-		return "done"
+	if job.status == "starting" or job.status == "running" then
+		return "RUN"
+	end
+	if job.status == "cancelling" then
+		return "CXL..."
 	end
 	if job.status == "failed_to_start" then
-		return "start-fail"
+		return "START-ERR"
+	end
+	if job.status == "success" then
+		return "OK"
+	end
+	if job.status == "failed" then
+		return "ERR"
+	end
+	if job.status == "cancelled" then
+		return "CXL"
 	end
 
 	return job.status
+end
+
+local function job_status_highlight(job)
+	if job.status == "success" then
+		return "DiagnosticOk"
+	end
+	if job.status == "failed" or job.status == "failed_to_start" then
+		return "DiagnosticError"
+	end
+	if job.status == "cancelled" or job.status == "cancelling" then
+		return "DiagnosticWarn"
+	end
+
+	return "DiagnosticInfo"
+end
+
+local function trim_display(value, width)
+	value = tostring(value or "")
+	if #value <= width then
+		return value
+	end
+
+	return value:sub(1, math.max(width - 3, 1)) .. "..."
+end
+
+local function job_location(job)
+	return job.path .. ":" .. job_line_range(job)
+end
+
+local function job_result_display(job)
+	if not job.result_path then
+		return "-"
+	end
+
+	return vim.fn.fnamemodify(job.result_path, ":~:.")
 end
 
 local function build_codex_jobs_lines()
 	local lines = {
 		"Codex Jobs",
 		"",
-		"Keys: <CR> open/jump | o result | g source | x cancel | r refresh | q close",
+		"Keys: <CR> open/jump  o result  g source  x cancel  d delete  r refresh  q close",
 		"",
 	}
 	codex_jobs_line_to_id = {}
+	codex_jobs_line_highlights = {
+		[1] = "Title",
+		[3] = "Comment",
+	}
 
-	local jobs = ordered_ephemeral_jobs()
-	if #jobs == 0 then
+	local active_jobs, recent_jobs = split_ephemeral_jobs()
+	if #active_jobs == 0 and #recent_jobs == 0 then
 		table.insert(lines, "No ephemeral Codex jobs in this session.")
+		codex_jobs_line_highlights[#lines] = "Comment"
 		return lines
 	end
 
-	for _, job in ipairs(jobs) do
-		local marker = is_ephemeral_job_active(job) and "*" or " "
-		local exit = job.exit_code and " exit=" .. job.exit_code or ""
-		local line = string.format(
-			"%s #%d %-10s %-7s %-9s %s:%s%s %s",
-			marker,
-			job.id,
-			job_status_label(job),
-			job.action,
-			job.kind,
-			job.path,
-			job_line_range(job),
-			exit,
-			job_age(job)
-		)
-		table.insert(lines, line)
-		codex_jobs_line_to_id[#lines] = job.id
-
-		if job.result_path then
-			table.insert(lines, "    result: " .. vim.fn.fnamemodify(job.result_path, ":~:."))
-			codex_jobs_line_to_id[#lines] = job.id
+	local function append_section(title, jobs)
+		if #jobs == 0 then
+			return
 		end
+
+		table.insert(lines, title)
+		codex_jobs_line_highlights[#lines] = "Statement"
+		table.insert(
+			lines,
+			string.format(
+				"%-4s %-9s %-7s %-9s %-42s %-6s %s",
+				"ID",
+				"Status",
+				"Action",
+				"Target",
+				"Location",
+				"Age",
+				"Result"
+			)
+		)
+		codex_jobs_line_highlights[#lines] = "Type"
+
+		for _, job in ipairs(jobs) do
+			local exit = job.exit_code and " exit=" .. job.exit_code or ""
+			local line = string.format(
+				"%-4d %-9s %-7s %-9s %-42s %-6s %s",
+				job.id,
+				job_status_label(job),
+				job.action,
+				job.kind,
+				trim_display(job_location(job), 42),
+				job_age(job),
+				trim_display(job_result_display(job) .. exit, 46)
+			)
+			table.insert(lines, line)
+			codex_jobs_line_to_id[#lines] = job.id
+			codex_jobs_line_highlights[#lines] = job_status_highlight(job)
+		end
+
+		table.insert(lines, "")
 	end
+
+	append_section("Active", active_jobs)
+	append_section("Recent", recent_jobs)
 
 	return lines
 end
@@ -633,13 +736,13 @@ end
 local function codex_jobs_float_config(line_count)
 	local columns = vim.o.columns
 	local editor_lines = vim.o.lines
-	local width = math.min(math.max(math.floor(columns * 0.78), 60), math.max(columns - 4, 20))
-	local available_height = math.max(editor_lines - 6, 6)
-	local height = math.min(math.max(line_count, 6), math.min(available_height, 22))
+	local width = math.min(math.max(math.floor(columns * 0.92), 88), math.max(columns - 2, 20))
+	local available_height = math.max(editor_lines - 4, 8)
+	local height = math.min(math.max(line_count, 12), math.min(available_height, 34))
 
 	return {
 		relative = "editor",
-		row = math.max(math.floor((editor_lines - height) / 2) - 1, 0),
+		row = math.max(math.floor((editor_lines - height) / 2), 0),
 		col = math.max(math.floor((columns - width) / 2), 0),
 		width = width,
 		height = height,
@@ -660,6 +763,11 @@ render_codex_jobs_panel = function()
 	vim.api.nvim_buf_set_lines(codex_jobs_buf, 0, -1, false, lines)
 	vim.bo[codex_jobs_buf].modified = false
 	vim.bo[codex_jobs_buf].modifiable = false
+	vim.api.nvim_buf_clear_namespace(codex_jobs_buf, CODEX_JOBS_HIGHLIGHT_NAMESPACE, 0, -1)
+
+	for line, highlight in pairs(codex_jobs_line_highlights) do
+		vim.api.nvim_buf_add_highlight(codex_jobs_buf, CODEX_JOBS_HIGHLIGHT_NAMESPACE, highlight, line - 1, 0, -1)
+	end
 
 	if is_valid_window(codex_jobs_win) then
 		vim.api.nvim_win_set_config(codex_jobs_win, codex_jobs_float_config(#lines))
@@ -741,7 +849,8 @@ end
 local function build_ephemeral_prompt(action, instruction, target)
 	local mode_description
 	if action == "edit" then
-		mode_description = "Apply the user's requested edits if appropriate. Keep changes scoped to the supplied context."
+		mode_description =
+			"Apply the user's requested edits if appropriate. Keep changes scoped to the supplied context."
 	else
 		mode_description = "Answer the user's instruction using the supplied context. Do not modify files."
 	end
@@ -846,7 +955,7 @@ local function run_ephemeral(action, target, instruction)
 			vim.schedule(function()
 				stop_activity()
 				local result_path =
-					open_result_file(make_result_lines(action, instruction, target, code, stdout_lines, stderr_lines))
+					write_result_file(make_result_lines(action, instruction, target, code, stdout_lines, stderr_lines))
 				local status = job_record.cancel_requested and "cancelled" or (code == 0 and "success" or "failed")
 				update_ephemeral_job(job_record, {
 					exit_code = code,
@@ -855,7 +964,8 @@ local function run_ephemeral(action, target, instruction)
 					status = status,
 				})
 
-				local level = (status == "success" or status == "cancelled") and vim.log.levels.INFO or vim.log.levels.WARN
+				local level = (status == "success" or status == "cancelled") and vim.log.levels.INFO
+					or vim.log.levels.WARN
 				local suffix = result_path and ": " .. vim.fn.fnamemodify(result_path, ":~") or ""
 				notify("Ephemeral Codex " .. action .. " " .. status .. " with code " .. code .. suffix, level)
 			end)
@@ -880,6 +990,13 @@ local function run_ephemeral(action, target, instruction)
 	vim.fn.chanclose(job_id, "stdin")
 end
 
+---Prompt for an instruction and run an ephemeral Codex job for the given target.
+---
+---The action controls both the input prompt label and how the job is executed:
+---"edit" requests an edit, while any other action is treated as a command.
+---If no target can be built, this returns without prompting.
+---@param action string
+---@param target table|nil
 local function prompt_and_run_ephemeral(action, target)
 	if not target then
 		return
@@ -1030,6 +1147,21 @@ function M.toggle_jobs()
 	open_codex_jobs_panel()
 end
 
+function M.delete_job(opts)
+	local id = opts and opts.args and opts.args ~= "" and opts.args or nil
+	if id then
+		delete_ephemeral_job_by_id(id)
+		return
+	end
+
+	if is_valid_window(codex_jobs_win) and vim.api.nvim_get_current_win() == codex_jobs_win then
+		delete_selected_ephemeral_job()
+		return
+	end
+
+	notify("Usage: CodexJobsDelete <id>", vim.log.levels.WARN)
+end
+
 function M.setup()
 	if setup_done or vim.g.vscode then
 		return
@@ -1043,18 +1175,19 @@ function M.setup()
 	vim.api.nvim_create_user_command("CodexEditFile", M.edit_file, {})
 	vim.api.nvim_create_user_command("CodexEditSelection", M.edit_selection, { range = true })
 	vim.api.nvim_create_user_command("CodexJobs", M.toggle_jobs, {})
+	vim.api.nvim_create_user_command("CodexJobsDelete", M.delete_job, { nargs = "?" })
 	vim.api.nvim_create_user_command("CodexSendFile", M.send_file, {})
 	vim.api.nvim_create_user_command("CodexSendLine", M.send_line, {})
 	vim.api.nvim_create_user_command("CodexSendParagraph", M.send_paragraph, {})
 	vim.api.nvim_create_user_command("CodexSendSelection", M.send_selection, { range = true })
 
+	vim.keymap.set("n", "<leader>aj", M.toggle_jobs, { desc = "Codex: jobs" })
 	vim.keymap.set("n", "<leader>aa", M.toggle, { desc = "Codex: toggle chat" })
 	vim.keymap.set("n", "<leader>ac", M.command_file, { desc = "Codex: command over file" })
 	vim.keymap.set("x", "<leader>ac", M.command_selection, { desc = "Codex: command over selection" })
 	vim.keymap.set("n", "<leader>ae", M.edit_file, { desc = "Codex: edit file" })
 	vim.keymap.set("x", "<leader>ae", M.edit_selection, { desc = "Codex: edit selection" })
 	vim.keymap.set("n", "<leader>af", M.send_file, { desc = "Codex: send file context" })
-	vim.keymap.set("n", "<leader>aj", M.toggle_jobs, { desc = "Codex: jobs" })
 	vim.keymap.set("n", "<leader>al", M.send_line, { desc = "Codex: send line" })
 	vim.keymap.set("n", "<leader>ap", M.send_paragraph, { desc = "Codex: send paragraph" })
 	vim.keymap.set("x", "<leader>as", M.send_selection, { desc = "Codex: send selection" })
