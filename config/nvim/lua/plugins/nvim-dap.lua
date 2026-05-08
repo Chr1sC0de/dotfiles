@@ -21,16 +21,6 @@ return {
 			layouts = {
 				{
 					elements = {
-						{ id = "scopes", size = 0.25 },
-						{ id = "breakpoints", size = 0.25 },
-						{ id = "stacks", size = 0.25 },
-						{ id = "watches", size = 0.25 },
-					},
-					size = 40,
-					position = "left",
-				},
-				{
-					elements = {
 						{ id = "console", size = 1 },
 					},
 					size = 0.25,
@@ -38,6 +28,18 @@ return {
 				},
 			},
 		})
+
+		local function dapui_float_element(element, title)
+			return function()
+				dapui.float_element(element, {
+					enter = true,
+					position = "center",
+					width = math.floor(vim.o.columns * 0.7),
+					height = math.floor(vim.o.lines * 0.7),
+					title = title,
+				})
+			end
+		end
 
 		-- set the keymaps
 		vim.keymap.set("n", "<F5>", function()
@@ -77,6 +79,14 @@ return {
 		vim.keymap.set("n", "<Leader>dt", function()
 			dapui.toggle()
 		end, { desc = "dap-ui: toggle" })
+		vim.keymap.set("n", "<Leader>dS", dapui_float_element("stacks", "Stacks"), { desc = "dap-ui: float stacks" })
+		vim.keymap.set(
+			"n",
+			"<Leader>dB",
+			dapui_float_element("breakpoints", "Breakpoints"),
+			{ desc = "dap-ui: float breakpoints" }
+		)
+		vim.keymap.set("n", "<Leader>dW", dapui_float_element("watches", "Watches"), { desc = "dap-ui: float watches" })
 		vim.keymap.set("n", "<Leader>dl", function()
 			dap.run_last()
 		end, { desc = "dap: run last" })
