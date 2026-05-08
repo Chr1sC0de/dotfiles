@@ -4,7 +4,10 @@ return {
 	enabled = not vim.g.vscode,
 	desc = "Debugging support. Requires language specific adapters to be configured. (see lang extras)",
 	dependencies = {
-		"igorlfs/nvim-dap-view",
+		{
+			"rcarriga/nvim-dap-ui",
+			dependencies = { "nvim-neotest/nvim-nio" },
+		},
 		"mfussenegger/nvim-dap-python",
 		"theHamsta/nvim-dap-virtual-text",
 		"jbyuki/one-small-step-for-vimkind",
@@ -12,6 +15,29 @@ return {
 	lazy = false,
 	config = function()
 		local dap = require("dap")
+		local dapui = require("dapui")
+
+		dapui.setup({
+			layouts = {
+				{
+					elements = {
+						{ id = "scopes", size = 0.25 },
+						{ id = "breakpoints", size = 0.25 },
+						{ id = "stacks", size = 0.25 },
+						{ id = "watches", size = 0.25 },
+					},
+					size = 40,
+					position = "left",
+				},
+				{
+					elements = {
+						{ id = "console", size = 1 },
+					},
+					size = 0.25,
+					position = "bottom",
+				},
+			},
+		})
 
 		-- set the keymaps
 		vim.keymap.set("n", "<F5>", function()
@@ -47,7 +73,10 @@ return {
 		end, { desc = "dap: set logpoint message" })
 		vim.keymap.set("n", "<Leader>dr", function()
 			dap.repl.toggle()
-		end, { desc = "dap: open toggle" })
+		end, { desc = "dap: toggle repl" })
+		vim.keymap.set("n", "<Leader>dt", function()
+			dapui.toggle()
+		end, { desc = "dap-ui: toggle" })
 		vim.keymap.set("n", "<Leader>dl", function()
 			dap.run_last()
 		end, { desc = "dap: run last" })
