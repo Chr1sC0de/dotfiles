@@ -3,6 +3,7 @@ require("core.lazy")
 if not vim.g.vscode then
 	require("core.lsp")
 	require("config.autocmds")
+	require("config.codex").setup()
 end
 
 require("config.options")
