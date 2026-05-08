@@ -47,6 +47,11 @@ vim.keymap.set("n", "<leader>ot", ":ObsidianTags<cr>", { desc = "Obsidian Tags" 
 vim.keymap.set("n", "<a-t>", ":tabnext<cr>", { desc = "tabnext", silent = false })
 vim.keymap.set("n", "<a-s-t>", ":tabprevious<cr>", { desc = "tabprevious", silent = false })
 
+vim.keymap.set("n", "<A-h>", "<C-w>h", { desc = "Go to left split" })
+vim.keymap.set("n", "<A-j>", "<C-w>j", { desc = "Go to lower split" })
+vim.keymap.set("n", "<A-k>", "<C-w>k", { desc = "Go to upper split" })
+vim.keymap.set("n", "<A-l>", "<C-w>l", { desc = "Go to right split" })
+
 -- SORT IMPORTS
 vim.keymap.set("n", "<leader>si", function()
 	vim.lsp.buf.code_action({ context = { only = { "source.organizeImports" } }, apply = true })
