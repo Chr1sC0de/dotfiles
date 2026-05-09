@@ -151,6 +151,21 @@ local function trim_whitespace(value)
 	return tostring(value):match("^%s*(.-)%s*$")
 end
 
+local function trim_display(value, width)
+	value = tostring(value or "")
+	if #value <= width then
+		return value
+	end
+
+	return value:sub(1, math.max(width - 3, 1)) .. "..."
+end
+
+local function job_instruction_display(job)
+	local instruction = job and job.instruction or ""
+	instruction = instruction:gsub("%s+", " ")
+	return trim_whitespace(instruction)
+end
+
 local function ephemeral_model_display(model)
 	return model and model ~= "" and model or "CLI default"
 end
@@ -438,6 +453,16 @@ local function ephemeral_running_label(action, target, job)
 	return "Codex" .. job_id .. " " .. style.verb .. " " .. target.kind
 end
 
+local function ephemeral_spinner_label(action, target, job)
+	local instruction = job_instruction_display(job)
+	if instruction == "" then
+		return ephemeral_running_label(action, target, job)
+	end
+
+	local job_id = job and " #" .. job.id or ""
+	return "Codex" .. job_id .. " " .. action .. ": " .. trim_display(instruction, 48)
+end
+
 local function define_ephemeral_signs()
 	for _, style in pairs(EPHEMERAL_SPINNER_STYLES) do
 		for _, sign in ipairs(style.frames) do
@@ -523,7 +548,7 @@ local function start_ephemeral_spinner(action, target, job)
 			pcall(vim.api.nvim_buf_set_extmark, bufnr, EPHEMERAL_SPINNER_NAMESPACE, line - 1, 0, {
 				id = extmark_id,
 				virt_text = {
-					{ " " .. sign.text .. " " .. ephemeral_running_label(action, target, job), style.highlight },
+					{ " " .. sign.text .. " " .. ephemeral_spinner_label(action, target, job), style.highlight },
 				},
 				virt_text_pos = "eol",
 				hl_mode = "combine",
@@ -922,15 +947,6 @@ local function job_status_highlight(job)
 	return "DiagnosticInfo"
 end
 
-local function trim_display(value, width)
-	value = tostring(value or "")
-	if #value <= width then
-		return value
-	end
-
-	return value:sub(1, math.max(width - 3, 1)) .. "..."
-end
-
 local function job_location(job)
 	return job.path .. ":" .. job_line_range(job)
 end
@@ -945,12 +961,6 @@ end
 
 local function job_model_display(job)
 	return ephemeral_model_display(job.model)
-end
-
-local function job_instruction_display(job)
-	local instruction = job.instruction or ""
-	instruction = instruction:gsub("%s+", " ")
-	return trim_whitespace(instruction)
 end
 
 local function build_codex_jobs_lines()
@@ -1030,7 +1040,8 @@ local function codex_jobs_float_config(line_count)
 	local editor_lines = vim.o.lines
 	local width = math.min(math.max(math.floor(columns * 0.92), 88), math.max(columns - 2, 20))
 	local available_height = math.max(editor_lines - 4, 8)
-	local height = math.min(math.max(line_count, 12), math.min(available_height, 34))
+	local max_height = math.min(available_height, math.max(math.floor(editor_lines * 0.8), 8))
+	local height = math.min(math.max(line_count, 12), max_height)
 
 	return {
 		relative = "editor",
