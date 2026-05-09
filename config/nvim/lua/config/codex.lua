@@ -1035,13 +1035,13 @@ local function build_codex_jobs_lines()
 	return lines
 end
 
-local function codex_jobs_float_config(line_count)
+local function codex_jobs_float_config()
 	local columns = vim.o.columns
 	local editor_lines = vim.o.lines
 	local width = math.min(math.max(math.floor(columns * 0.92), 88), math.max(columns - 2, 20))
 	local available_height = math.max(editor_lines - 4, 8)
 	local max_height = math.min(available_height, math.max(math.floor(editor_lines * 0.8), 8))
-	local height = math.min(math.max(line_count, 12), max_height)
+	local height = max_height
 
 	return {
 		relative = "editor",
@@ -1073,7 +1073,7 @@ render_codex_jobs_panel = function()
 	end
 
 	if is_valid_window(codex_jobs_win) then
-		vim.api.nvim_win_set_config(codex_jobs_win, codex_jobs_float_config(#lines))
+		vim.api.nvim_win_set_config(codex_jobs_win, codex_jobs_float_config())
 	end
 end
 
@@ -1085,7 +1085,7 @@ local function open_codex_jobs_panel()
 		return
 	end
 
-	codex_jobs_win = vim.api.nvim_open_win(bufnr, true, codex_jobs_float_config(6))
+	codex_jobs_win = vim.api.nvim_open_win(bufnr, true, codex_jobs_float_config())
 	vim.wo[codex_jobs_win].cursorline = true
 	vim.wo[codex_jobs_win].number = false
 	vim.wo[codex_jobs_win].relativenumber = false
