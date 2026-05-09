@@ -48,6 +48,7 @@ local codex_job_id = nil
 local codex_jobs_buf = nil
 local codex_jobs_line_highlights = {}
 local codex_jobs_line_to_id = {}
+local codex_jobs_preview_win = nil
 local codex_jobs_win = nil
 local previous_buf = nil
 local active_ephemeral_diagnostics = {}
@@ -591,7 +592,7 @@ local function refresh_open_codex_jobs_panel()
 	end
 end
 
-local function create_ephemeral_job_record(action, target, model)
+local function create_ephemeral_job_record(action, target, model, instruction)
 	local id = next_ephemeral_job_id
 	next_ephemeral_job_id = next_ephemeral_job_id + 1
 
@@ -601,6 +602,7 @@ local function create_ephemeral_job_record(action, target, model)
 		cancel_requested = false,
 		exit_code = nil,
 		finished_at = nil,
+		instruction = instruction,
 		job_id = nil,
 		kind = target.kind,
 		model = model,
@@ -668,6 +670,13 @@ local function close_codex_jobs_panel()
 	codex_jobs_win = nil
 end
 
+local function close_codex_jobs_preview()
+	if is_valid_window(codex_jobs_preview_win) then
+		vim.api.nvim_win_close(codex_jobs_preview_win, true)
+	end
+	codex_jobs_preview_win = nil
+end
+
 local function selected_ephemeral_job()
 	local line = vim.api.nvim_win_get_cursor(0)[1]
 	local id = codex_jobs_line_to_id[line]
@@ -721,6 +730,72 @@ local function open_selected_ephemeral_job_result()
 	open_ephemeral_job_result(selected_ephemeral_job())
 end
 
+local function preview_ephemeral_job_instruction(job)
+	if not job then
+		notify("No Codex job under cursor", vim.log.levels.WARN)
+		return
+	end
+
+	close_codex_jobs_preview()
+
+	local line_range = "?"
+	if job.start_line and job.end_line then
+		line_range = job.start_line == job.end_line and tostring(job.start_line)
+			or job.start_line .. "-" .. job.end_line
+	end
+
+	local lines = {
+		"Codex Job #" .. job.id,
+		"",
+		"Action: " .. job.action,
+		"Target: " .. job.kind,
+		"Model: " .. ephemeral_model_display(job.model),
+		"Status: " .. job.status,
+		"Location: " .. job.path .. ":" .. line_range,
+		"",
+		"Instruction:",
+		"",
+	}
+	vim.list_extend(lines, vim.split(job.instruction or "", "\n", { plain = true }))
+
+	local bufnr = vim.api.nvim_create_buf(false, true)
+	vim.bo[bufnr].bufhidden = "wipe"
+	vim.bo[bufnr].buftype = "nofile"
+	vim.bo[bufnr].filetype = "markdown"
+	vim.bo[bufnr].modifiable = true
+	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+	vim.bo[bufnr].modifiable = false
+	vim.bo[bufnr].swapfile = false
+
+	local columns = vim.o.columns
+	local editor_lines = vim.o.lines
+	local width = math.min(math.max(math.floor(columns * 0.72), 60), math.max(columns - 6, 20))
+	local height = math.min(math.max(#lines, 12), math.max(editor_lines - 8, 8))
+	codex_jobs_preview_win = vim.api.nvim_open_win(bufnr, true, {
+		relative = "editor",
+		row = math.max(math.floor((editor_lines - height) / 2), 0),
+		col = math.max(math.floor((columns - width) / 2), 0),
+		width = width,
+		height = height,
+		border = "rounded",
+		style = "minimal",
+		title = " Codex Job Command ",
+		title_pos = "center",
+	})
+	vim.wo[codex_jobs_preview_win].number = false
+	vim.wo[codex_jobs_preview_win].relativenumber = false
+	vim.wo[codex_jobs_preview_win].signcolumn = "no"
+	vim.wo[codex_jobs_preview_win].wrap = true
+
+	local opts = { buffer = bufnr, nowait = true, silent = true }
+	vim.keymap.set("n", "q", close_codex_jobs_preview, opts)
+	vim.keymap.set("n", "<Esc>", close_codex_jobs_preview, opts)
+end
+
+local function preview_selected_ephemeral_job_instruction()
+	preview_ephemeral_job_instruction(selected_ephemeral_job())
+end
+
 local function cancel_selected_ephemeral_job()
 	local job = selected_ephemeral_job()
 	if not job or not is_ephemeral_job_active(job) or not job.job_id then
@@ -766,6 +841,7 @@ local function ensure_codex_jobs_buffer()
 	vim.keymap.set("n", "d", delete_selected_ephemeral_job, opts)
 	vim.keymap.set("n", "g", jump_to_selected_ephemeral_job_source, opts)
 	vim.keymap.set("n", "o", open_selected_ephemeral_job_result, opts)
+	vim.keymap.set("n", "p", preview_selected_ephemeral_job_instruction, opts)
 	vim.keymap.set("n", "x", cancel_selected_ephemeral_job, opts)
 
 	return codex_jobs_buf
@@ -871,11 +947,17 @@ local function job_model_display(job)
 	return ephemeral_model_display(job.model)
 end
 
+local function job_instruction_display(job)
+	local instruction = job.instruction or ""
+	instruction = instruction:gsub("%s+", " ")
+	return trim_whitespace(instruction)
+end
+
 local function build_codex_jobs_lines()
 	local lines = {
 		"Codex Jobs",
 		"",
-		"Keys: <CR> open/jump  o result  g source  x cancel  d delete  r refresh  q close",
+		"Keys: <CR> open/jump  o result  g source  p preview  x cancel  d delete  r refresh  q close",
 		"",
 	}
 	codex_jobs_line_to_id = {}
@@ -901,11 +983,12 @@ local function build_codex_jobs_lines()
 		table.insert(
 			lines,
 			string.format(
-				"%-4s %-9s %-7s %-9s %-14s %-38s %-6s %s",
+				"%-4s %-9s %-7s %-9s %-32s %-14s %-38s %-6s %s",
 				"ID",
 				"Status",
 				"Action",
 				"Target",
+				"Command",
 				"Model",
 				"Location",
 				"Age",
@@ -917,11 +1000,12 @@ local function build_codex_jobs_lines()
 		for _, job in ipairs(jobs) do
 			local exit = job.exit_code and " exit=" .. job.exit_code or ""
 			local line = string.format(
-				"%-4d %-9s %-7s %-9s %-14s %-38s %-6s %s",
+				"%-4d %-9s %-7s %-9s %-32s %-14s %-38s %-6s %s",
 				job.id,
 				job_status_label(job),
 				job.action,
 				job.kind,
+				trim_display(job_instruction_display(job), 32),
 				trim_display(job_model_display(job), 14),
 				trim_display(job_location(job), 38),
 				job_age(job),
@@ -1095,7 +1179,7 @@ local function make_result_lines(action, instruction, target, model, exit_code, 
 		"",
 		"## Stdout",
 		"",
-		"```",
+		"```markdown",
 	}
 
 	vim.list_extend(lines, stdout_lines)
@@ -1104,7 +1188,7 @@ local function make_result_lines(action, instruction, target, model, exit_code, 
 		"",
 		"## Stderr",
 		"",
-		"```",
+		"```markdown",
 	})
 	vim.list_extend(lines, stderr_lines)
 	vim.list_extend(lines, { "```" })
@@ -1127,7 +1211,7 @@ local function run_ephemeral(action, target, instruction)
 	local prompt = build_ephemeral_prompt(action, instruction, target)
 	local stdout_lines = {}
 	local stderr_lines = {}
-	local job_record = create_ephemeral_job_record(action, target, model)
+	local job_record = create_ephemeral_job_record(action, target, model, instruction)
 	local stop_spinner = start_ephemeral_spinner(action, target, job_record)
 	local stop_diagnostic = start_ephemeral_diagnostic(action, target, job_record)
 	local function stop_activity()
