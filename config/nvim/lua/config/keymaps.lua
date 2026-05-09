@@ -4,6 +4,19 @@ vim.g.maplocalleader = "\\"
 vim.keymap.set("n", "<c-s>", ":w<cr>", { desc = "Save file" })
 vim.keymap.set("n", "<c-z>", "u", { desc = "Undo" })
 
+vim.keymap.set(
+	{ "n", "x" },
+	"j",
+	"v:count == 0 ? 'gj' : 'j'",
+	{ expr = true, silent = true, desc = "Move down by visual line" }
+)
+vim.keymap.set(
+	{ "n", "x" },
+	"k",
+	"v:count == 0 ? 'gk' : 'k'",
+	{ expr = true, silent = true, desc = "Move up by visual line" }
+)
+
 -- SETUP A TOGGLE FOR THE VIRTUAL EDIT COMMAND
 TOGGLE_VIRTUALEDIT = false
 vim.opt.virtualedit = nil

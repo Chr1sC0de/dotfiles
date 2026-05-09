@@ -1190,19 +1190,14 @@ local function make_result_lines(action, instruction, target, model, exit_code, 
 		"",
 		"## Stdout",
 		"",
-		"```markdown",
 	}
-
 	vim.list_extend(lines, stdout_lines)
 	vim.list_extend(lines, {
-		"```",
 		"",
 		"## Stderr",
 		"",
-		"```markdown",
 	})
 	vim.list_extend(lines, stderr_lines)
-	vim.list_extend(lines, { "```" })
 
 	return lines
 end

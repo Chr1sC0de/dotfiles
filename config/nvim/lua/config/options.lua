@@ -6,6 +6,16 @@ vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.autoread = true
 
+vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold", "CursorHoldI" }, {
+	desc = "Reload files changed outside Neovim",
+	command = "checktime",
+})
+
+vim.api.nvim_create_autocmd("FileChangedShellPost", {
+	desc = "Redraw after external file changes",
+	command = "redraw!",
+})
+
 -- vim.cmd("hi Normal guibg=NONE ctermbg=NONE")
 
 -- Set a color for all line numbers
