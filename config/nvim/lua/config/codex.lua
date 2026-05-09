@@ -5,19 +5,37 @@ local CODEX_JOBS_BUF_NAME = "codex://jobs"
 local CODEX_JOBS_HIGHLIGHT_NAMESPACE = vim.api.nvim_create_namespace("codex-jobs")
 local EPHEMERAL_RESULT_SUBDIR = "codex/ephemeral"
 local EPHEMERAL_DIAGNOSTIC_NAMESPACE = vim.api.nvim_create_namespace("codex-ephemeral")
+local EPHEMERAL_SPINNER_NAMESPACE = vim.api.nvim_create_namespace("codex-ephemeral-spinner")
 local EPHEMERAL_RECENT_JOB_LIMIT = 20
 local EPHEMERAL_SIGN_GROUP = "codex-ephemeral"
-local EPHEMERAL_SPINNER_SIGNS = {
-	{ name = "CodexEphemeralSpinner1", text = "|" },
-	{ name = "CodexEphemeralSpinner2", text = "/" },
-	{ name = "CodexEphemeralSpinner3", text = "-" },
-	{ name = "CodexEphemeralSpinner4", text = "\\" },
+local EPHEMERAL_SPINNER_STYLES = {
+	edit = {
+		highlight = "DiagnosticWarn",
+		verb = "editing",
+		frames = {
+			{ name = "CodexEphemeralEditSpinner1", text = "󰚩" },
+			{ name = "CodexEphemeralEditSpinner2", text = "󰏫" },
+			{ name = "CodexEphemeralEditSpinner3", text = "󰚩" },
+			{ name = "CodexEphemeralEditSpinner4", text = "󰏬" },
+		},
+	},
+	command = {
+		highlight = "DiagnosticInfo",
+		verb = "command over",
+		frames = {
+			{ name = "CodexEphemeralCommandSpinner1", text = "󰚩" },
+			{ name = "CodexEphemeralCommandSpinner2", text = "" },
+			{ name = "CodexEphemeralCommandSpinner3", text = "󰚩" },
+			{ name = "CodexEphemeralCommandSpinner4", text = "" },
+		},
+	},
 }
 local EPHEMERAL_MODEL_CHOICES = {
 	{ label = "CLI default", model = nil },
 	{ label = "gpt-5.4-mini", model = "gpt-5.4-mini" },
 	{ label = "gpt-5.4-nano", model = "gpt-5.4-nano" },
 	{ label = "gpt-5.3-codex", model = "gpt-5.3-codex" },
+	{ label = "gpt-5.3-codex-spark", model = "gpt-5.3-codex-spark" },
 	{ label = "gpt-5.5", model = "gpt-5.5" },
 	{ label = "Custom...", custom = true },
 }
@@ -408,9 +426,22 @@ local function write_result_file(lines)
 	return path
 end
 
+local function ephemeral_spinner_style(action)
+	return EPHEMERAL_SPINNER_STYLES[action] or EPHEMERAL_SPINNER_STYLES.command
+end
+
+local function ephemeral_running_label(action, target, job)
+	local style = ephemeral_spinner_style(action)
+	local job_id = job and " #" .. job.id or ""
+
+	return "Codex" .. job_id .. " " .. style.verb .. " " .. target.kind
+end
+
 local function define_ephemeral_signs()
-	for _, sign in ipairs(EPHEMERAL_SPINNER_SIGNS) do
-		vim.fn.sign_define(sign.name, { text = sign.text, texthl = "DiagnosticInfo" })
+	for _, style in pairs(EPHEMERAL_SPINNER_STYLES) do
+		for _, sign in ipairs(style.frames) do
+			vim.fn.sign_define(sign.name, { text = sign.text, texthl = style.highlight })
+		end
 	end
 end
 
@@ -429,7 +460,7 @@ local function refresh_ephemeral_diagnostics(bufnr)
 	vim.diagnostic.set(EPHEMERAL_DIAGNOSTIC_NAMESPACE, bufnr, diagnostics, {})
 end
 
-local function start_ephemeral_diagnostic(action, target)
+local function start_ephemeral_diagnostic(action, target, job)
 	local bufnr = target.spinner_buf
 	if not is_valid_buffer(bufnr) then
 		return function() end
@@ -444,7 +475,7 @@ local function start_ephemeral_diagnostic(action, target)
 			col = 0,
 			severity = vim.diagnostic.severity.INFO,
 			source = "codex",
-			message = "Codex " .. action .. " running over " .. target.kind,
+			message = ephemeral_running_label(action, target, job),
 		},
 	}
 	refresh_ephemeral_diagnostics(bufnr)
@@ -455,29 +486,56 @@ local function start_ephemeral_diagnostic(action, target)
 	end
 end
 
-local function start_ephemeral_spinner(bufnr, line)
+local function start_ephemeral_spinner(action, target, job)
+	local bufnr = target.spinner_buf
+	if not is_valid_buffer(bufnr) then
+		return function() end
+	end
+
+	local style = ephemeral_spinner_style(action)
 	local sign_id = next_ephemeral_sign_id
 	next_ephemeral_sign_id = next_ephemeral_sign_id + 1
 
 	local timer = vim.uv.new_timer()
+	local extmark_id = nil
 	local frame = 1
 	local running = true
+
+	local function target_line()
+		local line_count = vim.api.nvim_buf_line_count(bufnr)
+		return math.min(math.max(target.spinner_line, 1), math.max(line_count, 1))
+	end
 
 	local function place_sign()
 		if not running or not is_valid_buffer(bufnr) then
 			return
 		end
 
-		local sign = EPHEMERAL_SPINNER_SIGNS[frame]
+		local line = target_line()
+		local sign = style.frames[frame]
 		vim.fn.sign_place(sign_id, EPHEMERAL_SIGN_GROUP, sign.name, bufnr, {
-			lnum = math.max(line, 1),
+			lnum = line,
 			priority = 30,
 		})
-		frame = frame % #EPHEMERAL_SPINNER_SIGNS + 1
+
+		local ok, next_extmark_id =
+			pcall(vim.api.nvim_buf_set_extmark, bufnr, EPHEMERAL_SPINNER_NAMESPACE, line - 1, 0, {
+				id = extmark_id,
+				virt_text = {
+					{ " " .. sign.text .. " " .. ephemeral_running_label(action, target, job), style.highlight },
+				},
+				virt_text_pos = "eol",
+				hl_mode = "combine",
+			})
+		if ok then
+			extmark_id = next_extmark_id
+		end
+
+		frame = frame % #style.frames + 1
 	end
 
 	place_sign()
-	timer:start(120, 120, function()
+	timer:start(200, 300, function()
 		vim.schedule(place_sign)
 	end)
 
@@ -491,6 +549,9 @@ local function start_ephemeral_spinner(bufnr, line)
 
 		if is_valid_buffer(bufnr) then
 			vim.fn.sign_unplace(EPHEMERAL_SIGN_GROUP, { buffer = bufnr, id = sign_id })
+			if extmark_id then
+				pcall(vim.api.nvim_buf_del_extmark, bufnr, EPHEMERAL_SPINNER_NAMESPACE, extmark_id)
+			end
 		end
 	end
 end
@@ -1067,8 +1128,8 @@ local function run_ephemeral(action, target, instruction)
 	local stdout_lines = {}
 	local stderr_lines = {}
 	local job_record = create_ephemeral_job_record(action, target, model)
-	local stop_spinner = start_ephemeral_spinner(target.spinner_buf, target.spinner_line)
-	local stop_diagnostic = start_ephemeral_diagnostic(action, target)
+	local stop_spinner = start_ephemeral_spinner(action, target, job_record)
+	local stop_diagnostic = start_ephemeral_diagnostic(action, target, job_record)
 	local function stop_activity()
 		stop_spinner()
 		stop_diagnostic()
