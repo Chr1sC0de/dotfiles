@@ -4,6 +4,8 @@ vim.g.maplocalleader = "\\"
 vim.keymap.set("n", "<c-s>", ":w<cr>", { desc = "Save file" })
 vim.keymap.set("n", "<c-z>", "u", { desc = "Undo" })
 
+vim.keymap.set("n", "<leader>E", ":Neotree current<cr>", { noremap = true, silent = true, desc = "neotree: open" })
+
 vim.keymap.set(
 	{ "n", "x" },
 	"j",

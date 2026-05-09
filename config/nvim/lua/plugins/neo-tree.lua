@@ -8,4 +8,17 @@ return {
 		"nvim-tree/nvim-web-devicons", -- optional, but recommended
 	},
 	lazy = false, -- neo-tree will lazily load itself
+	config = function()
+		require("neo-tree").setup({
+			filesystem = {
+				hijack_netrw_behavior = "disabled",
+				window = {
+					mappings = {
+						["Z"] = "expand_all_subnodes",
+						["z"] = "close_all_subnodes",
+					},
+				},
+			},
+		})
+	end,
 }
