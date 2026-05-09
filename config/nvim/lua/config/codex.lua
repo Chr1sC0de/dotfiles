@@ -13,6 +13,18 @@ local EPHEMERAL_SPINNER_SIGNS = {
 	{ name = "CodexEphemeralSpinner3", text = "-" },
 	{ name = "CodexEphemeralSpinner4", text = "\\" },
 }
+local EPHEMERAL_MODEL_CHOICES = {
+	{ label = "CLI default", model = nil },
+	{ label = "gpt-5.4-mini", model = "gpt-5.4-mini" },
+	{ label = "gpt-5.4-nano", model = "gpt-5.4-nano" },
+	{ label = "gpt-5.3-codex", model = "gpt-5.3-codex" },
+	{ label = "gpt-5.5", model = "gpt-5.5" },
+	{ label = "Custom...", custom = true },
+}
+local EPHEMERAL_MODEL_TARGETS = {
+	{ label = "Ephemeral edits", action = "edit" },
+	{ label = "Ephemeral commands", action = "command" },
+}
 local codex_buf = nil
 local codex_job_id = nil
 local codex_jobs_buf = nil
@@ -27,6 +39,10 @@ local next_ephemeral_job_id = 1
 local next_ephemeral_diagnostic_id = 1
 local next_ephemeral_result_id = 1
 local next_ephemeral_sign_id = 1
+local ephemeral_models = {
+	command = nil,
+	edit = nil,
+}
 local setup_done = false
 local VISUAL_BLOCK_MODE = "\022"
 
@@ -106,6 +122,130 @@ local function buffer_file_context()
 	local modified = vim.bo.modified and "yes" or "no"
 
 	return path, line, filetype, modified
+end
+
+local function trim_whitespace(value)
+	if value == nil then
+		return ""
+	end
+
+	return tostring(value):match("^%s*(.-)%s*$")
+end
+
+local function ephemeral_model_display(model)
+	return model and model ~= "" and model or "CLI default"
+end
+
+local function ephemeral_action_label(action)
+	if action == "edit" then
+		return "ephemeral edits"
+	end
+	if action == "command" then
+		return "ephemeral commands"
+	end
+
+	return "ephemeral jobs"
+end
+
+local function set_ephemeral_model(action, model)
+	if action ~= "edit" and action ~= "command" then
+		notify("Unknown Codex ephemeral model target: " .. tostring(action), vim.log.levels.WARN)
+		return
+	end
+
+	model = trim_whitespace(model)
+	ephemeral_models[action] = model ~= "" and model or nil
+	notify(
+		"Codex " .. ephemeral_action_label(action) .. " model: " .. ephemeral_model_display(ephemeral_models[action])
+	)
+end
+
+local function prompt_custom_ephemeral_model(action)
+	vim.ui.input({
+		prompt = "Codex " .. ephemeral_action_label(action) .. " model: ",
+		default = ephemeral_models[action] or "",
+	}, function(model)
+		if model == nil then
+			return
+		end
+
+		model = trim_whitespace(model)
+		if model == "" then
+			notify("Codex " .. ephemeral_action_label(action) .. " model unchanged")
+			return
+		end
+
+		set_ephemeral_model(action, model)
+	end)
+end
+
+local function ephemeral_model_choices(action)
+	local choices = {}
+	local current_model = ephemeral_models[action]
+	local current_is_preset = false
+
+	for _, choice in ipairs(EPHEMERAL_MODEL_CHOICES) do
+		if not choice.custom and choice.model == current_model then
+			current_is_preset = true
+			break
+		end
+	end
+
+	if current_model and not current_is_preset then
+		table.insert(choices, { label = current_model, model = current_model, current = true })
+	end
+
+	vim.list_extend(choices, EPHEMERAL_MODEL_CHOICES)
+	return choices
+end
+
+local function select_ephemeral_model(action)
+	if action ~= "edit" and action ~= "command" then
+		notify("Usage: CodexEphemeralModel [edit|command]", vim.log.levels.WARN)
+		return
+	end
+
+	vim.ui.select(ephemeral_model_choices(action), {
+		prompt = "Codex " .. ephemeral_action_label(action) .. " model (current: " .. ephemeral_model_display(
+			ephemeral_models[action]
+		) .. ")",
+		format_item = function(choice)
+			if choice.current then
+				return choice.label .. " (current)"
+			end
+
+			if choice.custom then
+				return choice.label
+			end
+
+			local suffix = ephemeral_models[action] == choice.model and " (current)" or ""
+			return choice.label .. suffix
+		end,
+	}, function(choice)
+		if not choice then
+			return
+		end
+
+		if choice.custom then
+			prompt_custom_ephemeral_model(action)
+			return
+		end
+
+		set_ephemeral_model(action, choice.model)
+	end)
+end
+
+local function select_ephemeral_model_target()
+	vim.ui.select(EPHEMERAL_MODEL_TARGETS, {
+		prompt = "Codex ephemeral model target",
+		format_item = function(target)
+			return target.label .. " (" .. ephemeral_model_display(ephemeral_models[target.action]) .. ")"
+		end,
+	}, function(target)
+		if target then
+			select_ephemeral_model(target.action)
+		end
+	end)
 end
 
 local function start_codex()
@@ -390,7 +530,7 @@ local function refresh_open_codex_jobs_panel()
 	end
 end
 
-local function create_ephemeral_job_record(action, target)
+local function create_ephemeral_job_record(action, target, model)
 	local id = next_ephemeral_job_id
 	next_ephemeral_job_id = next_ephemeral_job_id + 1
 
@@ -402,6 +542,7 @@ local function create_ephemeral_job_record(action, target)
 		finished_at = nil,
 		job_id = nil,
 		kind = target.kind,
+		model = model,
 		path = target.path,
 		result_path = nil,
 		start_line = target.start_line,
@@ -665,6 +806,10 @@ local function job_result_display(job)
 	return vim.fn.fnamemodify(job.result_path, ":~:.")
 end
 
+local function job_model_display(job)
+	return ephemeral_model_display(job.model)
+end
+
 local function build_codex_jobs_lines()
 	local lines = {
 		"Codex Jobs",
@@ -695,11 +840,12 @@ local function build_codex_jobs_lines()
 		table.insert(
 			lines,
 			string.format(
-				"%-4s %-9s %-7s %-9s %-42s %-6s %s",
+				"%-4s %-9s %-7s %-9s %-14s %-38s %-6s %s",
 				"ID",
 				"Status",
 				"Action",
 				"Target",
+				"Model",
 				"Location",
 				"Age",
 				"Result"
@@ -710,14 +856,15 @@ local function build_codex_jobs_lines()
 		for _, job in ipairs(jobs) do
 			local exit = job.exit_code and " exit=" .. job.exit_code or ""
 			local line = string.format(
-				"%-4d %-9s %-7s %-9s %-42s %-6s %s",
+				"%-4d %-9s %-7s %-9s %-14s %-38s %-6s %s",
 				job.id,
 				job_status_label(job),
 				job.action,
 				job.kind,
-				trim_display(job_location(job), 42),
+				trim_display(job_model_display(job), 14),
+				trim_display(job_location(job), 38),
 				job_age(job),
-				trim_display(job_result_display(job) .. exit, 46)
+				trim_display(job_result_display(job) .. exit, 42)
 			)
 			table.insert(lines, line)
 			codex_jobs_line_to_id[#lines] = job.id
@@ -870,12 +1017,13 @@ local function build_ephemeral_prompt(action, instruction, target)
 	return table.concat(lines, "\n")
 end
 
-local function make_result_lines(action, instruction, target, exit_code, stdout_lines, stderr_lines)
+local function make_result_lines(action, instruction, target, model, exit_code, stdout_lines, stderr_lines)
 	local lines = {
 		"# Codex Ephemeral Result",
 		"",
 		"- Action: " .. action,
 		"- Target: " .. target.kind,
+		"- Model: " .. ephemeral_model_display(model),
 		"- Exit code: " .. exit_code,
 		"- File: " .. target.path,
 		"- Lines: " .. target.start_line .. "-" .. target.end_line,
@@ -914,10 +1062,11 @@ local function run_ephemeral(action, target, instruction)
 	end
 
 	local sandbox = action == "edit" and "workspace-write" or "read-only"
+	local model = ephemeral_models[action]
 	local prompt = build_ephemeral_prompt(action, instruction, target)
 	local stdout_lines = {}
 	local stderr_lines = {}
-	local job_record = create_ephemeral_job_record(action, target)
+	local job_record = create_ephemeral_job_record(action, target, model)
 	local stop_spinner = start_ephemeral_spinner(target.spinner_buf, target.spinner_line)
 	local stop_diagnostic = start_ephemeral_diagnostic(action, target)
 	local function stop_activity()
@@ -935,7 +1084,19 @@ local function run_ephemeral(action, target, instruction)
 		"-",
 	}
 
-	notify("Started ephemeral Codex " .. action .. " over " .. target.kind)
+	if model then
+		table.insert(command, 3, "--model")
+		table.insert(command, 4, model)
+	end
+
+	notify(
+		"Started ephemeral Codex "
+			.. action
+			.. " over "
+			.. target.kind
+			.. " with model "
+			.. ephemeral_model_display(model)
+	)
 
 	local job_id = vim.fn.jobstart(command, {
 		stdin = "pipe",
@@ -954,8 +1115,9 @@ local function run_ephemeral(action, target, instruction)
 		on_exit = function(_, code)
 			vim.schedule(function()
 				stop_activity()
-				local result_path =
-					write_result_file(make_result_lines(action, instruction, target, code, stdout_lines, stderr_lines))
+				local result_path = write_result_file(
+					make_result_lines(action, instruction, target, model, code, stdout_lines, stderr_lines)
+				)
 				local status = job_record.cancel_requested and "cancelled" or (code == 0 and "success" or "failed")
 				update_ephemeral_job(job_record, {
 					exit_code = code,
@@ -967,7 +1129,18 @@ local function run_ephemeral(action, target, instruction)
 				local level = (status == "success" or status == "cancelled") and vim.log.levels.INFO
 					or vim.log.levels.WARN
 				local suffix = result_path and ": " .. vim.fn.fnamemodify(result_path, ":~") or ""
-				notify("Ephemeral Codex " .. action .. " " .. status .. " with code " .. code .. suffix, level)
+				notify(
+					"Ephemeral Codex "
+						.. action
+						.. " "
+						.. status
+						.. " with model "
+						.. ephemeral_model_display(model)
+						.. " and code "
+						.. code
+						.. suffix,
+					level
+				)
 			end)
 		end,
 	})
@@ -1162,6 +1335,16 @@ function M.delete_job(opts)
 	notify("Usage: CodexJobsDelete <id>", vim.log.levels.WARN)
 end
 
+function M.select_ephemeral_model(opts)
+	local action = opts and trim_whitespace(opts.args) or ""
+	if action == "" then
+		select_ephemeral_model_target()
+		return
+	end
+
+	select_ephemeral_model(action)
+end
+
 function M.setup()
 	if setup_done or vim.g.vscode then
 		return
@@ -1174,6 +1357,12 @@ function M.setup()
 	vim.api.nvim_create_user_command("CodexCommandSelection", M.command_selection, { range = true })
 	vim.api.nvim_create_user_command("CodexEditFile", M.edit_file, {})
 	vim.api.nvim_create_user_command("CodexEditSelection", M.edit_selection, { range = true })
+	vim.api.nvim_create_user_command("CodexEphemeralModel", M.select_ephemeral_model, {
+		complete = function()
+			return { "edit", "command" }
+		end,
+		nargs = "?",
+	})
 	vim.api.nvim_create_user_command("CodexJobs", M.toggle_jobs, {})
 	vim.api.nvim_create_user_command("CodexJobsDelete", M.delete_job, { nargs = "?" })
 	vim.api.nvim_create_user_command("CodexSendFile", M.send_file, {})
@@ -1189,6 +1378,7 @@ function M.setup()
 	vim.keymap.set("x", "<leader>ae", M.edit_selection, { desc = "Codex: edit selection" })
 	vim.keymap.set("n", "<leader>af", M.send_file, { desc = "Codex: send file context" })
 	vim.keymap.set("n", "<leader>al", M.send_line, { desc = "Codex: send line" })
+	vim.keymap.set("n", "<leader>am", M.select_ephemeral_model, { desc = "Codex: ephemeral model" })
 	vim.keymap.set("n", "<leader>ap", M.send_paragraph, { desc = "Codex: send paragraph" })
 	vim.keymap.set("x", "<leader>as", M.send_selection, { desc = "Codex: send selection" })
 end
