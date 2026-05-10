@@ -130,9 +130,14 @@ return {
 			callback({ type = "server", host = config.host or "127.0.0.1", port = config.port or 8086 })
 		end
 
-		vim.keymap.set("n", "<leader>dl", function()
-			require("osv").launch({ port = 8086, frozen_delay = 100 })
-		end, { noremap = true, desc = "dap: launch one small step" })
+		vim.keymap.set(
+			"n",
+			"<leader>dl",
+			function()
+				require("osv").launch({ port = 8086, frozen_delay = 100 })
+			end,
+			{ noremap = true, desc = "dap: launch one small step neovim debugger, need to attach in separate instance" }
+		)
 
 		for name, sign in pairs({
 			Stopped = { "󰁕 ", "DiagnosticWarn", "DapStoppedLine" },

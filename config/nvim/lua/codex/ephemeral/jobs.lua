@@ -112,15 +112,15 @@ function M.delete_by_id(id)
 end
 
 local function get_ephemeral_result_dir()
-	local state_dir = vim.fn.stdpath("state")
-	local result_dir = state_dir .. "/" .. constants.EPHEMERAL_RESULT_SUBDIR
-	local ok, created = pcall(vim.fn.mkdir, result_dir, "p")
+	local tmp_dir = (vim.uv or vim.loop).os_tmpdir()
+	local result_dir = tmp_dir .. "/" .. constants.EPHEMERAL_RESULT_SUBDIR
+	local ok = pcall(vim.fn.mkdir, result_dir, "p")
 
-	if (ok and created == 1) or vim.fn.isdirectory(result_dir) == 1 then
+	if ok and vim.fn.isdirectory(result_dir) == 1 then
 		return result_dir
 	end
 
-	return vim.fn.fnamemodify(vim.fn.tempname(), ":h")
+	return tmp_dir
 end
 
 local function next_ephemeral_result_path()

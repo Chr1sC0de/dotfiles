@@ -69,7 +69,7 @@
   "todo-comments.nvim": { "branch": "main", "commit": "31e3c38ce9b29781e4422fc0322eb0a21f4e8668" },
   "transparent.nvim": { "branch": "main", "commit": "8ac59883de84e9cd1850ea25cf087031c5ba7d54" },
   "treesitter-modules.nvim": { "branch": "main", "commit": "dbded29dade0ff4435642530ec2b5a81730f8e1a" },
-  "undotree": { "branch": "main", "commit": "2c0a3c9488a8230213297cd573922ba6238f0c39" },
+  "undotree": { "branch": "main", "commit": "3c6e23c507a08b6fb0c3ac9ed1b10bc67b2a7b48" },
   "vim-dadbod": { "branch": "master", "commit": "6d1d41da4873a445c5605f2005ad2c68c99d8770" },
   "vim-dadbod-completion": { "branch": "master", "commit": "a8dac0b3cf6132c80dc9b18bef36d4cf7a9e1fe6" },
   "vim-dadbod-ui": { "branch": "master", "commit": "07e92e22114cc5b1ba4938d99897d85b58e20475" },

@@ -10,6 +10,13 @@ return {
 	},
 	config = function()
 		require("telescope").setup({
+			defaults = {
+				layout_strategy = "horizontal",
+				layout_config = {
+					width = 0.95,
+					height = 0.95,
+				},
+			},
 			extensions = {
 				fzf = {
 					fuzzy = true, -- false will only do exact matching
@@ -25,7 +32,61 @@ return {
 		local actions = require("telescope.actions")
 		local action_state = require("telescope.actions.state")
 
+		local pickers = require("telescope.pickers")
+		local finders = require("telescope.finders")
+		local conf = require("telescope.config").values
+		local previewers = require("telescope.previewers")
+
+		vim.keymap.set("n", "<leader>fd", function()
+			pickers
+				.new({}, {
+					prompt_title = "Folders",
+					finder = finders.new_oneshot_job({
+						"fd",
+						"--type",
+						"d",
+						"--hidden",
+						"--exclude",
+						".git",
+					}, {}),
+					sorter = conf.generic_sorter({}),
+					previewer = previewers.new_termopen_previewer({
+						get_command = function(entry)
+							if vim.fn.executable("eza") == 1 then
+								return { "eza", "--all", "--long", "--icons", "--git", entry.value }
+							end
+
+							return { "ls", "-la", entry.value }
+						end,
+					}),
+					attach_mappings = function(prompt_bufnr, map)
+						local function open_in_oil()
+							local entry = action_state.get_selected_entry()
+							actions.close(prompt_bufnr)
+
+							require("oil").open(entry.value)
+						end
+
+						map("i", "<CR>", open_in_oil)
+						map("n", "<CR>", open_in_oil)
+
+						return true
+					end,
+				})
+				:find()
+		end, { desc = "Telescope: open folder in Oil" })
+
 		vim.keymap.set("n", "<leader>ff", extensions.find_files, { desc = "Telescope: find files" })
+
+		vim.keymap.set("n", "<leader>fF", function()
+			local cwd = require("telescope.utils").buffer_dir()
+
+			if cwd == "" or vim.fn.isdirectory(cwd) == 0 then
+				cwd = vim.loop.cwd()
+			end
+
+			extensions.find_files({ cwd = cwd })
+		end, { desc = "Telescope: find files near current buffer" })
 
 		vim.keymap.set("n", "<leader>fT", builtin.treesitter, { desc = "Telescope: treesitter" })
 
@@ -96,41 +157,52 @@ return {
 		})
 
 		buffer_searcher = function()
-			builtin.buffers({
+			local opts = {
 				sort_mru = true,
 				ignore_current_buffer = true,
-				show_all_buffers = true,
-				attach_mappings = function(prompt_bufnr, map)
-					local refresh_buffer_searcher = function()
-						actions.close(prompt_bufnr)
-						vim.schedule(function()
-							buffer_searcher()
-							vim.api.nvim_feedkeys(
-								vim.api.nvim_replace_termcodes("<Esc>", true, false, true),
-								"n",
-								false
-							)
-						end)
+				show_all_buffers = false,
+				bufnr_width = #tostring(vim.fn.bufnr("$")),
+			}
+			local make_buffer_entry = require("telescope.make_entry").gen_from_buffer(opts)
+
+			opts.entry_maker = function(entry)
+				local bufnr = entry.bufnr
+				local name = vim.api.nvim_buf_get_name(bufnr)
+				local stat = (vim.uv or vim.loop).fs_stat(name)
+
+				if vim.bo[bufnr].buftype ~= "" or name == "" or not stat or stat.type ~= "file" then
+					return nil
+				end
+
+				return make_buffer_entry(entry)
+			end
+			opts.attach_mappings = function(prompt_bufnr, map)
+				local refresh_buffer_searcher = function()
+					actions.close(prompt_bufnr)
+					vim.schedule(function()
+						buffer_searcher()
+						vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+					end)
+				end
+				local delete_buf = function()
+					local selection = action_state.get_selected_entry()
+					vim.api.nvim_buf_delete(selection.bufnr, { force = true })
+					refresh_buffer_searcher()
+				end
+				local delete_multiple_buf = function()
+					local picker = action_state.get_current_picker(prompt_bufnr)
+					local selection = picker:get_multi_selection()
+					for _, entry in ipairs(selection) do
+						vim.api.nvim_buf_delete(entry.bufnr, { force = true })
 					end
-					local delete_buf = function()
-						local selection = action_state.get_selected_entry()
-						vim.api.nvim_buf_delete(selection.bufnr, { force = true })
-						refresh_buffer_searcher()
-					end
-					local delete_multiple_buf = function()
-						local picker = action_state.get_current_picker(prompt_bufnr)
-						local selection = picker:get_multi_selection()
-						for _, entry in ipairs(selection) do
-							vim.api.nvim_buf_delete(entry.bufnr, { force = true })
-						end
-						refresh_buffer_searcher()
-					end
-					map("n", "dd", delete_buf)
-					map("n", "<C-d>", delete_multiple_buf)
-					map("i", "<C-d>", delete_multiple_buf)
-					return true
-				end,
-			})
+					refresh_buffer_searcher()
+				end
+				map("n", "dd", delete_buf)
+				map("n", "<C-d>", delete_multiple_buf)
+				map("i", "<C-d>", delete_multiple_buf)
+				return true
+			end
+			builtin.buffers(opts)
 		end
 
 		vim.keymap.set("n", "<leader>fob", buffer_searcher, { desc = "Telescope: search buffers" })
