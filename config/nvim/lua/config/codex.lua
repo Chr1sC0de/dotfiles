@@ -134,6 +134,19 @@ local function repo_relative_path(path)
 	return vim.fn.fnamemodify(path, ":.")
 end
 
+local function join_path(parent, child)
+	if vim.fs and vim.fs.joinpath then
+		return vim.fs.joinpath(parent, child)
+	end
+
+	local last_char = parent:sub(-1)
+	if last_char == "/" or last_char == "\\" then
+		return parent .. child
+	end
+
+	return parent .. package.config:sub(1, 1) .. child
+end
+
 local function buffer_file_context()
 	local path = repo_relative_path(vim.api.nvim_buf_get_name(0))
 	local line = vim.api.nvim_win_get_cursor(0)[1]
@@ -1352,6 +1365,83 @@ local function send_text_context(kind, text, start_line, end_line)
 	end
 end
 
+local function build_oil_selection_entries(oil, bufnr, directory, start_line, end_line)
+	local entries = {}
+	local seen_paths = {}
+
+	for line = start_line, end_line do
+		local entry = oil.get_entry_on_line(bufnr, line)
+		local name = entry and trim_whitespace(entry.parsed_name or entry.name)
+
+		if name and name ~= "" then
+			local path = join_path(directory, name)
+			if not seen_paths[path] then
+				seen_paths[path] = true
+				table.insert(entries, {
+					path = repo_relative_path(path),
+					type = entry.type or "unknown",
+				})
+			end
+		end
+	end
+
+	return entries
+end
+
+local function send_oil_selection_context(text, start_line, end_line)
+	local bufnr = vim.api.nvim_get_current_buf()
+	if vim.bo[bufnr].filetype ~= "oil" then
+		return false
+	end
+
+	local ok, oil = pcall(require, "oil")
+	if not ok then
+		return false
+	end
+
+	local directory = oil.get_current_dir(bufnr)
+	if not directory then
+		return false
+	end
+
+	local entries = build_oil_selection_entries(oil, bufnr, directory, start_line, end_line)
+	if #entries == 0 then
+		return false
+	end
+
+	local entry_lines = {}
+	for _, entry in ipairs(entries) do
+		table.insert(entry_lines, "- " .. entry.path .. " [" .. entry.type .. "]")
+	end
+
+	local prompt_lines = {
+		"Use this Oil directory selection as context for the current Codex chat.",
+		"",
+		"Directory: " .. repo_relative_path(directory),
+		"Lines: " .. start_line .. "-" .. end_line,
+		"Filetype: oil",
+		"Unsaved Oil changes: " .. (vim.bo[bufnr].modified and "yes" or "no"),
+		"",
+		"Selected filesystem entries:",
+	}
+	vim.list_extend(prompt_lines, entry_lines)
+	vim.list_extend(prompt_lines, {
+		"",
+		"These entries came from an Oil directory buffer. Read files or directories from disk if needed.",
+		"",
+		"Raw Oil selection:",
+		"```oil",
+		text,
+		"```",
+	})
+
+	if paste_to_codex(table.concat(prompt_lines, "\n")) then
+		notify("Sent Oil selection to Codex: " .. repo_relative_path(directory) .. ":" .. start_line .. "-" .. end_line)
+	end
+
+	return true
+end
+
 local function line_is_blank(line)
 	return line:match("^%s*$") ~= nil
 end
@@ -1422,6 +1512,10 @@ function M.send_selection(opts)
 
 	if selected_text == "" then
 		notify("No visual selection to send to Codex", vim.log.levels.WARN)
+		return
+	end
+
+	if send_oil_selection_context(selected_text, start_line, end_line) then
 		return
 	end
 

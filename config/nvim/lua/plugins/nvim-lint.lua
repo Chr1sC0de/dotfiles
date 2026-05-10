@@ -30,7 +30,10 @@ return {
 		}
 
 		-- python is excluded here; zuban runs only on BufWritePost below
-		lint.linters_by_ft = { dockerfile = { "hadolint" } }
+		lint.linters_by_ft = {
+			python = { "zuban" },
+			dockerfile = { "hadolint" },
+		}
 
 		local lint_augroup = vim.api.nvim_create_augroup("lint", { clear = true })
 
@@ -40,15 +43,6 @@ return {
 				lint.try_lint()
 			end,
 		})
-
-		-- -- zuban is a type checker — only run on save, not on every keystroke/enter
-		-- vim.api.nvim_create_autocmd("BufWritePost", {
-		-- 	group = lint_augroup,
-		-- 	pattern = "*.py",
-		-- 	callback = function()
-		-- 		lint.try_lint("zuban")
-		-- 	end,
-		-- })
 
 		vim.keymap.set("n", "<leader>l", function()
 			lint.try_lint()
