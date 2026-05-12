@@ -51,23 +51,27 @@ local function run(args, opts)
 		return
 	end
 
-	vim.system(workmux_argv(args), { text = true }, vim.schedule_wrap(function(result)
-		if result.code ~= 0 then
-			notify(command_label(args) .. " failed: " .. failure_message(result), vim.log.levels.ERROR)
-			if opts.on_error then
-				opts.on_error(result)
+	vim.system(
+		workmux_argv(args),
+		{ text = true },
+		vim.schedule_wrap(function(result)
+			if result.code ~= 0 then
+				notify(command_label(args) .. " failed: " .. failure_message(result), vim.log.levels.ERROR)
+				if opts.on_error then
+					opts.on_error(result)
+				end
+				return
 			end
-			return
-		end
 
-		if opts.success then
-			notify(opts.success)
-		end
+			if opts.success then
+				notify(opts.success)
+			end
 
-		if opts.on_success then
-			opts.on_success(result)
-		end
-	end))
+			if opts.on_success then
+				opts.on_success(result)
+			end
+		end)
+	)
 end
 
 local function open_terminal(args)
