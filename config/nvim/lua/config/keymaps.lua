@@ -59,22 +59,7 @@ end
 
 vim.keymap.set("n", "<leader>ot", ":ObsidianTags<cr>", { desc = "Obsidian Tags" })
 
-local workmux = require("config.workmux")
-
-vim.keymap.set("n", "<leader>wa", workmux.add_prompt, { desc = "Workmux: add from prompt" })
-vim.keymap.set("n", "<leader>wA", workmux.add_branch, { desc = "Workmux: add branch" })
-vim.keymap.set("n", "<leader>wo", workmux.open, { desc = "Workmux: open worktree" })
-vim.keymap.set("n", "<leader>wO", workmux.open_continue, { desc = "Workmux: open and continue agent" })
-vim.keymap.set("n", "<leader>ww", workmux.dashboard_worktrees, { desc = "Workmux: dashboard worktrees" })
-vim.keymap.set("n", "<leader>wd", workmux.dashboard, { desc = "Workmux: dashboard" })
-vim.keymap.set("n", "<leader>wD", workmux.dashboard_diff, { desc = "Workmux: dashboard diff" })
-vim.keymap.set("n", "<leader>ws", workmux.sidebar_toggle, { desc = "Workmux: toggle sidebar" })
-vim.keymap.set("n", "<leader>wn", workmux.sidebar_next, { desc = "Workmux: next agent" })
-vim.keymap.set("n", "<leader>wp", workmux.sidebar_prev, { desc = "Workmux: previous agent" })
-vim.keymap.set("n", "<leader>wL", workmux.last_done, { desc = "Workmux: last done agent" })
-vim.keymap.set("n", "<leader>wc", workmux.close, { desc = "Workmux: close window" })
-vim.keymap.set("n", "<leader>wm", workmux.merge, { desc = "Workmux: merge branch" })
-vim.keymap.set("n", "<leader>wr", workmux.remove, { desc = "Workmux: remove worktree" })
+require("config.workmux").setup()
 
 vim.keymap.set("n", "<a-t>", ":tabnext<cr>", { desc = "tabnext", silent = false })
 vim.keymap.set("n", "<a-s-t>", ":tabprevious<cr>", { desc = "tabprevious", silent = false })

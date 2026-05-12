@@ -22,9 +22,10 @@ The leader key is space.
 | `<leader>wm` | Pick a worktree and merge its branch after exact-name confirmation |
 | `<leader>wr` | Pick a worktree and remove it after exact-name confirmation |
 
-The implementation lives in `lua/config/workmux.lua` and is registered from
-`lua/config/keymaps.lua`. Interactive TUI commands use `FTerm` when available
-and fall back to a Neovim terminal tab.
+The implementation lives in `lua/workmux/`, is exposed through
+`lua/config/workmux.lua`, and registers its own keymaps from
+`lua/workmux/commands.lua`. Interactive TUI commands use `FTerm` when
+available and fall back to a Neovim terminal tab.
 
 ## Subtree
 
