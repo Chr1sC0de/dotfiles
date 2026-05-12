@@ -7,20 +7,20 @@ The leader key is space.
 
 | Key | Action |
 | --- | --- |
-| `<leader>wa` | Prompt for a task and run `workmux add -A -p <prompt>` |
-| `<leader>wA` | Prompt for a branch/name and run `workmux add <name>` |
-| `<leader>wo` | Pick a worktree from `workmux list --json` and open it |
-| `<leader>wO` | Pick a worktree and open it with `--continue` |
-| `<leader>ww` | Open the dashboard on the worktrees tab |
-| `<leader>wd` | Open the dashboard |
-| `<leader>wD` | Open the dashboard diff view |
-| `<leader>ws` | Toggle the Workmux sidebar |
-| `<leader>wn` | Jump to the next sidebar agent |
-| `<leader>wp` | Jump to the previous sidebar agent |
-| `<leader>wL` | Jump to the most recently done or waiting agent |
-| `<leader>wc` | Pick a worktree and close its window |
-| `<leader>wm` | Pick a worktree and merge its branch after exact-name confirmation |
-| `<leader>wr` | Pick a worktree and remove it after exact-name confirmation |
+| `<leader>wa` | Prompt for a task, then run `workmux add -A -p <prompt>`; `add` creates a new worktree, `-p` passes the prompt text, and `-A` starts the agent for it. |
+| `<leader>wA` | Prompt for a branch or worktree name, then run `workmux add <name>` to create a new worktree for that name. |
+| `<leader>wo` | Load choices from `workmux list --json`, pick one, then run `workmux open <handle>` to open that worktree. |
+| `<leader>wO` | Pick a worktree and run `workmux open <handle> --continue`; `--continue` reopens the agent session while opening it. |
+| `<leader>ww` | Run `workmux dashboard --tab worktrees` in a terminal so the dashboard starts on the worktrees tab. |
+| `<leader>wd` | Run `workmux dashboard` in a terminal to open the default interactive dashboard. |
+| `<leader>wD` | Run `workmux dashboard --diff` in a terminal to open the dashboard diff view. |
+| `<leader>ws` | Run `workmux sidebar`; with no subcommand this toggles the Workmux sidebar. |
+| `<leader>wn` | Run `workmux sidebar next` to move focus to the next agent shown in the sidebar. |
+| `<leader>wp` | Run `workmux sidebar prev` to move focus to the previous agent shown in the sidebar. |
+| `<leader>wL` | Run `workmux last-done` to jump to the most recently done or waiting agent. |
+| `<leader>wc` | Pick a non-main worktree, then run `workmux close <handle>` to close its Workmux window without removing the worktree. |
+| `<leader>wm` | Pick a non-main worktree, type its exact handle to confirm, then run `workmux merge <branch>` in a terminal. |
+| `<leader>wr` | Pick a non-main worktree, type its exact handle to confirm, then run `workmux remove <handle>` in a terminal. |
 
 The implementation lives in `lua/workmux/`, is exposed through
 `lua/config/workmux.lua`, and registers its own keymaps from
