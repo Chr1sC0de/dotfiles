@@ -91,7 +91,7 @@ vim.filetype.add({
 vim.api.nvim_create_autocmd("TermOpen", {
 	desc = "Enable relative line numbers in terminal buffers",
 	callback = function()
-		vim.opt_local.number = true
-		vim.opt_local.relativenumber = true
+		vim.opt_local.number = false
+		vim.opt_local.relativenumber = false
 	end,
 })
