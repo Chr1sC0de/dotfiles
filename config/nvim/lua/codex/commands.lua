@@ -48,17 +48,19 @@ function M.setup(api)
 	vim.keymap.set("x", "<leader>ac", api.command_selection, { desc = "Codex: command over selection" })
 	vim.keymap.set("n", "<leader>ae", api.edit_file, { desc = "Codex: edit file" })
 	vim.keymap.set("x", "<leader>ae", api.edit_selection, { desc = "Codex: edit selection" })
-	vim.keymap.set("n", "<leader>ad", api.send_line_diagnostics, { desc = "Codex: send line diagnostics" })
+
+	vim.keymap.set("n", "<leader>ad", api.send_file_diagnostics, { desc = "Codex: send file diagnostics" })
 	vim.keymap.set("x", "<leader>ad", api.send_selection_diagnostics, { desc = "Codex: send selection diagnostics" })
-	vim.keymap.set("n", "<leader>aD", api.send_file_diagnostics, { desc = "Codex: send file diagnostics" })
+	vim.keymap.set("n", "<leader>ar", api.command_file_diagnostics, { desc = "Codex: command over file diagnostics" })
+	vim.keymap.set("x", "<leader>ar", api.command_selection_diagnostics, { desc = "Codex: command over selection diagnostics" })
+
 	vim.keymap.set("n", "<leader>af", api.send_file, { desc = "Codex: send file context" })
-	vim.keymap.set("n", "<leader>al", api.send_line, { desc = "Codex: send line" })
-	vim.keymap.set("n", "<leader>am", api.select_ephemeral_model, { desc = "Codex: ephemeral model" })
 	vim.keymap.set("n", "<leader>ap", api.send_paragraph, { desc = "Codex: send paragraph" })
-	vim.keymap.set("n", "<leader>ar", api.command_line_diagnostics, { desc = "Codex: command over line diagnostics" })
-	vim.keymap.set("x", "<leader>ar", api.command_selection_diagnostics, { desc = "Codex: command over diagnostics" })
-	vim.keymap.set("n", "<leader>aR", api.command_file_diagnostics, { desc = "Codex: command over file diagnostics" })
 	vim.keymap.set("x", "<leader>as", api.send_selection, { desc = "Codex: send selection" })
+	vim.keymap.set("n", "<leader>al", api.send_line, { desc = "Codex: send line" })
+
+	vim.keymap.set("n", "<leader>am", api.select_ephemeral_model, { desc = "Codex: ephemeral model" })
+
 
 	vim.api.nvim_create_autocmd("BufEnter", {
 		group = vim.api.nvim_create_augroup("codex-chat-targets", { clear = true }),
