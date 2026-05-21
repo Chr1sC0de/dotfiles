@@ -307,12 +307,12 @@ function M.run(action, target, instruction)
 	vim.fn.chanclose(job_id, "stdin")
 end
 
-function M.prompt_and_run(action, target)
+function M.prompt_and_run(action, target, input_prompt)
 	if not target then
 		return
 	end
 
-	local prompt = action == "edit" and "Codex edit: " or "Codex command: "
+	local prompt = input_prompt or (action == "edit" and "Codex edit: " or "Codex command: ")
 	vim.ui.input({ prompt = prompt }, function(instruction)
 		M.run(action, target, instruction)
 	end)

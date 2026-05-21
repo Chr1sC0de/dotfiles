@@ -77,7 +77,8 @@ function M.start()
 	vim.b[buf].codex_cwd = vim.fn.getcwd()
 
 	local term_buf = buf
-	state.codex_job_id = vim.fn.termopen({ "codex", "--cd", vim.fn.getcwd() }, {
+	state.codex_job_id = vim.fn.jobstart({ "codex", "--cd", vim.fn.getcwd() }, {
+		term = true,
 		on_exit = function(job_id, code)
 			if state.codex_job_id == job_id then
 				state.codex_job_id = nil

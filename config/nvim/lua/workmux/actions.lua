@@ -90,9 +90,11 @@ function M.merge()
 	}, function(worktree)
 		local handle = worktrees.handle(worktree)
 		local branch = worktrees.branch(worktree)
-		prompts.confirm_exact(handle, "merge " .. branch, function()
-			runner.open_terminal({ "merge", branch })
-		end)
+		if handle ~= nil then
+			prompts.confirm_exact(handle, "merge " .. branch, function()
+				runner.open_terminal({ "merge", branch })
+			end)
+		end
 	end)
 end
 
@@ -104,9 +106,11 @@ function M.remove()
 		empty_message = "no non-main worktrees to remove",
 	}, function(worktree)
 		local handle = worktrees.handle(worktree)
-		prompts.confirm_exact(handle, "remove " .. handle, function()
-			runner.open_terminal({ "remove", handle })
-		end)
+		if handle ~= nil then
+			prompts.confirm_exact(handle, "remove " .. handle, function()
+				runner.open_terminal({ "remove", handle })
+			end)
+		end
 	end)
 end
 
