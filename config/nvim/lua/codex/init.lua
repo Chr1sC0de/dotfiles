@@ -1,4 +1,5 @@
 local chat = require("codex.chat")
+local chat_panel = require("codex.chat_panel")
 local commands = require("codex.commands")
 local context = require("codex.context")
 local jobs = require("codex.ephemeral.jobs")
@@ -9,6 +10,12 @@ local util = require("codex.util")
 local M = {}
 
 M.toggle = chat.toggle
+M.new_chat = chat.new
+M.paste = chat.paste
+M.delete_chat_buffer = chat.delete_buffer
+M.generate_chat_title = chat.generate_title
+M.set_chat_title = chat.set_title
+M.toggle_chat_buffers = chat_panel.toggle
 M.send_file = context.send_file
 M.send_selection = context.send_selection
 M.send_line = context.send_line
@@ -24,6 +31,7 @@ M.command_selection = context.command_selection
 M.edit_file = context.edit_file
 M.edit_selection = context.edit_selection
 M.toggle_jobs = jobs_panel.toggle
+M.activate_buffer = chat.activate_buffer
 
 function M.delete_job(opts)
 	local id = opts and opts.args and opts.args ~= "" and opts.args or nil

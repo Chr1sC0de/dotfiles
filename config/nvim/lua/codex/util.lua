@@ -22,7 +22,7 @@ function M.is_valid_window(winid)
 end
 
 function M.is_codex_buffer(bufnr)
-	return M.is_valid_buffer(bufnr) and bufnr == state.codex_buf
+	return M.is_valid_buffer(bufnr) and (vim.b[bufnr].codex_chat == true or state.codex_sessions[bufnr] ~= nil)
 end
 
 function M.repo_relative_path(path)

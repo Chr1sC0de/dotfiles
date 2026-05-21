@@ -1,6 +1,8 @@
 local M = {}
 
 M.CODEX_BUF_NAME = "codex://chat"
+M.CODEX_CHAT_BUFFERS_BUF_NAME = "codex://chat-buffers"
+M.CODEX_CHAT_BUFFERS_HIGHLIGHT_NAMESPACE = vim.api.nvim_create_namespace("codex-chat-buffers")
 M.CODEX_JOBS_BUF_NAME = "codex://jobs"
 M.CODEX_JOBS_HIGHLIGHT_NAMESPACE = vim.api.nvim_create_namespace("codex-jobs")
 M.EPHEMERAL_RESULT_SUBDIR = "codex/ephemeral"

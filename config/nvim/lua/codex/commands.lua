@@ -11,6 +11,8 @@ function M.setup(api)
 	spinner.define_signs()
 
 	vim.api.nvim_create_user_command("CodexChat", api.toggle, {})
+	vim.api.nvim_create_user_command("CodexChatBuffers", api.toggle_chat_buffers, {})
+	vim.api.nvim_create_user_command("CodexChatNew", api.new_chat, {})
 	vim.api.nvim_create_user_command("CodexCommandFile", api.command_file, {})
 	vim.api.nvim_create_user_command("CodexCommandFileDiagnostics", api.command_file_diagnostics, {})
 	vim.api.nvim_create_user_command("CodexCommandLineDiagnostics", api.command_line_diagnostics, {})
@@ -40,6 +42,8 @@ function M.setup(api)
 
 	vim.keymap.set("n", "<leader>aj", api.toggle_jobs, { desc = "Codex: jobs" })
 	vim.keymap.set("n", "<leader>aa", api.toggle, { desc = "Codex: toggle chat" })
+	vim.keymap.set("n", "<leader>ab", api.toggle_chat_buffers, { desc = "Codex: chat buffers" })
+	vim.keymap.set("n", "<leader>an", api.new_chat, { desc = "Codex: new chat" })
 	vim.keymap.set("n", "<leader>ac", api.command_file, { desc = "Codex: command over file" })
 	vim.keymap.set("x", "<leader>ac", api.command_selection, { desc = "Codex: command over selection" })
 	vim.keymap.set("n", "<leader>ae", api.edit_file, { desc = "Codex: edit file" })
@@ -55,6 +59,13 @@ function M.setup(api)
 	vim.keymap.set("x", "<leader>ar", api.command_selection_diagnostics, { desc = "Codex: command over diagnostics" })
 	vim.keymap.set("n", "<leader>aR", api.command_file_diagnostics, { desc = "Codex: command over file diagnostics" })
 	vim.keymap.set("x", "<leader>as", api.send_selection, { desc = "Codex: send selection" })
+
+	vim.api.nvim_create_autocmd("BufEnter", {
+		group = vim.api.nvim_create_augroup("codex-chat-targets", { clear = true }),
+		callback = function(event)
+			api.activate_buffer(event.buf)
+		end,
+	})
 end
 
 return M
