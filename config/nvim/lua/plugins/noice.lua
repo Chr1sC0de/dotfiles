@@ -53,20 +53,4 @@ return {
 			require("noice").setup(opts)
 		end,
 	},
-	{
-		"stevearc/dressing.nvim",
-		opts = {
-			input = {
-				min_width = { 60, 0.4 },
-				max_width = { 100, 0.9 },
-			},
-			select = {
-				enabled = false,
-			},
-		},
-		config = function(_, opts)
-			require("dressing").setup(opts)
-			vim.ui.select = require("snacks.picker").select
-		end,
-	},
 }
