@@ -39,7 +39,7 @@ return {
         { "<leader>snh", function() require("noice").cmd("history") end,                                desc = "noice: Noice History" },
         { "<leader>sna", function() require("noice").cmd("all") end,                                    desc = "noice: Noice All" },
         { "<leader>snd", function() require("noice").cmd("dismiss") end,                                desc = "noice: Dismiss All" },
-        { "<leader>snt", function() require("noice").cmd("pick") end,                                   desc = "noice: Noice Picker (Telescope/FzfLua)" },
+        { "<leader>snt", function() require("noice").cmd("pick") end,                                   desc = "noice: Noice Picker" },
         { "<c-f>",       function() if not require("noice.lsp").scroll(4) then return "<c-f>" end end,  silent = true,                                  expr = true,                     desc = "noice: Scroll Forward",  mode = { "i", "n", "s" } },
         { "<c-b>",       function() if not require("noice.lsp").scroll(-4) then return "<c-b>" end end, silent = true,                                  expr = true,                     desc = "noice: Scroll Backward", mode = { "i", "n", "s" } },
     },
@@ -60,6 +60,13 @@ return {
 				min_width = { 60, 0.4 },
 				max_width = { 100, 0.9 },
 			},
+			select = {
+				enabled = false,
+			},
 		},
+		config = function(_, opts)
+			require("dressing").setup(opts)
+			vim.ui.select = require("snacks.picker").select
+		end,
 	},
 }

@@ -5,7 +5,12 @@ return {
 	dependencies = {
 		"nvim-lua/plenary.nvim", -- For standard functions
 		"MunifTanjim/nui.nvim", -- To build the plugin UI
-		"nvim-telescope/telescope.nvim", -- For picking b/w different remote methods
 	},
-	config = true,
+	specs = {
+		{ "nvim-telescope/telescope.nvim", enabled = false },
+	},
+	config = function()
+		require("remote-nvim").setup({})
+		require("config.snacks_pickers").setup_remote_start()
+	end,
 }
