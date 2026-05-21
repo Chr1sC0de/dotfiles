@@ -41,7 +41,7 @@ local function directory_preview(ctx)
 
 	local cmd
 	if vim.fn.executable("eza") == 1 then
-		cmd = { "eza", "--all", "--long", "--icons", "--git", path }
+		cmd = { "eza", "--all", "--long", "--icons=always", "--git", "--color=always", "--binary", path }
 	else
 		cmd = { "ls", "-la", path }
 	end
@@ -49,6 +49,11 @@ local function directory_preview(ctx)
 	ctx.preview:reset()
 	ctx.preview:minimal()
 	ctx.preview:set_title(vim.fn.fnamemodify(path, ":~"))
+	if cmd[1] == "eza" then
+		require("snacks.picker.preview").cmd(cmd, ctx, { term = false, ansi = true })
+		return
+	end
+
 	ctx.preview:set_lines(system_lines(cmd))
 end
 
