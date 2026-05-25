@@ -231,14 +231,24 @@ local function build_chat_buffers_lines()
 
 	local sessions = chat.list()
 	if #sessions == 0 then
-		table.insert(lines, "No live Codex chat buffers. Press n to create one.")
+		table.insert(lines, "No Codex chat buffers. Press n to create one.")
 		state.codex_chat_line_highlights[#lines] = "Comment"
 		return lines
 	end
 
 	table.insert(
 		lines,
-		string.format("%-4s %-6s %-6s %-8s %-30s %-28s %s", "ID", "Active", "Buffer", "Age", "Title", "CWD", "Name")
+		string.format(
+			"%-4s %-6s %-6s %-6s %-8s %-30s %-28s %s",
+			"ID",
+			"Status",
+			"Active",
+			"Buffer",
+			"Age",
+			"Title",
+			"CWD",
+			"Name"
+		)
 	)
 	state.codex_chat_line_highlights[#lines] = "Type"
 
@@ -246,9 +256,11 @@ local function build_chat_buffers_lines()
 	for _, session in ipairs(sessions) do
 		local name = vim.api.nvim_buf_get_name(session.bufnr)
 		local active = session.bufnr == active_buf and "yes" or ""
+		local status = chat.task_status_label(session)
 		local line = string.format(
-			"%-4d %-6s %-6d %-8s %-30s %-28s %s",
+			"%-4d %-6s %-6s %-6d %-8s %-30s %-28s %s",
 			session.id,
+			status,
 			active,
 			session.bufnr,
 			session_age(session),
@@ -258,7 +270,7 @@ local function build_chat_buffers_lines()
 		)
 		table.insert(lines, line)
 		state.codex_chat_line_to_buf[#lines] = session.bufnr
-		state.codex_chat_line_highlights[#lines] = session.bufnr == active_buf and "DiagnosticOk" or "Normal"
+		state.codex_chat_line_highlights[#lines] = chat.task_status_highlight(session)
 	end
 
 	return lines

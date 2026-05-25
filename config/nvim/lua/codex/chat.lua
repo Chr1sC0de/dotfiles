@@ -4,6 +4,8 @@ local util = require("codex.util")
 
 --- Utility functions for launching and interacting with Codex terminal chat buffers.
 local M = {}
+local recent_scrollback
+local stop_task_timer
 
 local function ensure_session_state()
 	state.codex_deleted_jobs = state.codex_deleted_jobs or {}
@@ -11,6 +13,26 @@ local function ensure_session_state()
 	state.codex_session_order = state.codex_session_order or {}
 	state.next_codex_session_id = state.next_codex_session_id or 1
 end
+
+local TASK_ACTIVE = {
+	RUN = true,
+	WAIT = true,
+}
+
+local TASK_TERMINAL = {
+	DONE = true,
+	ERR = true,
+}
+
+local WAIT_PATTERNS = {
+	"approval",
+	"approve",
+	"confirm",
+	"do you want",
+	"permission",
+	"waiting for",
+	"waiting on",
+}
 
 local function remove_from_order(bufnr)
 	for index = #state.codex_session_order, 1, -1 do
@@ -38,6 +60,18 @@ local function sync_active_state(session)
 	state.codex_job_id = nil
 end
 
+local function write_session_task_vars(session)
+	if not session or not util.is_valid_buffer(session.bufnr) then
+		return
+	end
+
+	vim.b[session.bufnr].codex_task_status = session.task_status
+	vim.b[session.bufnr].codex_task_started_at = session.task_started_at
+	vim.b[session.bufnr].codex_task_finished_at = session.task_finished_at
+	vim.b[session.bufnr].codex_task_updated_at = session.task_updated_at
+	vim.b[session.bufnr].codex_task_error = session.task_error
+end
+
 local function register_existing_buffer(bufnr)
 	if not util.is_valid_buffer(bufnr) or vim.b[bufnr].codex_chat ~= true then
 		return nil
@@ -54,6 +88,12 @@ local function register_existing_buffer(bufnr)
 		job_id = vim.b[bufnr].codex_job_id or vim.b[bufnr].terminal_job_id,
 		exited = vim.b[bufnr].codex_exited == true,
 		exit_code = vim.b[bufnr].codex_exit_code,
+		task_error = vim.b[bufnr].codex_task_error,
+		task_finished_at = vim.b[bufnr].codex_task_finished_at,
+		task_monitor_ready_at = os.time(),
+		task_started_at = vim.b[bufnr].codex_task_started_at,
+		task_status = vim.b[bufnr].codex_task_status or "IDLE",
+		task_updated_at = vim.b[bufnr].codex_task_updated_at,
 		title = vim.b[bufnr].codex_title,
 	}
 
@@ -96,6 +136,9 @@ local function remove_session(bufnr, opts)
 	if session and session.title_output_path then
 		pcall(vim.fn.delete, session.title_output_path)
 	end
+	if session then
+		stop_task_timer(session)
+	end
 
 	state.codex_sessions[bufnr] = nil
 	remove_from_order(bufnr)
@@ -116,6 +159,147 @@ local function refresh_chat_panel()
 	end
 end
 
+function stop_task_timer(session)
+	if not session or not session.task_timer then
+		return
+	end
+
+	pcall(session.task_timer.stop, session.task_timer)
+	pcall(session.task_timer.close, session.task_timer)
+	session.task_timer = nil
+end
+
+local function notify_task_completed(session, status)
+	if not session or session.task_notified or not session.task_started_at then
+		return
+	end
+
+	session.task_notified = true
+	local level = status == "ERR" and vim.log.levels.WARN or vim.log.levels.INFO
+	local label = status == "ERR" and "errored" or "completed"
+	local elapsed = math.max((session.task_finished_at or os.time()) - session.task_started_at, 0)
+	util.notify("Codex task " .. label .. ": " .. M.display_title(session) .. " (" .. elapsed .. "s)", level)
+end
+
+local function set_task_status(session, status, opts)
+	opts = opts or {}
+	if not session or (session.task_status == status and not opts.force) then
+		return
+	end
+
+	local previous = session.task_status or "IDLE"
+	session.task_status = status
+	session.task_updated_at = os.time()
+	session.task_error = opts.error
+
+	if status == "RUN" then
+		if not TASK_ACTIVE[previous] then
+			session.task_started_at = session.task_updated_at
+			session.task_finished_at = nil
+			session.task_generation = (session.task_generation or 0) + 1
+			session.task_notified = false
+		end
+	elseif status == "WAIT" then
+		if not session.task_started_at then
+			session.task_started_at = session.task_updated_at
+			session.task_generation = (session.task_generation or 0) + 1
+			session.task_notified = false
+		end
+	elseif TASK_TERMINAL[status] then
+		session.task_finished_at = session.task_updated_at
+		stop_task_timer(session)
+		if TASK_ACTIVE[previous] then
+			notify_task_completed(session, status)
+		end
+	end
+
+	write_session_task_vars(session)
+	refresh_chat_panel()
+end
+
+local function schedule_task_done(session)
+	if not session or session.task_status ~= "RUN" then
+		return
+	end
+
+	stop_task_timer(session)
+	local timer = (vim.uv or vim.loop).new_timer()
+	if not timer then
+		return
+	end
+
+	local bufnr = session.bufnr
+	local generation = session.task_generation or 0
+	session.task_timer = timer
+	timer:start(constants.CODEX_CHAT_TASK_IDLE_MS, 0, function()
+		vim.schedule(function()
+			local current = state.codex_sessions[bufnr]
+			if not current or current.task_generation ~= generation or current.task_status ~= "RUN" then
+				return
+			end
+
+			set_task_status(current, "DONE", { source = "quiet" })
+		end)
+	end)
+end
+
+local function lines_have_wait_signal(lines)
+	for _, line in ipairs(lines) do
+		local lower = tostring(line or ""):lower()
+		for _, pattern in ipairs(WAIT_PATTERNS) do
+			if lower:find(pattern, 1, true) then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+local function mark_task_activity(session, opts)
+	opts = opts or {}
+	if not session or session.exited or not util.is_valid_buffer(session.bufnr) then
+		return
+	end
+
+	local lines = recent_scrollback(session.bufnr, 6)
+	if not opts.force and lines_have_wait_signal(lines) then
+		set_task_status(session, "WAIT", { source = opts.source })
+		return
+	end
+
+	if (session.task_monitor_ready_at or session.started_at or os.time()) > os.time() and not opts.force then
+		return
+	end
+
+	set_task_status(session, "RUN", { source = opts.source })
+	schedule_task_done(session)
+end
+
+local function attach_task_monitor(session)
+	if not session or session.task_monitor_attached or not util.is_valid_buffer(session.bufnr) then
+		return
+	end
+
+	session.task_monitor_attached = true
+	local ok = pcall(vim.api.nvim_buf_attach, session.bufnr, false, {
+		on_lines = function(_, bufnr)
+			vim.schedule(function()
+				mark_task_activity(state.codex_sessions[bufnr], { source = "terminal" })
+			end)
+		end,
+		on_detach = function(_, bufnr)
+			local current = state.codex_sessions[bufnr]
+			if current then
+				current.task_monitor_attached = false
+			end
+		end,
+	})
+	if not ok then
+		session.task_monitor_attached = false
+	end
+end
+
 local function newest_live_session()
 	for index = #state.codex_session_order, 1, -1 do
 		local session = session_for_buffer(state.codex_session_order[index])
@@ -127,15 +311,17 @@ local function newest_live_session()
 	return nil
 end
 
----Removes exited or deleted Codex chat sessions from the registry.
+---Removes deleted Codex chat sessions from the registry.
 function M.cleanup()
 	ensure_session_state()
 	local order = vim.list_extend({}, state.codex_session_order)
 
 	for _, bufnr in ipairs(order) do
 		local session = state.codex_sessions[bufnr]
-		if not session or not util.is_valid_buffer(bufnr) or session.exited or not session_is_running(session) then
+		if not session or not util.is_valid_buffer(bufnr) then
 			remove_session(bufnr, { delete_buffer = util.is_valid_buffer(bufnr) })
+		elseif session_is_running(session) then
+			attach_task_monitor(session)
 		end
 	end
 
@@ -181,7 +367,7 @@ function M.active_bufnr()
 	return session and session.bufnr or nil
 end
 
----Returns live Codex chat sessions, newest first.
+---Returns Codex chat sessions, newest first.
 ---
 ---@return table[]
 function M.list()
@@ -190,7 +376,7 @@ function M.list()
 	local sessions = {}
 	for index = #state.codex_session_order, 1, -1 do
 		local session = session_for_buffer(state.codex_session_order[index])
-		if session_is_running(session) then
+		if session and util.is_valid_buffer(session.bufnr) then
 			table.insert(sessions, session)
 		end
 	end
@@ -223,6 +409,46 @@ function M.display_title(session)
 	end
 
 	return title
+end
+
+---@param session table|integer|nil
+---@return string
+function M.task_status_label(session)
+	if type(session) ~= "table" then
+		session = session_for_buffer(session)
+	end
+	if not session then
+		return "IDLE"
+	end
+
+	if session.exited and session.exit_code ~= nil and session.exit_code ~= 0 then
+		return "ERR"
+	end
+	if session.task_status and session.task_status ~= "" then
+		return session.task_status
+	end
+
+	return "IDLE"
+end
+
+---@param session table|integer|nil
+---@return string
+function M.task_status_highlight(session)
+	local label = M.task_status_label(session)
+	if label == "DONE" then
+		return "DiagnosticOk"
+	end
+	if label == "ERR" then
+		return "DiagnosticError"
+	end
+	if label == "WAIT" then
+		return "DiagnosticWarn"
+	end
+	if label == "RUN" then
+		return "DiagnosticInfo"
+	end
+
+	return "Comment"
 end
 
 ---Stores the current non-Codex buffer as the previous buffer to return to later.
@@ -327,7 +553,7 @@ function M.set_title(bufnr, title)
 	return true
 end
 
-local function recent_scrollback(bufnr, max_lines)
+function recent_scrollback(bufnr, max_lines)
 	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 	if #lines > max_lines then
 		local trimmed = {}
@@ -512,6 +738,9 @@ function M.create()
 		job_id = nil,
 		exited = false,
 		exit_code = nil,
+		task_status = "IDLE",
+		task_generation = 0,
+		task_monitor_ready_at = os.time() + 5,
 	}
 
 	state.codex_sessions[buf] = session
@@ -525,6 +754,7 @@ function M.create()
 	vim.b[buf].codex_session_id = id
 	vim.b[buf].codex_cwd = session.cwd
 	vim.b[buf].codex_started_at = session.started_at
+	write_session_task_vars(session)
 
 	local term_buf = buf
 	local job_id = vim.fn.jobstart({ "codex", "--cd", session.cwd }, {
@@ -551,10 +781,23 @@ function M.create()
 					vim.b[term_buf].codex_exited = true
 					vim.b[term_buf].codex_exit_code = code
 				end
+				local scheduled_session = state.codex_sessions[term_buf]
+				if scheduled_session then
+					if TASK_ACTIVE[scheduled_session.task_status] then
+						set_task_status(scheduled_session, code == 0 and "DONE" or "ERR", {
+							error = code == 0 and nil or ("exit code " .. code),
+						})
+					elseif code ~= 0 then
+						set_task_status(scheduled_session, "ERR", {
+							error = "exit code " .. code,
+						})
+					end
+				end
 				util.notify(
 					"Codex chat #" .. id .. " exited with code " .. code,
 					code == 0 and vim.log.levels.INFO or vim.log.levels.WARN
 				)
+				refresh_chat_panel()
 			end)
 		end,
 	})
@@ -569,6 +812,7 @@ function M.create()
 	vim.api.nvim_buf_set_name(buf, codex_buffer_name(id))
 	vim.bo[buf].filetype = "codex"
 	vim.b[buf].codex_job_id = job_id
+	attach_task_monitor(session)
 	M.activate_buffer(buf)
 	vim.cmd("startinsert")
 	return session
@@ -650,6 +894,7 @@ function M.paste(text, opts)
 	end
 
 	local payload = text:gsub("\r\n", "\n"):gsub("\r", "\n")
+	mark_task_activity(session, { force = true, source = "paste" })
 	vim.api.nvim_chan_send(session.job_id, "\027[200~" .. payload .. "\027[201~\r")
 	return true
 end
@@ -662,15 +907,19 @@ function M.focus(bufnr)
 	M.cleanup()
 
 	local session = session_for_buffer(bufnr)
-	if not session_is_running(session) then
-		util.notify("Codex target buffer is not live", vim.log.levels.WARN)
+	if not session or not util.is_valid_buffer(session.bufnr) then
+		util.notify("Codex chat buffer not found", vim.log.levels.WARN)
 		return false
 	end
 
 	M.remember_previous_buffer()
-	M.activate_buffer(bufnr)
+	if session_is_running(session) then
+		M.activate_buffer(bufnr)
+	end
 	vim.api.nvim_set_current_buf(bufnr)
-	vim.cmd("startinsert")
+	if session_is_running(session) then
+		vim.cmd("startinsert")
+	end
 	return true
 end
 
