@@ -75,23 +75,91 @@ vim.keymap.set("n", "<leader>si", function()
 end, { desc = "sort imports" })
 
 -- copy paths
+local function join_path(parent, child)
+	if vim.fs and vim.fs.joinpath then
+		return vim.fs.joinpath(parent, child)
+	end
+
+	local last_char = parent:sub(-1)
+	if last_char == "/" or last_char == "\\" then
+		return parent .. child
+	end
+
+	return parent .. package.config:sub(1, 1) .. child
+end
+
+local function oil_entry_path()
+	local bufnr = vim.api.nvim_get_current_buf()
+	if vim.bo[bufnr].filetype ~= "oil" then
+		return nil, false
+	end
+
+	local ok, oil = pcall(require, "oil")
+	if not ok then
+		vim.notify("Could not load oil.nvim", vim.log.levels.WARN)
+		return nil, true
+	end
+
+	local directory = oil.get_current_dir(bufnr)
+	if not directory then
+		vim.notify("Could not resolve Oil directory", vim.log.levels.WARN)
+		return nil, true
+	end
+
+	local line = vim.api.nvim_win_get_cursor(0)[1]
+	local entry = oil.get_entry_on_line(bufnr, line)
+	local name = entry and vim.trim(entry.parsed_name or entry.name or "")
+	if not name or name == "" then
+		vim.notify("No Oil entry under cursor", vim.log.levels.WARN)
+		return nil, true
+	end
+
+	return join_path(directory, name), true
+end
+
+local function copy_to_clipboard(value)
+	vim.fn.setreg("+", value)
+	print("Copied: " .. value)
+end
+
 vim.keymap.set("n", "<leader>cp", function()
-	local path = vim.fn.expand("%")
-	vim.fn.setreg("+", path)
-	print("Copied: " .. path)
+	local path, is_oil = oil_entry_path()
+	if is_oil then
+		if not path then
+			return
+		end
+		copy_to_clipboard(vim.fn.fnamemodify(path, ":."))
+		return
+	end
+
+	copy_to_clipboard(vim.fn.expand("%"))
 end, { desc = "Copy relative path to clipboard" })
 
 vim.keymap.set("n", "<leader>cP", function()
-	local path = vim.fn.expand("%:p")
-	vim.fn.setreg("+", path)
-	print("Copied: " .. path)
+	local path, is_oil = oil_entry_path()
+	if is_oil then
+		if not path then
+			return
+		end
+		copy_to_clipboard(vim.fn.fnamemodify(path, ":p"))
+		return
+	end
+
+	copy_to_clipboard(vim.fn.expand("%:p"))
 end, { desc = "Copy absolute path to clipboard" })
 
 -- Copy just filename to clipboard
 vim.keymap.set("n", "<leader>cf", function()
-	local filename = vim.fn.expand("%:t")
-	vim.fn.setreg("+", filename)
-	print("Copied: " .. filename)
+	local path, is_oil = oil_entry_path()
+	if is_oil then
+		if not path then
+			return
+		end
+		copy_to_clipboard(vim.fn.fnamemodify(path, ":t"))
+		return
+	end
+
+	copy_to_clipboard(vim.fn.expand("%:t"))
 end, { desc = "Copy filename to clipboard" })
 
 -- toggle between terminals
