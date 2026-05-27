@@ -15,6 +15,7 @@ M.paste = chat.paste
 M.delete_chat_buffer = chat.delete_buffer
 M.generate_chat_title = chat.generate_title
 M.set_chat_title = chat.set_title
+M.resync_chat = chat.resync
 M.toggle_chat_buffers = chat_panel.toggle
 M.send_file = context.send_file
 M.send_selection = context.send_selection
@@ -56,6 +57,23 @@ function M.select_ephemeral_model(opts)
 	end
 
 	model.select(action)
+end
+
+function M.resync_chat_command(opts)
+	local id = opts and util.trim_whitespace(opts.args) or ""
+	if id == "" then
+		M.resync_chat()
+		return
+	end
+
+	for _, session in ipairs(chat.list()) do
+		if tostring(session.id) == id then
+			M.resync_chat(session.bufnr)
+			return
+		end
+	end
+
+	util.notify("Codex chat #" .. id .. " not found", vim.log.levels.WARN)
 end
 
 function M.setup()

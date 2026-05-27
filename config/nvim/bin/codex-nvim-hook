@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -u
+
+server="${CODEX_NVIM_SERVER:-}"
+session_id="${CODEX_NVIM_SESSION_ID:-}"
+token="${CODEX_NVIM_HOOK_TOKEN:-}"
+
+if [ -z "${server}" ] || [ -z "${session_id}" ] || [ -z "${token}" ]; then
+  exit 0
+fi
+
+payload="$(cat)"
+if [ -z "${payload}" ]; then
+  exit 0
+fi
+
+encoded="$(printf '%s\n%s\n%s' "${session_id}" "${token}" "${payload}" | base64 -w 0 2>/dev/null)"
+if [ -z "${encoded}" ]; then
+  exit 0
+fi
+
+timeout 2 nvim --server "${server}" \
+  --remote-expr "luaeval('require(\"codex.chat\").handle_hook_event(_A)', '${encoded}')" \
+  >/dev/null 2>&1 || true
+
+exit 0

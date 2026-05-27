@@ -7,8 +7,36 @@ local M = {}
 local recent_scrollback
 local stop_task_timer
 
+local ASKING_PATTERNS = {
+	"which option",
+	"which one",
+	"which should",
+	"do you want",
+	"would you like me to",
+	"should i",
+	"should we",
+	"please confirm",
+	"confirm",
+	"i need",
+	"need you to",
+	"before i can",
+	"before proceeding",
+	"how would you like",
+	"what should i",
+	"can you confirm",
+}
+
+local OPTIONAL_PATTERNS = {
+	"if you want",
+	"i can also",
+	"let me know if",
+	"would you like me to also",
+}
+
 local function ensure_session_state()
 	state.codex_deleted_jobs = state.codex_deleted_jobs or {}
+	state.codex_hook_token = state.codex_hook_token
+		or vim.fn.sha256(tostring((vim.uv or vim.loop).hrtime()) .. ":" .. vim.fn.tempname())
 	state.codex_sessions = state.codex_sessions or {}
 	state.codex_session_order = state.codex_session_order or {}
 	state.next_codex_session_id = state.next_codex_session_id or 1
@@ -33,6 +61,69 @@ local WAIT_PATTERNS = {
 	"waiting for",
 	"waiting on",
 }
+
+local function hook_socket_path()
+	local run_dir = vim.fn.stdpath("run")
+	if run_dir == "" then
+		run_dir = vim.fn.stdpath("cache")
+	end
+
+	return util.join_path(run_dir, "codex-chat-hooks." .. vim.fn.getpid() .. ".sock")
+end
+
+local function server_is_listening(path)
+	if not path or path == "" then
+		return false
+	end
+
+	for _, server in ipairs(vim.fn.serverlist()) do
+		if server == path then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function ensure_hook_server(path)
+	ensure_session_state()
+	path = path or state.codex_hook_server
+	if path and server_is_listening(path) then
+		state.codex_hook_server = path
+		return path
+	end
+
+	path = path or hook_socket_path()
+	local ok, server = pcall(vim.fn.serverstart, path)
+	if not ok or not server or server == "" then
+		return nil
+	end
+
+	state.codex_hook_server = server
+	return server
+end
+
+local function session_hook_env(session)
+	local server = ensure_hook_server(session.hook_server)
+	if not server then
+		return nil
+	end
+
+	session.hook_server = server
+	session.hook_token = state.codex_hook_token
+	session.hook_started_with_env = true
+	if util.is_valid_buffer(session.bufnr) then
+		vim.b[session.bufnr].codex_hook_server = session.hook_server
+		vim.b[session.bufnr].codex_hook_token = session.hook_token
+		vim.b[session.bufnr].codex_hook_started_with_env = true
+	end
+
+	return {
+		CODEX_NVIM_HOOK_TOKEN = session.hook_token,
+		CODEX_NVIM_SERVER = server,
+		CODEX_NVIM_SESSION_ID = tostring(session.id),
+	}
+end
 
 local function remove_from_order(bufnr)
 	for index = #state.codex_session_order, 1, -1 do
@@ -94,6 +185,10 @@ local function register_existing_buffer(bufnr)
 		task_started_at = vim.b[bufnr].codex_task_started_at,
 		task_status = vim.b[bufnr].codex_task_status or "IDLE",
 		task_updated_at = vim.b[bufnr].codex_task_updated_at,
+		hook_seen = vim.b[bufnr].codex_hook_seen == true,
+		hook_server = vim.b[bufnr].codex_hook_server,
+		hook_started_with_env = vim.b[bufnr].codex_hook_started_with_env == true,
+		hook_token = vim.b[bufnr].codex_hook_token,
 		title = vim.b[bufnr].codex_title,
 	}
 
@@ -181,6 +276,22 @@ local function notify_task_completed(session, status)
 	util.notify("Codex task " .. label .. ": " .. M.display_title(session) .. " (" .. elapsed .. "s)", level)
 end
 
+local function notify_task_waiting(session, reason, event_key)
+	if not session then
+		return
+	end
+
+	session.wait_notifications = session.wait_notifications or {}
+	event_key = event_key or "unknown"
+	if session.wait_notifications[event_key] then
+		return
+	end
+	session.wait_notifications[event_key] = true
+
+	local suffix = reason and reason ~= "" and (": " .. reason) or ""
+	util.notify("Codex needs input: " .. M.display_title(session) .. suffix, vim.log.levels.WARN)
+end
+
 local function set_task_status(session, status, opts)
 	opts = opts or {}
 	if not session or (session.task_status == status and not opts.force) then
@@ -215,6 +326,16 @@ local function set_task_status(session, status, opts)
 
 	write_session_task_vars(session)
 	refresh_chat_panel()
+end
+
+local function mark_task_waiting(session, reason, event_key, opts)
+	opts = opts or {}
+	if not session or session.exited or not util.is_valid_buffer(session.bufnr) then
+		return
+	end
+
+	set_task_status(session, "WAIT", { source = opts.source, force = opts.force })
+	notify_task_waiting(session, reason, event_key)
 end
 
 local function schedule_task_done(session)
@@ -262,9 +383,7 @@ local function mark_task_activity(session, opts)
 		return
 	end
 
-	local lines = recent_scrollback(session.bufnr, 6)
-	if not opts.force and lines_have_wait_signal(lines) then
-		set_task_status(session, "WAIT", { source = opts.source })
+	if session.task_status == "WAIT" and not opts.force then
 		return
 	end
 
@@ -298,6 +417,139 @@ local function attach_task_monitor(session)
 	if not ok then
 		session.task_monitor_attached = false
 	end
+end
+
+local function lower_text(value)
+	return tostring(value or ""):lower()
+end
+
+local function message_needs_user_input(message)
+	local lower = lower_text(message)
+	if lower == "" then
+		return false
+	end
+
+	for _, pattern in ipairs(OPTIONAL_PATTERNS) do
+		if lower:find(pattern, 1, true) then
+			return false
+		end
+	end
+
+	for _, pattern in ipairs(ASKING_PATTERNS) do
+		if lower:find(pattern, 1, true) then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function hook_event_key(event)
+	local hook_event_name = event.hook_event_name or "hook"
+	if event.tool_use_id and event.tool_use_id ~= "" then
+		return hook_event_name .. ":" .. event.tool_use_id
+	end
+	if event.turn_id and event.turn_id ~= "" then
+		return hook_event_name .. ":" .. event.turn_id
+	end
+
+	return hook_event_name .. ":" .. vim.fn.sha256(vim.json.encode(event))
+end
+
+local function approval_wait_reason(event)
+	local tool_name = event.tool_name or "tool"
+	local description = nil
+	if type(event.tool_input) == "table" then
+		description = event.tool_input.description or event.tool_input.command
+	end
+	description = util.trim_whitespace(description)
+	if description ~= "" then
+		return tool_name .. " approval: " .. util.trim_display(description, 80)
+	end
+
+	return tool_name .. " approval"
+end
+
+local function session_for_hook_id(id)
+	id = tonumber(id)
+	if not id then
+		return nil
+	end
+
+	for _, session in pairs(state.codex_sessions or {}) do
+		if session.id == id then
+			return session
+		end
+	end
+
+	return nil
+end
+
+local function handle_decoded_hook_event(decoded)
+	local first_newline = decoded:find("\n", 1, true)
+	if not first_newline then
+		return false
+	end
+	local second_newline = decoded:find("\n", first_newline + 1, true)
+	if not second_newline then
+		return false
+	end
+
+	local session_id = decoded:sub(1, first_newline - 1)
+	local token = decoded:sub(first_newline + 1, second_newline - 1)
+	local event_json = decoded:sub(second_newline + 1)
+	if token ~= state.codex_hook_token then
+		return false
+	end
+
+	local ok, event = pcall(vim.json.decode, event_json)
+	if not ok or type(event) ~= "table" then
+		return false
+	end
+
+	local session = session_for_hook_id(session_id)
+	if not session or session.hook_token ~= token then
+		return false
+	end
+
+	session.hook_seen = true
+	session.hook_last_event_at = os.time()
+	if util.is_valid_buffer(session.bufnr) then
+		vim.b[session.bufnr].codex_hook_seen = true
+	end
+
+	local event_name = event.hook_event_name
+	if event_name == "PermissionRequest" then
+		mark_task_waiting(
+			session,
+			approval_wait_reason(event),
+			hook_event_key(event),
+			{ source = "hook", force = true }
+		)
+	elseif event_name == "Stop" then
+		local message = event.last_assistant_message
+		if message_needs_user_input(message) then
+			mark_task_waiting(session, "question", hook_event_key(event), { source = "hook", force = true })
+		else
+			set_task_status(session, "DONE", { source = "hook" })
+		end
+	elseif event_name == "UserPromptSubmit" then
+		mark_task_activity(session, { force = true, source = "hook" })
+	elseif event_name == "PostToolUse" then
+		mark_task_activity(session, { force = true, source = "hook" })
+	end
+
+	return true
+end
+
+function M.handle_hook_event(encoded)
+	ensure_session_state()
+	local ok, decoded = pcall(vim.base64.decode, tostring(encoded or ""))
+	if not ok or type(decoded) ~= "string" then
+		return false
+	end
+
+	return handle_decoded_hook_event(decoded)
 end
 
 local function newest_live_session()
@@ -446,6 +698,40 @@ function M.task_status_highlight(session)
 	end
 	if label == "RUN" then
 		return "DiagnosticInfo"
+	end
+
+	return "Comment"
+end
+
+---@param session table|integer|nil
+---@return string
+function M.ipc_status_label(session)
+	if type(session) ~= "table" then
+		session = session_for_buffer(session)
+	end
+	if not session then
+		return "NOIPC"
+	end
+	if not session.hook_started_with_env then
+		return "RESTART"
+	end
+	if not server_is_listening(session.hook_server) then
+		return "DOWN"
+	end
+	if session.hook_seen then
+		return "SEEN"
+	end
+
+	return "READY"
+end
+
+function M.ipc_status_highlight(session)
+	local label = M.ipc_status_label(session)
+	if label == "SEEN" or label == "READY" then
+		return "DiagnosticOk"
+	end
+	if label == "DOWN" or label == "RESTART" then
+		return "DiagnosticWarn"
 	end
 
 	return "Comment"
@@ -742,6 +1028,7 @@ function M.create()
 		task_generation = 0,
 		task_monitor_ready_at = os.time() + 5,
 	}
+	local hook_env = session_hook_env(session)
 
 	state.codex_sessions[buf] = session
 	append_to_order(buf)
@@ -758,6 +1045,7 @@ function M.create()
 
 	local term_buf = buf
 	local job_id = vim.fn.jobstart({ "codex", "--cd", session.cwd }, {
+		env = hook_env,
 		term = true,
 		on_exit = function(exited_job_id, code)
 			if state.codex_deleted_jobs[exited_job_id] then
@@ -839,6 +1127,43 @@ function M.delete_buffer(bufnr)
 		sync_active_state(replacement)
 	end
 
+	return true
+end
+
+function M.resync(bufnr)
+	local session = session_for_buffer(bufnr or state.codex_active_buf)
+	if not session then
+		util.notify("Codex chat buffer not found", vim.log.levels.WARN)
+		return false
+	end
+
+	if not session.hook_started_with_env then
+		util.notify("Codex chat #" .. session.id .. " needs restart for hook IPC", vim.log.levels.WARN)
+		refresh_chat_panel()
+		return false
+	end
+
+	if not server_is_listening(session.hook_server) then
+		local server = ensure_hook_server(session.hook_server)
+		if not server then
+			util.notify("Failed to restart Codex hook IPC for chat #" .. session.id, vim.log.levels.WARN)
+			refresh_chat_panel()
+			return false
+		end
+		session.hook_server = server
+		vim.b[session.bufnr].codex_hook_server = server
+	end
+
+	local lines = recent_scrollback(session.bufnr, 8)
+	if lines_have_wait_signal(lines) then
+		mark_task_waiting(session, "approval prompt", "manual-resync:" .. tostring(os.time()), {
+			source = "resync",
+			force = true,
+		})
+	end
+
+	util.notify("Codex hook IPC " .. M.ipc_status_label(session) .. ": " .. M.display_title(session))
+	refresh_chat_panel()
 	return true
 end
 

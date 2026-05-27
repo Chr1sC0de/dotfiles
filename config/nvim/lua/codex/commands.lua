@@ -13,6 +13,7 @@ function M.setup(api)
 	vim.api.nvim_create_user_command("CodexChat", api.toggle, {})
 	vim.api.nvim_create_user_command("CodexChatBuffers", api.toggle_chat_buffers, {})
 	vim.api.nvim_create_user_command("CodexChatNew", api.new_chat, {})
+	vim.api.nvim_create_user_command("CodexChatResync", api.resync_chat_command, { nargs = "?" })
 	vim.api.nvim_create_user_command("CodexCommandFile", api.command_file, {})
 	vim.api.nvim_create_user_command("CodexCommandFileDiagnostics", api.command_file_diagnostics, {})
 	vim.api.nvim_create_user_command("CodexCommandLineDiagnostics", api.command_line_diagnostics, {})
@@ -52,7 +53,12 @@ function M.setup(api)
 	vim.keymap.set("n", "<leader>ad", api.send_file_diagnostics, { desc = "Codex: send file diagnostics" })
 	vim.keymap.set("x", "<leader>ad", api.send_selection_diagnostics, { desc = "Codex: send selection diagnostics" })
 	vim.keymap.set("n", "<leader>ar", api.command_file_diagnostics, { desc = "Codex: command over file diagnostics" })
-	vim.keymap.set("x", "<leader>ar", api.command_selection_diagnostics, { desc = "Codex: command over selection diagnostics" })
+	vim.keymap.set(
+		"x",
+		"<leader>ar",
+		api.command_selection_diagnostics,
+		{ desc = "Codex: command over selection diagnostics" }
+	)
 
 	vim.keymap.set("n", "<leader>af", api.send_file, { desc = "Codex: send file context" })
 	vim.keymap.set("n", "<leader>ap", api.send_paragraph, { desc = "Codex: send paragraph" })
@@ -60,7 +66,6 @@ function M.setup(api)
 	vim.keymap.set("n", "<leader>al", api.send_line, { desc = "Codex: send line" })
 
 	vim.keymap.set("n", "<leader>am", api.select_ephemeral_model, { desc = "Codex: ephemeral model" })
-
 
 	vim.api.nvim_create_autocmd("BufEnter", {
 		group = vim.api.nvim_create_augroup("codex-chat-targets", { clear = true }),

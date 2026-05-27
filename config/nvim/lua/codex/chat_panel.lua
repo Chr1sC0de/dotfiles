@@ -96,6 +96,17 @@ local function title_selected_chat()
 	end
 end
 
+local function resync_selected_chat()
+	local bufnr = M.selected()
+	if not bufnr then
+		util.notify("No Codex chat buffer under cursor", vim.log.levels.WARN)
+		return
+	end
+
+	chat.resync(bufnr)
+	M.refresh_open()
+end
+
 local function preview_chat(bufnr)
 	if not bufnr or not util.is_valid_buffer(bufnr) then
 		util.notify("No Codex chat buffer under cursor", vim.log.levels.WARN)
@@ -198,6 +209,7 @@ local function ensure_chat_buffers_buffer()
 	vim.keymap.set("n", "q", M.close, opts)
 	vim.keymap.set("n", "<Esc>", M.close, opts)
 	vim.keymap.set("n", "r", M.refresh_open, opts)
+	vim.keymap.set("n", "R", resync_selected_chat, opts)
 	vim.keymap.set("n", "<CR>", open_selected_chat, opts)
 	vim.keymap.set("n", "s", switch_selected_chat_target, opts)
 	vim.keymap.set("n", "n", create_chat, opts)
@@ -220,7 +232,7 @@ local function build_chat_buffers_lines()
 	local lines = {
 		"Codex Chat Buffers",
 		"",
-		"Keys: <CR> open  s switch  n new  d delete  t title  p preview  r refresh  q close",
+		"Keys: <CR> open  s switch  n new  d delete  t title  p preview  r refresh  R resync  q close",
 		"",
 	}
 	state.codex_chat_line_to_buf = {}
@@ -239,9 +251,10 @@ local function build_chat_buffers_lines()
 	table.insert(
 		lines,
 		string.format(
-			"%-4s %-6s %-6s %-6s %-8s %-30s %-28s %s",
+			"%-4s %-6s %-7s %-6s %-6s %-8s %-30s %-28s %s",
 			"ID",
 			"Status",
+			"IPC",
 			"Active",
 			"Buffer",
 			"Age",
@@ -257,10 +270,12 @@ local function build_chat_buffers_lines()
 		local name = vim.api.nvim_buf_get_name(session.bufnr)
 		local active = session.bufnr == active_buf and "yes" or ""
 		local status = chat.task_status_label(session)
+		local ipc = chat.ipc_status_label(session)
 		local line = string.format(
-			"%-4d %-6s %-6s %-6d %-8s %-30s %-28s %s",
+			"%-4d %-6s %-7s %-6s %-6d %-8s %-30s %-28s %s",
 			session.id,
 			status,
+			ipc,
 			active,
 			session.bufnr,
 			session_age(session),
