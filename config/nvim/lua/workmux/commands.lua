@@ -4,6 +4,7 @@ local M = {}
 
 local keymaps = {
 	{ "n", "<leader>wa", "add_prompt", "Workmux: add from prompt" },
+	{ "x", "<leader>wa", "add_prompt_selection", "Workmux: add from prompt with selection" },
 	{ "n", "<leader>wA", "add_branch", "Workmux: add branch" },
 	{ "n", "<leader>wo", "open", "Workmux: open worktree" },
 	{ "n", "<leader>wO", "open_continue", "Workmux: open and continue agent" },
@@ -24,6 +25,9 @@ function M.setup(api)
 		return
 	end
 	state.setup_done = true
+
+	vim.api.nvim_create_user_command("WorkmuxAddPrompt", api.add_prompt, { range = true })
+	vim.api.nvim_create_user_command("WorkmuxPromptContextToggle", api.toggle_prompt_context, {})
 
 	for _, keymap in ipairs(keymaps) do
 		local mode = keymap[1]

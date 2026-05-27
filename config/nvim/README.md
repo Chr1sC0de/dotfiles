@@ -7,7 +7,7 @@ The leader key is space.
 
 | Key | Action |
 | --- | --- |
-| `<leader>wa` | Prompt for a task, then run `workmux add -A -p <prompt>`; `add` creates a new worktree, `-p` passes the prompt text, and `-A` starts the agent for it. |
+| `<leader>wa` | Prompt for a task, then run `workmux add -A -p <prompt>` with current-file context by default; in visual mode, include the selected lines as context. |
 | `<leader>wA` | Prompt for a branch or worktree name, then run `workmux add <name>` to create a new worktree for that name. |
 | `<leader>wo` | Load choices from `workmux list --json`, pick one, then run `workmux open <handle>` to open that worktree. |
 | `<leader>wO` | Pick a worktree and run `workmux open <handle> --continue`; `--continue` reopens the agent session while opening it. |
@@ -21,6 +21,10 @@ The leader key is space.
 | `<leader>wc` | Pick a non-main worktree, then run `workmux close <handle>` to close its Workmux window without removing the worktree. |
 | `<leader>wm` | Pick a non-main worktree, type its exact handle to confirm, then run `workmux merge <branch>` in a terminal. |
 | `<leader>wr` | Pick a non-main worktree, type its exact handle to confirm, then run `workmux remove <handle>` in a terminal. |
+
+Use `:WorkmuxPromptContextToggle` to switch `<leader>wa` and
+`:WorkmuxAddPrompt` between context-aware prompts and plain prompt text for the
+current Neovim session. Context-aware mode is enabled by default.
 
 The implementation lives in `lua/workmux/`, is exposed through
 `lua/config/workmux.lua`, and registers its own keymaps from

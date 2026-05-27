@@ -4,7 +4,9 @@ local commands = require("workmux.commands")
 local M = {}
 
 M.add_prompt = actions.add_prompt
+M.add_prompt_selection = actions.add_prompt_selection
 M.add_branch = actions.add_branch
+M.toggle_prompt_context = actions.toggle_prompt_context
 M.open = actions.open
 M.open_continue = actions.open_continue
 M.dashboard = actions.dashboard

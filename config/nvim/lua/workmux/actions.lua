@@ -1,14 +1,56 @@
+local context = require("workmux.context")
 local prompts = require("workmux.prompts")
 local runner = require("workmux.runner")
+local state = require("workmux.state")
+local util = require("workmux.util")
 local worktrees = require("workmux.worktrees")
 
 local M = {}
 
+local function build_prompt_target(opts)
+	opts = opts or {}
+
+	if not state.prompt_context_enabled then
+		return nil
+	end
+
+	if opts.selection or (opts.range and opts.range > 0) then
+		local target = context.build_selection_target(opts)
+		if target == nil then
+			util.notify("no visual selection to add as context", vim.log.levels.WARN)
+			return nil
+		end
+		return target
+	end
+
+	return context.build_file_target()
+end
+
 ---Prompt for a task, then create a Workmux worktree with agent auto-start.
-function M.add_prompt()
+function M.add_prompt(opts)
+	local target = build_prompt_target(opts)
+	if state.prompt_context_enabled and target == nil then
+		return
+	end
+
 	prompts.input("Workmux task prompt: ", function(prompt)
-		runner.run({ "add", "-A", "-p", prompt }, { success = "started worktree from prompt" })
+		local task_prompt = target and context.build_prompt(prompt, target) or prompt
+		runner.run({ "add", "-A", "-p", task_prompt }, { success = "started worktree from prompt" })
 	end)
+end
+
+---Prompt for a task, then create a Workmux worktree with selected text as context.
+function M.add_prompt_selection(opts)
+	opts = opts or {}
+	opts.selection = true
+	M.add_prompt(opts)
+end
+
+---Toggle whether Workmux add-from-prompt includes current file/selection context.
+function M.toggle_prompt_context()
+	state.prompt_context_enabled = not state.prompt_context_enabled
+	local status = state.prompt_context_enabled and "enabled" or "disabled"
+	util.notify("prompt context " .. status)
 end
 
 ---Prompt for a branch or worktree name, then create the Workmux worktree.
