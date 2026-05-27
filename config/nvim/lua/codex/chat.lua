@@ -6,6 +6,9 @@ local util = require("codex.util")
 local M = {}
 local recent_scrollback
 local stop_task_timer
+local stop_pending_paste_timer
+local stop_paste_ready_timer
+local mark_paste_ready
 
 local ASKING_PATTERNS = {
 	"which option",
@@ -61,6 +64,9 @@ local WAIT_PATTERNS = {
 	"waiting for",
 	"waiting on",
 }
+
+local PENDING_PASTE_FALLBACK_MS = 2000
+local PASTE_READY_DEFER_MS = 500
 
 local function hook_socket_path()
 	local run_dir = vim.fn.stdpath("run")
@@ -233,6 +239,9 @@ local function remove_session(bufnr, opts)
 	end
 	if session then
 		stop_task_timer(session)
+		stop_pending_paste_timer(session)
+		stop_paste_ready_timer(session)
+		session.pending_pastes = nil
 	end
 
 	state.codex_sessions[bufnr] = nil
@@ -262,6 +271,26 @@ function stop_task_timer(session)
 	pcall(session.task_timer.stop, session.task_timer)
 	pcall(session.task_timer.close, session.task_timer)
 	session.task_timer = nil
+end
+
+function stop_pending_paste_timer(session)
+	if not session or not session.pending_paste_timer then
+		return
+	end
+
+	pcall(session.pending_paste_timer.stop, session.pending_paste_timer)
+	pcall(session.pending_paste_timer.close, session.pending_paste_timer)
+	session.pending_paste_timer = nil
+end
+
+function stop_paste_ready_timer(session)
+	if not session or not session.paste_ready_timer then
+		return
+	end
+
+	pcall(session.paste_ready_timer.stop, session.paste_ready_timer)
+	pcall(session.paste_ready_timer.close, session.paste_ready_timer)
+	session.paste_ready_timer = nil
 end
 
 local function notify_task_completed(session, status)
@@ -395,6 +424,104 @@ local function mark_task_activity(session, opts)
 	schedule_task_done(session)
 end
 
+local function send_paste_payload(session, text)
+	if not session_is_running(session) then
+		return false
+	end
+
+	local payload = text:gsub("\r\n", "\n"):gsub("\r", "\n")
+	mark_task_activity(session, { force = true, source = "paste" })
+	vim.api.nvim_chan_send(session.job_id, "\027[200~" .. payload .. "\027[201~\r")
+	return true
+end
+
+local function flush_pending_pastes(session)
+	if not session or not session.pending_pastes or #session.pending_pastes == 0 then
+		return
+	end
+	if not session_is_running(session) then
+		return
+	end
+
+	local pending = session.pending_pastes
+	session.pending_pastes = {}
+	for _, text in ipairs(pending) do
+		send_paste_payload(session, text)
+	end
+end
+
+local function schedule_pending_paste_fallback(session)
+	if not session or session.pending_paste_timer then
+		return
+	end
+
+	local timer = (vim.uv or vim.loop).new_timer()
+	if not timer then
+		return
+	end
+
+	local bufnr = session.bufnr
+	session.pending_paste_timer = timer
+	timer:start(PENDING_PASTE_FALLBACK_MS, 0, function()
+		vim.schedule(function()
+			local current = state.codex_sessions[bufnr]
+			if not current then
+				return
+			end
+
+			stop_pending_paste_timer(current)
+			mark_paste_ready(current)
+		end)
+	end)
+end
+
+local function queue_paste(session, text)
+	session.pending_pastes = session.pending_pastes or {}
+	table.insert(session.pending_pastes, text)
+	schedule_pending_paste_fallback(session)
+	if session.paste_ready then
+		flush_pending_pastes(session)
+	end
+end
+
+function mark_paste_ready(session)
+	if not session or session.paste_ready then
+		return
+	end
+
+	session.paste_ready = true
+	stop_pending_paste_timer(session)
+	stop_paste_ready_timer(session)
+	flush_pending_pastes(session)
+end
+
+local function schedule_paste_ready(bufnr)
+	local session = state.codex_sessions[bufnr]
+	if not session or session.paste_ready then
+		return
+	end
+
+	stop_paste_ready_timer(session)
+	local timer = (vim.uv or vim.loop).new_timer()
+	if not timer then
+		mark_paste_ready(session)
+		return
+	end
+
+	session.paste_ready_timer = timer
+	timer:start(PASTE_READY_DEFER_MS, 0, function()
+		vim.schedule(function()
+			local current = state.codex_sessions[bufnr]
+			if not current then
+				return
+			end
+
+			stop_paste_ready_timer(current)
+			mark_paste_ready(current)
+		end)
+	end)
+end
+
 local function attach_task_monitor(session)
 	if not session or session.task_monitor_attached or not util.is_valid_buffer(session.bufnr) then
 		return
@@ -404,7 +531,9 @@ local function attach_task_monitor(session)
 	local ok = pcall(vim.api.nvim_buf_attach, session.bufnr, false, {
 		on_lines = function(_, bufnr)
 			vim.schedule(function()
-				mark_task_activity(state.codex_sessions[bufnr], { source = "terminal" })
+				local current = state.codex_sessions[bufnr]
+				schedule_paste_ready(bufnr)
+				mark_task_activity(current, { source = "terminal" })
 			end)
 		end,
 		on_detach = function(_, bufnr)
@@ -1024,6 +1153,7 @@ function M.create()
 		job_id = nil,
 		exited = false,
 		exit_code = nil,
+		paste_ready = false,
 		task_status = "IDLE",
 		task_generation = 0,
 		task_monitor_ready_at = os.time() + 5,
@@ -1071,6 +1201,12 @@ function M.create()
 				end
 				local scheduled_session = state.codex_sessions[term_buf]
 				if scheduled_session then
+					stop_pending_paste_timer(scheduled_session)
+					stop_paste_ready_timer(scheduled_session)
+					if scheduled_session.pending_pastes and #scheduled_session.pending_pastes > 0 then
+						scheduled_session.pending_pastes = nil
+						util.notify("Codex chat exited before pending prompt could be sent", vim.log.levels.WARN)
+					end
 					if TASK_ACTIVE[scheduled_session.task_status] then
 						set_task_status(scheduled_session, code == 0 and "DONE" or "ERR", {
 							error = code == 0 and nil or ("exit code " .. code),
@@ -1218,10 +1354,12 @@ function M.paste(text, opts)
 		return false
 	end
 
-	local payload = text:gsub("\r\n", "\n"):gsub("\r", "\n")
-	mark_task_activity(session, { force = true, source = "paste" })
-	vim.api.nvim_chan_send(session.job_id, "\027[200~" .. payload .. "\027[201~\r")
-	return true
+	if session.paste_ready == false then
+		queue_paste(session, text)
+		return true
+	end
+
+	return send_paste_payload(session, text)
 end
 
 ---Focuses a live Codex chat buffer and makes it the active send target.
