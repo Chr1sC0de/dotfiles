@@ -958,6 +958,25 @@ local function codex_buffer_name(id, title)
 	return constants.CODEX_BUF_NAME .. "/" .. id
 end
 
+local function delete_stale_terminal_buffer(original_name, live_bufnr)
+	if not original_name or original_name == "" or not original_name:match("^term://") then
+		return
+	end
+
+	local stale_bufnr = vim.fn.bufnr(original_name)
+	if stale_bufnr <= 0 or stale_bufnr == live_bufnr or not util.is_valid_buffer(stale_bufnr) then
+		return
+	end
+	if vim.api.nvim_buf_is_loaded(stale_bufnr) or vim.bo[stale_bufnr].buflisted then
+		return
+	end
+	if vim.api.nvim_buf_get_name(stale_bufnr) ~= original_name then
+		return
+	end
+
+	pcall(vim.api.nvim_buf_delete, stale_bufnr, { force = true })
+end
+
 ---@param bufnr integer
 ---@param title string
 ---@return boolean
@@ -1240,8 +1259,10 @@ function M.create()
 		return nil
 	end
 
+	local original_terminal_name = vim.api.nvim_buf_get_name(buf)
 	session.job_id = job_id
 	vim.api.nvim_buf_set_name(buf, codex_buffer_name(id))
+	delete_stale_terminal_buffer(original_terminal_name, buf)
 	vim.bo[buf].filetype = "codex"
 	vim.b[buf].codex_job_id = job_id
 	attach_task_monitor(session)
