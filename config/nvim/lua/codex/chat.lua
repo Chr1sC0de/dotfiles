@@ -15,18 +15,15 @@ local ASKING_PATTERNS = {
 	"which one",
 	"which should",
 	"do you want",
-	"would you like me to",
-	"should i",
-	"should we",
+	"what should",
 	"please confirm",
-	"confirm",
-	"i need",
+	"can you confirm",
+	"choose",
+	"reply with",
 	"need you to",
 	"before i can",
 	"before proceeding",
 	"how would you like",
-	"what should i",
-	"can you confirm",
 }
 
 local OPTIONAL_PATTERNS = {
@@ -53,16 +50,6 @@ local TASK_ACTIVE = {
 local TASK_TERMINAL = {
 	DONE = true,
 	ERR = true,
-}
-
-local WAIT_PATTERNS = {
-	"approval",
-	"approve",
-	"confirm",
-	"do you want",
-	"permission",
-	"waiting for",
-	"waiting on",
 }
 
 local PENDING_PASTE_FALLBACK_MS = 2000
@@ -333,13 +320,15 @@ local function set_task_status(session, status, opts)
 	session.task_error = opts.error
 
 	if status == "RUN" then
-		if not TASK_ACTIVE[previous] then
+		if opts.new_generation or not TASK_ACTIVE[previous] then
 			session.task_started_at = session.task_updated_at
 			session.task_finished_at = nil
 			session.task_generation = (session.task_generation or 0) + 1
 			session.task_notified = false
+			session.wait_notifications = nil
 		end
 	elseif status == "WAIT" then
+		stop_task_timer(session)
 		if not session.task_started_at then
 			session.task_started_at = session.task_updated_at
 			session.task_generation = (session.task_generation or 0) + 1
@@ -348,7 +337,7 @@ local function set_task_status(session, status, opts)
 	elseif TASK_TERMINAL[status] then
 		session.task_finished_at = session.task_updated_at
 		stop_task_timer(session)
-		if TASK_ACTIVE[previous] then
+		if opts.notify and TASK_ACTIVE[previous] then
 			notify_task_completed(session, status)
 		end
 	end
@@ -364,7 +353,9 @@ local function mark_task_waiting(session, reason, event_key, opts)
 	end
 
 	set_task_status(session, "WAIT", { source = opts.source, force = opts.force })
-	notify_task_waiting(session, reason, event_key)
+	if opts.notify then
+		notify_task_waiting(session, reason, event_key)
+	end
 end
 
 local function schedule_task_done(session)
@@ -393,19 +384,6 @@ local function schedule_task_done(session)
 	end)
 end
 
-local function lines_have_wait_signal(lines)
-	for _, line in ipairs(lines) do
-		local lower = tostring(line or ""):lower()
-		for _, pattern in ipairs(WAIT_PATTERNS) do
-			if lower:find(pattern, 1, true) then
-				return true
-			end
-		end
-	end
-
-	return false
-end
-
 local function mark_task_activity(session, opts)
 	opts = opts or {}
 	if not session or session.exited or not util.is_valid_buffer(session.bufnr) then
@@ -420,7 +398,7 @@ local function mark_task_activity(session, opts)
 		return
 	end
 
-	set_task_status(session, "RUN", { source = opts.source })
+	set_task_status(session, "RUN", { source = opts.source, new_generation = opts.new_generation })
 	schedule_task_done(session)
 end
 
@@ -558,16 +536,37 @@ local function message_needs_user_input(message)
 		return false
 	end
 
+	for _, pattern in ipairs(ASKING_PATTERNS) do
+		if lower:find(pattern, 1, true) then
+			return true
+		end
+	end
+
 	for _, pattern in ipairs(OPTIONAL_PATTERNS) do
 		if lower:find(pattern, 1, true) then
 			return false
 		end
 	end
 
-	for _, pattern in ipairs(ASKING_PATTERNS) do
-		if lower:find(pattern, 1, true) then
-			return true
+	local last_line = ""
+	for line in tostring(message):gmatch("[^\r\n]+") do
+		local trimmed = util.trim_whitespace(line)
+		if trimmed ~= "" then
+			last_line = trimmed
 		end
+	end
+	local last_lower = lower_text(last_line)
+	if last_lower:match("%?%s*$") then
+		return (
+			last_lower:match("^do you ")
+			or last_lower:match("^which ")
+			or last_lower:match("^what ")
+			or last_lower:match("^how ")
+			or last_lower:match("^can you ")
+			or last_lower:match("^could you ")
+			or last_lower:match("^would you ")
+			or last_lower:match("^please ")
+		) ~= nil
 	end
 
 	return false
@@ -653,17 +652,17 @@ local function handle_decoded_hook_event(decoded)
 			session,
 			approval_wait_reason(event),
 			hook_event_key(event),
-			{ source = "hook", force = true }
+			{ source = "hook", force = true, notify = true }
 		)
 	elseif event_name == "Stop" then
 		local message = event.last_assistant_message
 		if message_needs_user_input(message) then
-			mark_task_waiting(session, "question", hook_event_key(event), { source = "hook", force = true })
+			mark_task_waiting(session, "question", hook_event_key(event), { source = "hook", force = true, notify = true })
 		else
-			set_task_status(session, "DONE", { source = "hook" })
+			set_task_status(session, "DONE", { source = "hook", notify = true })
 		end
 	elseif event_name == "UserPromptSubmit" then
-		mark_task_activity(session, { force = true, source = "hook" })
+		mark_task_activity(session, { force = true, source = "hook", new_generation = true })
 	elseif event_name == "PostToolUse" then
 		mark_task_activity(session, { force = true, source = "hook" })
 	end
@@ -679,6 +678,15 @@ function M.handle_hook_event(encoded)
 	end
 
 	return handle_decoded_hook_event(decoded)
+end
+
+if vim.g.codex_chat_test then
+	M._test = {
+		mark_task_activity = mark_task_activity,
+		mark_task_waiting = mark_task_waiting,
+		message_needs_user_input = message_needs_user_input,
+		set_task_status = set_task_status,
+	}
 end
 
 local function newest_live_session()
@@ -1288,14 +1296,6 @@ function M.resync(bufnr)
 		end
 		session.hook_server = server
 		vim.b[session.bufnr].codex_hook_server = server
-	end
-
-	local lines = recent_scrollback(session.bufnr, 8)
-	if lines_have_wait_signal(lines) then
-		mark_task_waiting(session, "approval prompt", "manual-resync:" .. tostring(os.time()), {
-			source = "resync",
-			force = true,
-		})
 	end
 
 	util.notify("Codex hook IPC " .. M.ipc_status_label(session) .. ": " .. M.display_title(session))
