@@ -291,6 +291,30 @@ local function build_chat_buffers_lines()
 	return lines
 end
 
+local function first_selectable_chat_line()
+	local first_line = nil
+	for line, bufnr in pairs(state.codex_chat_line_to_buf) do
+		if bufnr and (not first_line or line < first_line) then
+			first_line = line
+		end
+	end
+
+	return first_line
+end
+
+local function focus_first_selectable_chat_line()
+	if not util.is_valid_window(state.codex_chat_buffers_win) then
+		return
+	end
+
+	local line = first_selectable_chat_line()
+	if not line then
+		return
+	end
+
+	pcall(vim.api.nvim_win_set_cursor, state.codex_chat_buffers_win, { line, 0 })
+end
+
 local function chat_buffers_float_config()
 	local columns = vim.o.columns
 	local editor_lines = vim.o.lines
@@ -365,6 +389,7 @@ function M.open()
 	vim.wo[state.codex_chat_buffers_win].signcolumn = "no"
 	vim.wo[state.codex_chat_buffers_win].wrap = false
 	M.render()
+	focus_first_selectable_chat_line()
 end
 
 function M.toggle()
