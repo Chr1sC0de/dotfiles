@@ -96,6 +96,9 @@ vim.lsp.enable({
 	"dockerls",
 	"yamlls",
 
+	-- rust
+	"rust-analyzer",
+
 	-- python
 	"ty",
 	"ruff",

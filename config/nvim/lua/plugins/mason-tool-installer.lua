@@ -19,11 +19,13 @@ return {
 				"docker-compose-language-service",
 				"yaml-language-server",
 				"json-lsp",
+				"rust-analyzer",
 				-- "markdown-oxide",
 				"ts_query_ls",
 				-- debuggers
 				"debugpy",
 				"bash-debug-adapter",
+				"codelldb",
 				-- linter
 				"ruff",
 				"shellcheck",

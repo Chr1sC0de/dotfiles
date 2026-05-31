@@ -80,6 +80,8 @@ return {
 			dapui.toggle()
 		end, { desc = "dap-ui: toggle" })
 		vim.keymap.set("n", "<Leader>dS", dapui_float_element("stacks", "Stacks"), { desc = "dap-ui: float stacks" })
+		vim.keymap.set("n", "<Leader>dL", dapui_float_element("scopes", "Locals"), { desc = "dap-ui: float locals" })
+		vim.keymap.set("n", "<Leader>dT", dapui_float_element("stacks", "Threads"), { desc = "dap-ui: float threads" })
 		vim.keymap.set(
 			"n",
 			"<Leader>dB",
