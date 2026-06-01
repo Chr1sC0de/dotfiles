@@ -318,9 +318,10 @@ end
 local function chat_buffers_float_config()
 	local columns = vim.o.columns
 	local editor_lines = vim.o.lines
-	local width = math.min(math.max(math.floor(columns * 0.82), 76), math.max(columns - 2, 20))
+	local width = math.min(math.max(math.floor(columns * 0.92), 88), math.max(columns - 2, 20))
 	local available_height = math.max(editor_lines - 4, 8)
-	local height = math.min(available_height, math.max(math.floor(editor_lines * 0.7), 8))
+	local max_height = math.min(available_height, math.max(math.floor(editor_lines * 0.8), 8))
+	local height = max_height
 
 	return {
 		relative = "editor",

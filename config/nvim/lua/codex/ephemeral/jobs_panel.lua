@@ -353,6 +353,30 @@ local function build_codex_jobs_lines()
 	return lines
 end
 
+local function first_selectable_job_line()
+	local first_line = nil
+	for line, id in pairs(state.codex_jobs_line_to_id) do
+		if id and (not first_line or line < first_line) then
+			first_line = line
+		end
+	end
+
+	return first_line
+end
+
+local function focus_first_selectable_job_line()
+	if not util.is_valid_window(state.codex_jobs_win) then
+		return
+	end
+
+	local line = first_selectable_job_line()
+	if not line then
+		return
+	end
+
+	pcall(vim.api.nvim_win_set_cursor, state.codex_jobs_win, { line, 0 })
+end
+
 local function codex_jobs_float_config()
 	local columns = vim.o.columns
 	local editor_lines = vim.o.lines
@@ -423,6 +447,7 @@ function M.open()
 	vim.wo[state.codex_jobs_win].signcolumn = "no"
 	vim.wo[state.codex_jobs_win].wrap = false
 	M.render()
+	focus_first_selectable_job_line()
 end
 
 function M.toggle()
