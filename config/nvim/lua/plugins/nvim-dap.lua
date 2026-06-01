@@ -89,9 +89,7 @@ return {
 			{ desc = "dap-ui: float breakpoints" }
 		)
 		vim.keymap.set("n", "<Leader>dW", dapui_float_element("watches", "Watches"), { desc = "dap-ui: float watches" })
-		vim.keymap.set("n", "<Leader>dl", function()
-			dap.run_last()
-		end, { desc = "dap: run last" })
+
 		vim.keymap.set({ "n", "v" }, "<Leader>dh", function()
 			require("dap.ui.widgets").hover()
 		end, { desc = "dap: hover widgets" })
@@ -131,15 +129,6 @@ return {
 		dap.adapters.nlua = function(callback, config)
 			callback({ type = "server", host = config.host or "127.0.0.1", port = config.port or 8086 })
 		end
-
-		vim.keymap.set(
-			"n",
-			"<leader>dl",
-			function()
-				require("osv").launch({ port = 8086, frozen_delay = 100 })
-			end,
-			{ noremap = true, desc = "dap: launch one small step neovim debugger, need to attach in separate instance" }
-		)
 
 		for name, sign in pairs({
 			Stopped = { "󰁕 ", "DiagnosticWarn", "DapStoppedLine" },
