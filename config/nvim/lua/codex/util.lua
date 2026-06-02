@@ -46,6 +46,10 @@ function M.join_path(parent, child)
 	return parent .. package.config:sub(1, 1) .. child
 end
 
+function M.codex_nvim_hook_path()
+	return M.join_path(vim.fn.stdpath("config"), "bin/codex-nvim-hook")
+end
+
 function M.buffer_file_context()
 	local path = M.repo_relative_path(vim.api.nvim_buf_get_name(0))
 	local line = vim.api.nvim_win_get_cursor(0)[1]
@@ -53,6 +57,23 @@ function M.buffer_file_context()
 	local modified = vim.bo.modified and "yes" or "no"
 
 	return path, line, filetype, modified
+end
+
+function M.write_current_buffer_snapshot()
+	local extension = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":e")
+	local path = vim.fn.tempname()
+	if extension and extension ~= "" then
+		path = path .. "." .. extension
+	end
+
+	local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+	local ok = vim.fn.writefile(lines, path)
+	if ok ~= 0 then
+		M.notify("Failed to write Codex buffer snapshot: " .. path, vim.log.levels.ERROR)
+		return nil
+	end
+
+	return path
 end
 
 function M.trim_whitespace(value)

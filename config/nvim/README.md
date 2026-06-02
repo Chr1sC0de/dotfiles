@@ -31,6 +31,78 @@ The implementation lives in `lua/workmux/`, is exposed through
 `lua/workmux/commands.lua`. Interactive TUI commands use `FTerm` when
 available and fall back to a Neovim terminal tab.
 
+## Codex Integration
+
+This config includes a local Codex chat bridge under `lua/codex/` and a hook
+receiver at `bin/codex-nvim-hook`.
+
+The dotfiles installer symlinks `config/nvim` by default, so the Neovim-side
+hook script is installed automatically on a new machine:
+
+```text
+$HOME/.config/nvim/bin/codex-nvim-hook
+```
+
+Codex itself still needs a one-time hook registration in `~/.codex/hooks.json`.
+That file is local Codex state and is not managed by this repo. Add the Neovim
+hook to the lifecycle events Codex should report back into the running Neovim
+session:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "$HOME/.config/nvim/bin/codex-nvim-hook",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "$HOME/.config/nvim/bin/codex-nvim-hook",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "command": "$HOME/.config/nvim/bin/codex-nvim-hook",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "$HOME/.config/nvim/bin/codex-nvim-hook",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+If `~/.codex/hooks.json` already contains hooks, keep those entries and append
+the `codex-nvim-hook` entry to each matching event. For example, the existing
+`workmux set-window-status ...` hooks can coexist with the Neovim hook.
+
+After changing hooks, start a new Codex chat and run `:CodexHealth` in Neovim.
+The chat buffer panel should show IPC as `READY` when the hook server is
+available, then `SEEN` after Codex emits a lifecycle event.
+
 ## Subtree
 
 To work with the current folder as a subtree

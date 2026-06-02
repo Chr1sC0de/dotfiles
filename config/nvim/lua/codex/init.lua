@@ -2,6 +2,7 @@ local chat = require("codex.chat")
 local chat_panel = require("codex.chat_panel")
 local commands = require("codex.commands")
 local context = require("codex.context")
+local health = require("codex.health")
 local jobs = require("codex.ephemeral.jobs")
 local jobs_panel = require("codex.ephemeral.jobs_panel")
 local model = require("codex.ephemeral.model")
@@ -31,6 +32,7 @@ M.command_file = context.command_file
 M.command_selection = context.command_selection
 M.edit_file = context.edit_file
 M.edit_selection = context.edit_selection
+M.health = health.report
 M.toggle_jobs = jobs_panel.toggle
 M.activate_buffer = chat.activate_buffer
 

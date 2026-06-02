@@ -204,6 +204,10 @@ function M.run(action, target, instruction)
 		util.notify("codex executable was not found on PATH", vim.log.levels.ERROR)
 		return
 	end
+	if action == "edit" and target.modified == "yes" then
+		util.notify("Save the buffer before running ephemeral Codex edits", vim.log.levels.WARN)
+		return
+	end
 
 	local sandbox = action == "edit" and "workspace-write" or "read-only"
 	local selected_model = state.ephemeral_models[action]
@@ -231,6 +235,10 @@ function M.run(action, target, instruction)
 	if selected_model then
 		table.insert(command, 3, "--model")
 		table.insert(command, 4, selected_model)
+	end
+	if action == "command" and constants.EPHEMERAL_COMMAND_REASONING_EFFORT then
+		table.insert(command, 3, "-c")
+		table.insert(command, 4, 'model_reasoning_effort="' .. constants.EPHEMERAL_COMMAND_REASONING_EFFORT .. '"')
 	end
 
 	util.notify(
@@ -262,6 +270,9 @@ function M.run(action, target, instruction)
 				local result_path = write_result_file(
 					make_result_lines(action, instruction, target, selected_model, code, stdout_lines, stderr_lines)
 				)
+				if target.snapshot_path then
+					pcall(vim.fn.delete, target.snapshot_path)
+				end
 				local status = job_record.cancel_requested and "cancelled" or (code == 0 and "success" or "failed")
 				M.update(job_record, {
 					exit_code = code,
@@ -291,6 +302,9 @@ function M.run(action, target, instruction)
 
 	if job_id <= 0 then
 		stop_activity()
+		if target.snapshot_path then
+			pcall(vim.fn.delete, target.snapshot_path)
+		end
 		M.update(job_record, {
 			finished_at = os.time(),
 			status = "failed_to_start",

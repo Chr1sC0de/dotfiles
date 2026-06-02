@@ -3,8 +3,31 @@ local util = require("codex.util")
 
 local M = {}
 
-function M.build_file()
+function M.build_file(opts)
+	opts = opts or {}
 	local path, line, filetype, modified = util.buffer_file_context()
+	local context_lines = {
+		"File: " .. path,
+		"Line: " .. line,
+		"Filetype: " .. filetype,
+		"Unsaved changes: " .. modified,
+		"",
+	}
+	local snapshot_path = nil
+
+	if modified == "yes" and opts.include_modified_snapshot then
+		snapshot_path = util.write_current_buffer_snapshot()
+		if snapshot_path then
+			vim.list_extend(context_lines, {
+				"Unsaved buffer snapshot: " .. snapshot_path,
+				"Read the snapshot file when you need the current unsaved buffer content.",
+			})
+		else
+			table.insert(context_lines, "The buffer has unsaved changes, and no snapshot could be written.")
+		end
+	else
+		table.insert(context_lines, "The file is available in the workspace. Read it from disk if needed.")
+	end
 
 	return {
 		kind = "file",
@@ -14,16 +37,10 @@ function M.build_file()
 		end_line = line,
 		filetype = filetype,
 		modified = modified,
+		snapshot_path = snapshot_path,
 		spinner_buf = vim.api.nvim_get_current_buf(),
 		spinner_line = line,
-		context_lines = {
-			"File: " .. path,
-			"Line: " .. line,
-			"Filetype: " .. filetype,
-			"Unsaved changes: " .. modified,
-			"",
-			"The file is available in the workspace. Read it from disk if needed.",
-		},
+		context_lines = context_lines,
 	}
 end
 

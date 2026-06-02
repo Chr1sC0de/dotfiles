@@ -15,7 +15,7 @@ return {
 	next_ephemeral_sign_id = 1,
 	next_codex_session_id = 1,
 	ephemeral_models = {
-		command = nil,
+		command = "gpt-5.4-mini",
 		edit = nil,
 	},
 	setup_done = false,

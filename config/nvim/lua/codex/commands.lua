@@ -31,6 +31,7 @@ function M.setup(api)
 		end,
 		nargs = "?",
 	})
+	vim.api.nvim_create_user_command("CodexHealth", api.health, {})
 	vim.api.nvim_create_user_command("CodexJobs", api.toggle_jobs, {})
 	vim.api.nvim_create_user_command("CodexJobsDelete", api.delete_job, { nargs = "?" })
 	vim.api.nvim_create_user_command("CodexSendFile", api.send_file, {})
@@ -65,6 +66,7 @@ function M.setup(api)
 	vim.keymap.set("x", "<leader>as", api.send_selection, { desc = "Codex: send selection" })
 	vim.keymap.set("n", "<leader>al", api.send_line, { desc = "Codex: send line" })
 
+	vim.keymap.set("n", "<leader>aH", api.health, { desc = "Codex: health" })
 	vim.keymap.set("n", "<leader>am", api.select_ephemeral_model, { desc = "Codex: ephemeral model" })
 
 	vim.api.nvim_create_autocmd("BufEnter", {
