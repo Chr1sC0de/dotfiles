@@ -14,6 +14,22 @@ vim.lsp.config("*", {
 	root_markers = { ".git" },
 })
 
+-- c++
+
+vim.lsp.config("clangd", {
+	cmd = {
+		"clangd",
+		"--query-driver=/usr/bin/g++,/usr/bin/clang++,/usr/bin/c++",
+	},
+
+	root_dir = vim.fs.root(0, {
+		"compile_commands.json",
+		"build/compile_commands.json",
+		"CMakeLists.txt",
+		".git",
+	}),
+})
+
 -- python
 
 -- Optional: Only required if you need to update the language server settings
@@ -116,4 +132,8 @@ vim.lsp.enable({
 
 	-- treesitter
 	"ts_query_ls",
+
+	-- c++
+	"neocmake",
+	"clangd",
 })

@@ -28,6 +28,7 @@ return {
 				{ source = "zuban" }
 			),
 		}
+
 		-- custom linter for cpplint
 		lint.linters["cpplint"] = {
 			name = "cpplint",
@@ -35,6 +36,7 @@ return {
 			stdin = false,
 			args = {
 				"--quiet",
+				"--filter=-legal/copyright",
 				"$FILENAME",
 			},
 			stream = "stderr",
