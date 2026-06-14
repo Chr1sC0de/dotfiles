@@ -28,11 +28,29 @@ return {
 				{ source = "zuban" }
 			),
 		}
+		-- custom linter for cpplint
+		lint.linters["cpplint"] = {
+			name = "cpplint",
+			cmd = "cpplint",
+			stdin = false,
+			args = {
+				"--quiet",
+				"$FILENAME",
+			},
+			stream = "stderr",
+			ignore_exitcode = true,
+			parser = require("lint.parser").from_errorformat("%f:%l: %m", {
+				source = "cpplint",
+				severity = vim.diagnostic.severity.WARN,
+			}),
+		}
 
 		-- python is excluded here; zuban runs only on BufWritePost below
 		lint.linters_by_ft = {
 			python = { "zuban" },
 			dockerfile = { "hadolint" },
+			cpp = { "cpplint" },
+			c = { "cpplint" },
 		}
 
 		local lint_augroup = vim.api.nvim_create_augroup("lint", { clear = true })

@@ -20,6 +20,8 @@ return {
 				"yaml-language-server",
 				"json-lsp",
 				"rust-analyzer",
+				"neocmakelsp",
+				"clangd",
 				-- "markdown-oxide",
 				"ts_query_ls",
 				-- debuggers
@@ -27,11 +29,14 @@ return {
 				"bash-debug-adapter",
 				"codelldb",
 				-- linter
+				"cpplint",
 				"ruff",
+				"mbake",
 				"shellcheck",
 				"yamllint",
 				"yamlfmt",
 				-- formatters
+				"clangd-format",
 				"pyproject-fmt",
 				"mbake",
 				"cbfmt",

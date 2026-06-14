@@ -16,6 +16,7 @@ return {
 				lua = { "stylua" },
 				json = { "fixjson" },
 				yaml = { "yamlfmt" },
+				cpp = { "clang-format" },
 				toml = function(bufnr)
 					if vim.api.nvim_buf_get_name(bufnr):match("pyproject%.toml$") then
 						return { "pyproject-fmt" }
