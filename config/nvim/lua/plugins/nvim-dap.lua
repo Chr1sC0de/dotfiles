@@ -90,6 +90,15 @@ return {
 		)
 		vim.keymap.set("n", "<Leader>dW", dapui_float_element("watches", "Watches"), { desc = "dap-ui: float watches" })
 
+		vim.keymap.set("n", "<Leader>dA", function()
+			require("dapui").float_element("repl", {
+				enter = true,
+				width = math.floor(vim.o.columns * 0.8),
+				height = math.floor(vim.o.lines * 0.6),
+			})
+			require("dap").repl.execute("disassemble ")
+		end)
+
 		vim.keymap.set({ "n", "v" }, "<Leader>dh", function()
 			require("dap.ui.widgets").hover()
 		end, { desc = "dap: hover widgets" })
