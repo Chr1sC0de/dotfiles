@@ -17,6 +17,7 @@ return {
 				json = { "fixjson" },
 				yaml = { "yamlfmt" },
 				cpp = { "clang-format" },
+				cmake = { "cmake_format" },
 				toml = function(bufnr)
 					if vim.api.nvim_buf_get_name(bufnr):match("pyproject%.toml$") then
 						return { "pyproject-fmt" }

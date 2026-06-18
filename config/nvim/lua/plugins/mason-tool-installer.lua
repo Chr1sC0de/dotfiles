@@ -36,7 +36,7 @@ return {
 				"yamllint",
 				"yamlfmt",
 				-- formatters
-				"clangd-format",
+				"clang-format",
 				"pyproject-fmt",
 				"mbake",
 				"cbfmt",
