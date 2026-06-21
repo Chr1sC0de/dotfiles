@@ -65,6 +65,9 @@ vim.filetype.add({
 		["Caddyfile"] = "caddy",
 		["Caddyfile.*"] = "caddy",
 	},
+	filename = {
+		["CMakeLists.txt"] = "cmake",
+	},
 })
 
 -- automatically convert anything to bash if they have the bash shebang

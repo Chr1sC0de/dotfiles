@@ -24,5 +24,14 @@ return {
 				},
 			},
 		})
+
+		vim.keymap.set("n", "<leader>cg", ":CMakeGenerate<cr>", { desc = "cmake: generate" })
+		vim.keymap.set("n", "<leader>cb", ":CMakeBuild<cr>", { desc = "cmake: build" })
+		vim.keymap.set("n", "<leader>cr", ":CMakeRun<cr>", { desc = "cmake: run" })
+		vim.keymap.set("n", "<leader>cR", ":CMakeRunTest<cr>", { desc = "cmake: run test" })
+		vim.keymap.set("n", "<leader>cd", ":CMakeDebug<cr>", { desc = "cmake: debug" })
+		vim.keymap.set("n", "<leader>cD", ":CMakeDebugCurrentFile<cr>", { desc = "cmake: debug current file" })
+		vim.keymap.set("n", "<leader>cL", ":CMakeLaunchArgs ", { desc = "cmake: launch args" })
+		vim.keymap.set("n", "<leader>cC", ":CMakeClean<cr>", { desc = "cmake: clean" })
 	end,
 }

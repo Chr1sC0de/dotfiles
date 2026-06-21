@@ -12,25 +12,25 @@ return {
 			return output
 		end
 
-		vim.keymap.set({ "n", "v" }, "<Leader>cb", "<Cmd>CBccbox<CR>", add_description(opts, "comment-box: titles"))
+		vim.keymap.set({ "n", "v" }, "<Leader>kb", "<Cmd>CBccbox<CR>", add_description(opts, "comment-box: titles"))
 
 		vim.keymap.set(
 			{ "n", "v" },
-			"<Leader>ct",
+			"<Leader>kt",
 			"<Cmd>CBllline15<CR>",
 			add_description(opts, "comment-box: named parts")
 		)
 
-		vim.keymap.set("n", "<Leader>cL", "<Cmd>CBline<CR>", add_description(opts, "comment-box: simple line"))
+		vim.keymap.set("n", "<Leader>kL", "<Cmd>CBline<CR>", add_description(opts, "comment-box: simple line"))
 
 		vim.keymap.set(
 			{ "n", "v" },
-			"<Leader>cm",
+			"<Leader>km",
 			"<Cmd>CBllbox14<CR>",
 			add_description(opts, "comment-box: marked comments")
 		)
 
-		vim.keymap.set({ "n", "v" }, "<Leader>cd", "<Cmd>CBd<CR>", add_description(opts, "comment-box: remove box"))
+		vim.keymap.set({ "n", "v" }, "<Leader>kd", "<Cmd>CBd<CR>", add_description(opts, "comment-box: remove box"))
 
 		require("comment-box").setup({
 			-- type of comments:

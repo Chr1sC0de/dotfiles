@@ -64,7 +64,7 @@ return {
 			dap.toggle_breakpoint()
 		end, { desc = "dap: toggle break point" })
 		vim.keymap.set("n", "<F21>", function()
-			local condition = vim.fn.input("conditional breakpoint")
+			local condition = vim.fn.input("conditional breakpoint (shift+F9=F21)")
 			dap.set_breakpoint(condition)
 		end, { desc = "dap: set conditional break point" })
 		vim.keymap.set("n", "<Leader>B", function()
