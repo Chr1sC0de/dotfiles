@@ -1,9 +1,19 @@
-dictionaries = ["en_us", "en_gb"]
-
+dictionaries = [
+    "en_us",
+    "en_gb",
+]
 words = [
+    "Autoregressive",
+    "Backtesting",
+    "Bixi",
+    "Heteroscedasticity",
+    "KAGGLE",
+    "Monash",
+    "Stationarity",
     "absolutizing",
     "aemo",
     "aest",
+    "approches",
     "augroup",
     "autocmds",
     "bashdb",
@@ -15,6 +25,7 @@ words = [
     "bufnr",
     "caddy",
     "caplog",
+    "cdot",
     "connectionpoint",
     "containerfile",
     "cov",
@@ -69,10 +80,12 @@ words = [
     "qld",
     "quickfile",
     "rechunk",
+    "regressors",
     "rpts",
     "sched",
     "shellcheck",
     "statuscolumn",
+    "stochasticity",
     "sttm",
     "stylua",
     "subparsers",
@@ -87,13 +100,11 @@ words = [
     "xdist",
     "zuban",
 ]
-
 ignore_paths = [
     "**/LICENSE",
     "**/lazy-lock.json",
     "**/nvim.log",
 ]
-
 ignore_patterns = [
     '\b[ATCG]+\b',
     '\b\d{3}-\d{2}-\d{4}\b',

@@ -56,6 +56,8 @@ alias ll="ls -l"
 #                                  setup vars                                  #
 # ---------------------------------------------------------------------------- #
 
+export TMUX=${TMUX:-none}
+export SHELL=bash
 export EDITOR=nvim
 export VISUAL=nvim
 export MANPAGER="nvim -c 'Man!' -"

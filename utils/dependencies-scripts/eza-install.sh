@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-tag=v0.23.4
+tag=v0.23.5
 file=eza_x86_64-unknown-linux-gnu.tar.gz
 repository=eza-community/eza
 release="https://github.com/$repository/releases/download/$tag/$file"
