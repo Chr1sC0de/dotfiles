@@ -6,8 +6,8 @@ return {
 		enabled = not vim.g.vscode,
 		dependencies = {
 			{
+				"romus204/tree-sitter-manager.nvim",
 				"nvim-treesitter/nvim-treesitter-context",
-				"LiadOz/nvim-dap-repl-highlights",
 				opts = {
 					max_lines = 4,
 					multiline_threshold = 2,
@@ -18,7 +18,6 @@ return {
 		branch = "main",
 		build = ":TSUpdate",
 		config = function()
-			require("nvim-dap-repl-highlights").setup()
 			local languages = {
 				"lua",
 				"latex",
@@ -41,8 +40,21 @@ return {
 				"jinja",
 				"jinja_inline",
 				"caddy",
+				"mermaid",
 			}
-			require("nvim-treesitter").install()
+			-- require("nvim-treesitter").install()
+			require("tree-sitter-manager").setup({
+				languages = {
+					dap_repl = {
+						install_info = {
+							url = "https://github.com/LiadOz/nvim-dap-repl-highlights",
+							queries = "queries/dap_repl",
+						},
+					},
+				},
+				auto_install = true,
+				ensure_installed = languages,
+			})
 			vim.api.nvim_create_autocmd("FileType", {
 				pattern = languages,
 				callback = function(args)

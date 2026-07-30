@@ -46,3 +46,15 @@
     (string_content) @injection.content)
   (#match? @script ".+_python_*.*")
   (#set! injection.language "python"))
+
+(call
+  function: (attribute
+    object: (identifier)
+    attribute: (identifier) @method)
+  arguments: (argument_list
+    (string
+      (string_start)
+      (string_content) @injection.content
+      (string_end)))
+  (#match? @method "sql")
+  (#set! injection.language "sql"))

@@ -35,6 +35,7 @@ return {
 				"shellcheck",
 				"yamllint",
 				"yamlfmt",
+				"hadolint",
 				-- formatters
 				"clang-format",
 				"pyproject-fmt",
