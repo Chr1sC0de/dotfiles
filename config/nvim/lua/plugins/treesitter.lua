@@ -5,7 +5,10 @@ return {
 		"nvim-treesitter/nvim-treesitter",
 		enabled = not vim.g.vscode,
 		dependencies = {
-			"romus204/tree-sitter-manager.nvim",
+			{
+				"romus204/tree-sitter-manager.nvim",
+				branch = "develop",
+			},
 			{
 				"nvim-treesitter/nvim-treesitter-context",
 				opts = {
