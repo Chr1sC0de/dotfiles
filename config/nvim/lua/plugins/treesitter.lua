@@ -5,8 +5,8 @@ return {
 		"nvim-treesitter/nvim-treesitter",
 		enabled = not vim.g.vscode,
 		dependencies = {
+			"romus204/tree-sitter-manager.nvim",
 			{
-				"romus204/tree-sitter-manager.nvim",
 				"nvim-treesitter/nvim-treesitter-context",
 				opts = {
 					max_lines = 4,
