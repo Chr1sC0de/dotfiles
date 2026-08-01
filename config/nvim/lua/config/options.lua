@@ -81,6 +81,8 @@ vim.filetype.add({
 		[".*%.pod"] = "ini",
 		[".*%.volume"] = "ini",
 		[".*%.network"] = "ini",
+		[".sqruff"] = "ini",
+		[".sqlfluff"] = "ini",
 	},
 
 	filename = {
