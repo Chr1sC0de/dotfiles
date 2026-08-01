@@ -60,19 +60,15 @@ vim.o.exrc = true
 --  allow treesitter to take priority for highlighting
 vim.highlight.priorities.semantic_tokens = 95
 
+-- adding filetypes
+
 vim.filetype.add({
 	pattern = {
+		[".*%.j2"] = "jinja",
+		[".*%.sql%.j.*"] = "sql",
 		["Caddyfile"] = "caddy",
 		["Caddyfile.*"] = "caddy",
-	},
-	filename = {
-		["CMakeLists.txt"] = "cmake",
-	},
-})
-
--- automatically convert anything to bash if they have the bash shebang
-vim.filetype.add({
-	pattern = {
+		[".*/%.vscode/.*%.json"] = "jsonc",
 		[".*"] = {
 			---@diagnostic disable-next-line: unused-local
 			function(path, bufnr)
@@ -82,14 +78,36 @@ vim.filetype.add({
 				end
 			end,
 		},
+		[".*%.container%.jinja"] = "ini_jinja",
+		[".*%.pod%.jinja"] = "ini_jinja",
+		[".*%.volume%.jinja"] = "ini_jinja",
+		[".*%.network%.jinja"] = "ini_jinja",
+		[".*%.container"] = "ini",
+		[".*%.pod"] = "ini",
+		[".*%.volume"] = "ini",
+		[".*%.network"] = "ini",
+	},
+
+	filename = {
+		["CMakeLists.txt"] = "cmake",
 	},
 })
 
-vim.filetype.add({
-	pattern = {
-		[".*/%.vscode/.*%.json"] = "jsonc",
-	},
-})
+-- register jinja
+vim.treesitter.language.register("jinja", { "ini_jinja" })
+
+-- create command to route jinja injections
+
+vim.treesitter.query.add_directive("inject-lang-jinja!", function(_, _, bufnr, _, metadata)
+	local fname = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr))
+	local _, _, ext, _ = string.find(fname, ".*%.(%a+)(%.%a+)")
+	if vim.tbl_contains({ "container", "pod", "volume", "network" }, ext) then
+		metadata["injection.language"] = "ini"
+	end
+	if vim.tbl_contains({ "sql" }, ext) then
+		metadata["injection.language"] = "sql"
+	end
+end, {})
 
 vim.api.nvim_create_autocmd("TermOpen", {
 	desc = "Enable relative line numbers in terminal buffers",
