@@ -64,10 +64,9 @@ vim.highlight.priorities.semantic_tokens = 95
 
 vim.filetype.add({
 	pattern = {
-		[".*%.j2"] = "jinja",
 		[".*%.sql%.j.*"] = "sql",
+		[".*%.j2"] = "jinja",
 		["Caddyfile"] = "caddy",
-		["Caddyfile.*"] = "caddy",
 		[".*/%.vscode/.*%.json"] = "jsonc",
 		[".*"] = {
 			---@diagnostic disable-next-line: unused-local
@@ -78,10 +77,6 @@ vim.filetype.add({
 				end
 			end,
 		},
-		[".*%.container%.jinja"] = "ini_jinja",
-		[".*%.pod%.jinja"] = "ini_jinja",
-		[".*%.volume%.jinja"] = "ini_jinja",
-		[".*%.network%.jinja"] = "ini_jinja",
 		[".*%.container"] = "ini",
 		[".*%.pod"] = "ini",
 		[".*%.volume"] = "ini",
@@ -93,19 +88,23 @@ vim.filetype.add({
 	},
 })
 
--- register jinja
-vim.treesitter.language.register("jinja", { "ini_jinja" })
-
 -- create command to route jinja injections
 
 vim.treesitter.query.add_directive("inject-lang-jinja!", function(_, _, bufnr, _, metadata)
 	local fname = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr))
+
 	local _, _, ext, _ = string.find(fname, ".*%.(%a+)(%.%a+)")
+
 	if vim.tbl_contains({ "container", "pod", "volume", "network" }, ext) then
 		metadata["injection.language"] = "ini"
-	end
-	if vim.tbl_contains({ "sql" }, ext) then
+	elseif vim.tbl_contains({ "sql" }, ext) then
 		metadata["injection.language"] = "sql"
+	end
+
+	local _, _, caddyext = string.find(fname, "(Caddyfile)%..+")
+
+	if vim.tbl_contains({ "Caddyfile" }, caddyext) then
+		metadata["injection.language"] = "caddy"
 	end
 end, {})
 
