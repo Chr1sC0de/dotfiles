@@ -132,7 +132,7 @@ vim.keymap.set("n", "<leader>cp", function()
 		return
 	end
 
-	copy_to_clipboard(vim.fn.expand("%"))
+	copy_to_clipboard(vim.fn.expand("%:."))
 end, { desc = "Copy relative path to clipboard" })
 
 vim.keymap.set("n", "<leader>cP", function()
