@@ -10,7 +10,8 @@
 (assignment
   left: (identifier) @identifier
   right: (string
-    (string_content) @injection.content)
+    ((string_content)
+      (interpolation)*)+ @injection.content)
   (#match? @identifier ".*sql*.*")
   (#set! injection.language "sql"))
 
@@ -22,7 +23,8 @@
   ]
   arguments: (argument_list
     (string
-      (string_content) @injection.content))
+      ((string_content)
+        (interpolation)*)+ @injection.content))
   (#match? @identifier ".*sql.*")
   (#set! injection.language "sql"))
 
@@ -31,6 +33,7 @@
   value: (lambda
     body: (parenthesized_expression
       (string
-        (string_content) @injection.content)))
+        ((string_content)
+          (interpolation)*)+ @injection.content)))
   (#match? @identifier ".*sql.*")
   (#set! injection.language "sql"))
