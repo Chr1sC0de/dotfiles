@@ -52,8 +52,8 @@ return {
 				-- For example,
 				--
 				repl_open_cmd = {
-					view.split.rightbelow("%25"),
 					view.split.vertical.rightbelow("%40"),
+					view.split.rightbelow("%25"),
 				},
 			},
 			-- Iron doesn't set keymaps by default anymore.
