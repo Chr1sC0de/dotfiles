@@ -65,3 +65,9 @@ else
 	vim.opt.shellquote = ""
 	vim.opt.shellxquote = ""
 end
+
+-- command to run file
+vim.api.nvim_create_user_command("RunFile", function()
+	local file = vim.fn.expand("%:p")
+	vim.cmd("botright split | terminal " .. vim.fn.shellescape(file))
+end, {})
