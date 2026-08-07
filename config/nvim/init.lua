@@ -56,12 +56,12 @@ elseif sh == "pwsh" then
 	vim.opt.shellxquote = ""
 elseif sh == "bash" then
 	vim.opt.shell = shell
-	vim.opt.shellcmdflag = "-c"
+	vim.opt.shellcmdflag = "-lc"
 	vim.opt.shellquote = ""
 	vim.opt.shellxquote = ""
 else
 	vim.opt.shell = shell
-	vim.opt.shellcmdflag = "-c"
+	vim.opt.shellcmdflag = "-lc"
 	vim.opt.shellquote = ""
 	vim.opt.shellxquote = ""
 end
