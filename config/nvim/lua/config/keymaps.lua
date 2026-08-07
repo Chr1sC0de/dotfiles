@@ -235,3 +235,17 @@ for c in ("abcdefghijklmnopqrstuvwxyz"):gmatch(".") do
 	local upper = c:upper()
 	vim.keymap.set("n", "'" .. c, "'" .. upper)
 end
+
+vim.keymap.set("n", "<leader>sc", function()
+	-- Create a new unlisted (false), scratch (true) buffer
+	local buf = vim.api.nvim_create_buf(false, true)
+
+	-- Set local buffer options to treat it as a throwaway
+	vim.bo[buf].buftype = "nofile"
+	vim.bo[buf].bufhidden = "hide"
+	vim.bo[buf].filetype = "bash"
+	vim.bo[buf].swapfile = false
+
+	-- Open the buffer in a new split window
+	vim.api.nvim_win_set_buf(0, buf)
+end, { desc = "Open scratch buffer" })

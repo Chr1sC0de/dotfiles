@@ -41,7 +41,7 @@ return {
 				dap_integration = true,
 				-- How the repl window will be displayed
 				-- See below for more information
-				repl_open_cmd = view.split.vertical.botright("25%"),
+				-- repl_open_cmd = view.split.vertical.botright("25%"),
 				-- repl_open_cmd can also be an array-style table so that multiple
 				-- repl_open_commands can be given.
 				-- When repl_open_cmd is given as a table, the first command given will
@@ -51,10 +51,10 @@ return {
 				-- toggle_repl_with_cmd_1, ..., toggle_repl_with_cmd_k
 				-- For example,
 				--
-				-- repl_open_cmd = {
-				--   view.split.vertical.rightbelow("%40"), -- cmd_1: open a repl to the right
-				--   view.split.rightbelow("%25")  -- cmd_2: open a repl below
-				-- }
+				repl_open_cmd = {
+					view.split.rightbelow("%25"),
+					view.split.vertical.rightbelow("%40"),
+				},
 			},
 			-- Iron doesn't set keymaps by default anymore.
 			-- You can set them here or manually add keymaps to the functions in iron.core
@@ -62,8 +62,8 @@ return {
 				toggle_repl = "<space>rr", -- toggles the repl open and closed.
 				-- If repl_open_command is a table as above, then the following keymaps are
 				-- available
-				-- toggle_repl_with_cmd_1 = "<space>rv",
-				-- toggle_repl_with_cmd_2 = "<space>rh",
+				toggle_repl_with_cmd_1 = "<space>rv",
+				toggle_repl_with_cmd_2 = "<space>rs",
 				restart_repl = "<space>rR", -- calls `IronRestart` to restart the repl
 				send_motion = "<space>sc",
 				visual_send = "<space>sc",
