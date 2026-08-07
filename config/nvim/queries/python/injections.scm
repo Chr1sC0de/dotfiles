@@ -1,37 +1,36 @@
 ; extends
 
 (assignment
-  left: (identifier) @name
+  left: (identifier) @identifier
   right: (string
     (string_content) @injection.content)
-  (#match? @name ".+_bash_*.*")
+  (#match? @identifier ".+_bash_*.*")
   (#set! injection.language "bash"))
 
 (assignment
-  left: (identifier) @name
+  left: (identifier) @identifier
   right: (string
     (string_content) @injection.content)
-  (#match? @name ".*sql*.*")
+  (#match? @identifier ".*sql*.*")
   (#set! injection.language "sql"))
 
 (call
   function: [
-    (identifier) @name
+    (identifier) @identifier
     (attribute
-      attribute: (identifier) @name)
+      attribute: (identifier) @identifier)
   ]
   arguments: (argument_list
     (string
-      (string_start)
-      (string_content) @injection.content
-      (string_end)))
-  (#match? @name ".*sql.*")
+      (string_content) @injection.content))
+  (#match? @identifier ".*sql.*")
   (#set! injection.language "sql"))
 
 (keyword_argument
-  name: (identifier) @name
-  (lambda
-    (string
-      (string_content) @injection.content))
-  (#match? @name ".*sql.*")
+  name: (identifier) @identifier
+  value: (lambda
+    body: (parenthesized_expression
+      (string
+        (string_content) @injection.content)))
+  (#match? @identifier ".*sql.*")
   (#set! injection.language "sql"))
