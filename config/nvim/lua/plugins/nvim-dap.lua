@@ -123,7 +123,11 @@ return {
 		dap_python.setup("uv")
 		dap_python.test_runner = "pytest"
 
-		dap.adapters.bashdb = bash_config.adapter
+		for _, config in ipairs(dap.configurations.python) do
+			config.cwd = "${workspaceFolder}"
+		end
+
+		dap.adapters.bash = bash_config.adapter
 		dap.configurations.sh = bash_config.configuration
 		dap.configurations.bash = bash_config.configuration
 
