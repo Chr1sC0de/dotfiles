@@ -48,7 +48,7 @@ return {
 					layout = {
 						preset = "default",
 						fullscreen = true,
-						preview = false,
+						preview = true,
 					},
 				},
 			},
