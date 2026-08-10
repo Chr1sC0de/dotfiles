@@ -49,7 +49,7 @@ return {
 
 		-- python is excluded here; zuban runs only on BufWritePost below
 		lint.linters_by_ft = {
-			python = { "zuban" },
+			-- python = { "zuban" },
 			sh = { "shellcheck" },
 			bash = { "shellcheck" },
 			cmake = { "cmake_lint" },

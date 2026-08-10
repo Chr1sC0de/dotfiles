@@ -9,6 +9,8 @@ end
 require("config.options")
 require("config.keymaps")
 
+require("user-commands")
+
 local border_colors = "#7aa7f5"
 
 -- Transparent floating window backgrounds
@@ -26,55 +28,3 @@ vim.env.IN_NEOVIM_TERMINAL = true
 if vim.env.TMUX then
 	vim.g.clipboard = "osc52"
 end
-
--- set flags and shell
-
--- Normalize shell name from a full path or just the name
-local function normalize_shell(shell_path)
-	-- get the basename if it's a path
-	local name = shell_path:match("^.+[\\/]([^\\/]+)$") or shell_path
-	-- remove optional ".exe" on Windows
-	name = name:gsub("%.exe$", "")
-	-- lowercase for comparison
-	return name:lower()
-end
-
-local shell = vim.g.SHELL or vim.o.shell
-local sh = normalize_shell(shell)
-
-if sh == "cmd" then
-	vim.opt.shell = shell
-	vim.opt.shellcmdflag = "/c"
-	vim.opt.shellquote = ""
-	vim.opt.shellxquote = ""
-elseif sh == "pwsh" then
-	vim.opt.shell = shell
-	vim.opt.shellcmdflag = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command"
-	vim.opt.shellredir = "2>&1 | Out-File -Encoding utf8 %s"
-	vim.opt.shellpipe = "2>&1 | Out-File -Encoding utf8 %s"
-	vim.opt.shellquote = ""
-	vim.opt.shellxquote = ""
-elseif sh == "bash" then
-	vim.opt.shell = shell .. " -l"
-	vim.opt.shellcmdflag = "-c"
-	vim.opt.shellquote = ""
-	vim.opt.shellxquote = ""
-else
-	vim.opt.shell = shell .. " -l"
-	vim.opt.shellcmdflag = "-c"
-	vim.opt.shellquote = ""
-	vim.opt.shellxquote = ""
-end
-
--- command to run file
-vim.api.nvim_create_user_command("RunFile", function()
-	local file = vim.fn.expand("%:p")
-
-	vim.cmd("botright split")
-	vim.cmd("terminal " .. vim.fn.shellescape(file))
-
-	local buf = vim.api.nvim_get_current_buf()
-	vim.bo[buf].bufhidden = "wipe"
-
-	vim.cmd("startinsert")
-end, {})

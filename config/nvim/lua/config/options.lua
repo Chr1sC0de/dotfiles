@@ -91,7 +91,6 @@ vim.filetype.add({
 })
 
 -- create command to route jinja injections
-
 vim.treesitter.query.add_directive("inject-lang-jinja!", function(_, _, bufnr, _, metadata)
 	local fname = vim.fs.basename(vim.api.nvim_buf_get_name(bufnr))
 	local _, _, ext, _ = string.find(fname, ".*%.(%a+)(%.%a+)")
@@ -106,10 +105,49 @@ vim.treesitter.query.add_directive("inject-lang-jinja!", function(_, _, bufnr, _
 	end
 end, {})
 
-vim.api.nvim_create_autocmd("TermOpen", {
-	desc = "Enable relative line numbers in terminal buffers",
-	callback = function()
-		vim.opt_local.number = false
-		vim.opt_local.relativenumber = false
-	end,
-})
+-- set the shell
+
+-- Normalize shell name from a full path or just the name
+local function normalize_shell(shell_path)
+	-- get the basename if it's a path
+	local name = shell_path:match("^.+[\\/]([^\\/]+)$") or shell_path
+	-- remove optional ".exe" on Windows
+	name = name:gsub("%.exe$", "")
+	-- lowercase for comparison
+	return name:lower()
+end
+
+local shell = vim.g.SHELL or vim.o.shell
+local sh = normalize_shell(shell)
+
+if sh == "cmd" then
+	vim.opt.shell = shell
+	vim.opt.shellcmdflag = "/c"
+	vim.opt.shellquote = ""
+	vim.opt.shellxquote = ""
+elseif sh == "pwsh" then
+	vim.opt.shell = shell
+	vim.opt.shellcmdflag = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command"
+	vim.opt.shellredir = "2>&1 | Out-File -Encoding utf8 %s"
+	vim.opt.shellpipe = "2>&1 | Out-File -Encoding utf8 %s"
+	vim.opt.shellquote = ""
+	vim.opt.shellxquote = ""
+elseif sh == "bash" then
+	vim.opt.shell = shell .. " -l"
+	vim.opt.shellcmdflag = "-c"
+	vim.opt.shellquote = ""
+	vim.opt.shellxquote = ""
+else
+	vim.opt.shell = shell .. " -l"
+	vim.opt.shellcmdflag = "-c"
+	vim.opt.shellquote = ""
+	vim.opt.shellxquote = ""
+end
+
+vim.opt.signcolumn = "yes"
+
+vim.env.IN_NEOVIM_TERMINAL = true
+
+if vim.env.TMUX then
+	vim.g.clipboard = "osc52"
+end
