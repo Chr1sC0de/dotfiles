@@ -1,6 +1,7 @@
 local chat = require("codex.chat")
 local chat_panel = require("codex.chat_panel")
 local commands = require("codex.commands")
+local commit = require("codex.commit")
 local context = require("codex.context")
 local health = require("codex.health")
 local jobs = require("codex.ephemeral.jobs")
@@ -35,6 +36,7 @@ M.edit_selection = context.edit_selection
 M.health = health.report
 M.toggle_jobs = jobs_panel.toggle
 M.activate_buffer = chat.activate_buffer
+M.commit_all = commit.commit_all
 
 function M.delete_job(opts)
 	local id = opts and opts.args and opts.args ~= "" and opts.args or nil

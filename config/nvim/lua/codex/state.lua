@@ -7,6 +7,7 @@ return {
 	codex_jobs_line_highlights = {},
 	codex_jobs_line_to_id = {},
 	active_ephemeral_diagnostics = {},
+	codex_commit_active = false,
 	ephemeral_jobs = {},
 	ephemeral_job_order = {},
 	next_ephemeral_job_id = 1,

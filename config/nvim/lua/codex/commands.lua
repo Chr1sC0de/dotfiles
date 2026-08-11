@@ -23,6 +23,7 @@ function M.setup(api)
 		api.command_selection_diagnostics,
 		{ range = true }
 	)
+	vim.api.nvim_create_user_command("CodexCommit", api.commit_all, {})
 	vim.api.nvim_create_user_command("CodexEditFile", api.edit_file, {})
 	vim.api.nvim_create_user_command("CodexEditSelection", api.edit_selection, { range = true })
 	vim.api.nvim_create_user_command("CodexEphemeralModel", api.select_ephemeral_model, {
