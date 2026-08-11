@@ -4,7 +4,7 @@ M.CODEX_BUF_NAME = "codex://chat"
 M.CODEX_CHAT_BUFFERS_BUF_NAME = "codex://chat-buffers"
 M.CODEX_CHAT_BUFFERS_HIGHLIGHT_NAMESPACE = vim.api.nvim_create_namespace("codex-chat-buffers")
 M.CODEX_CHAT_TASK_IDLE_MS = 8000
-M.CODEX_TITLE_MODEL = "gpt-5.4-mini"
+M.CODEX_TITLE_MODEL = "gpt-5.6"
 M.CODEX_TITLE_REASONING_EFFORT = "low"
 M.CODEX_JOBS_BUF_NAME = "codex://jobs"
 M.CODEX_JOBS_HIGHLIGHT_NAMESPACE = vim.api.nvim_create_namespace("codex-jobs")
@@ -38,11 +38,12 @@ M.EPHEMERAL_SPINNER_STYLES = {
 }
 M.EPHEMERAL_MODEL_CHOICES = {
 	{ label = "CLI default", model = nil },
-	{ label = "gpt-5.4-mini", model = "gpt-5.4-mini" },
-	{ label = "gpt-5.4-nano", model = "gpt-5.4-nano" },
-	{ label = "gpt-5.3-codex", model = "gpt-5.3-codex" },
-	{ label = "gpt-5.3-codex-spark", model = "gpt-5.3-codex-spark" },
-	{ label = "gpt-5.5", model = "gpt-5.5" },
+	{ label = "GPT-5.3-Codex", model = "gpt-5.3-codex" },
+	{ label = "gpt-5-mini", model = "gpt-5-mini" },
+	{ label = "gpt-5.6", model = "gpt-5.6" },
+	{ label = "gpt-5.6-terra", model = "gpt-5.6-terra" },
+	{ label = "gpt-5.6-luna", model = "gpt-5.6-luna" },
+	{ label = "gpt-5-nano", model = "gpt-5-nano" },
 	{ label = "Custom...", custom = true },
 }
 M.EPHEMERAL_MODEL_TARGETS = {

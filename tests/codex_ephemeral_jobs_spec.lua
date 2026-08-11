@@ -22,7 +22,7 @@ local function reset_state()
 	state.next_ephemeral_result_id = 1
 	state.next_ephemeral_sign_id = 1
 	state.ephemeral_models = {
-		command = "gpt-5.4-mini",
+		command = "gpt-5.6-luna",
 		edit = nil,
 	}
 end
@@ -107,7 +107,7 @@ tests["command jobs use lightweight model and reasoning defaults"] = function()
 	spinner.start_diagnostic = old_start_diagnostic
 
 	assert_contains_arg(captured_command, "--model", "model flag")
-	assert_contains_arg(captured_command, "gpt-5.4-mini", "default command model")
+	assert_contains_arg(captured_command, "gpt-5.6-luna", "default command model")
 	assert_contains_arg(captured_command, 'model_reasoning_effort="low"', "reasoning override")
 	assert_contains_arg(captured_command, "--sandbox", "sandbox flag")
 	assert_contains_arg(captured_command, "read-only", "read-only sandbox")
