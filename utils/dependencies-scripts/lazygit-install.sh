@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-tag=v0.58.1
+version=0.64.0
+tag=v$version
 owner=jesseduffield
 repo=lazygit
 binary_name=lazygit
-download_file=lazygit_0.58.1_linux_x86_64.tar.gz
+download_file=lazygit_"$version"_linux_x86_64.tar.gz
 release="https://github.com/$owner/$repo/releases/download/$tag/$download_file"
 
 download_folder=/tmp
