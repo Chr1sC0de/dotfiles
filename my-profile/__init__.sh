@@ -62,3 +62,4 @@ export EDITOR=nvim
 export VISUAL=nvim
 export MANPAGER="nvim -c 'Man!' -"
 export TERM=xterm-256color
+export BINSTALL_DISABLE_TELEMETRY=true

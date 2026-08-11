@@ -2,4 +2,4 @@
 
 . "$HOME/.cargo/env"
 
-cargo install tree-sitter-cli
+cargo binstall tree-sitter-cli --no-confirm

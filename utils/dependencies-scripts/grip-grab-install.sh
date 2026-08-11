@@ -2,4 +2,4 @@
 
 . "$HOME/.cargo/env"
 
-cargo install grip-grab
+cargo binstall grip-grab --no-confirm

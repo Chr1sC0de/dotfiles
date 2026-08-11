@@ -373,7 +373,12 @@ function M.setup()
 		snacks_picker.files({ cwd = current_buffer_dir() })
 	end, { desc = "Snacks: find files near current buffer" })
 	vim.keymap.set("n", "<leader>fT", snacks_picker.treesitter, { desc = "Snacks: treesitter" })
-	vim.keymap.set("n", "<leader>fs", snacks_picker.grep_word, { desc = "Snacks: search for string under cursor" })
+	vim.keymap.set(
+		{ "n", "x" },
+		"<leader>fs",
+		snacks_picker.grep_word,
+		{ desc = "Snacks: search for string under cursor" }
+	)
 	vim.keymap.set("n", "<leader>fg", snacks_picker.grep, { desc = "Snacks: live grep" })
 	vim.keymap.set("n", "<leader>f,", snacks_picker.lines, { desc = "Snacks: search inside the current open buffer" })
 	vim.keymap.set("n", "<leader>ld", snacks_picker.lsp_symbols, { desc = "Snacks: lsp document symbols" })
