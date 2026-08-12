@@ -179,6 +179,17 @@ vim.keymap.set("n", "<leader>jt", function()
 	end
 end, { noremap = true, desc = "Toggle or create terminal" })
 
+vim.keymap.set("n", "<leader>st", function()
+	buf = vim.api.nvim_get_current_buf()
+	local is_terminal = vim.bo[buf].buftype == "terminal"
+	if is_terminal then
+		vim.notify("setting last terminal buffer to current buffer")
+		last_term_buf = buf
+	else
+		vim.notify("selected buffer is not a terminal, not setting last terminal buffer")
+	end
+end, { desc = "Set the jump terminal buffer" })
+
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
 
