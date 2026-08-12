@@ -26,6 +26,7 @@ return {
 		picker = {
 			enabled = true,
 			ui_select = true,
+			main = { current = true },
 			layout = {
 				layout = {
 					width = 0.999,

@@ -44,6 +44,33 @@ return {
 			},
 		})
 
+		-- Neotest's jump consumer asks the user to choose an editable window when
+		-- the target file is not already visible. Oil buffers are considered
+		-- editable by that chooser, but the chooser can fail to select one. Reuse
+		-- the visible Oil window directly so `i` in the Neotest summary can open
+		-- the selected file.
+		local neotest_ui = require("neotest.lib.ui")
+		local open_buf = neotest_ui.open_buf
+		neotest_ui.open_buf = function(bufnr, line, column)
+			local oil_win
+			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+				if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == "oil" then
+					oil_win = win
+					break
+				end
+			end
+
+			if not oil_win then
+				return open_buf(bufnr, line, column)
+			end
+
+			vim.api.nvim_win_set_buf(oil_win, bufnr)
+			if line then
+				vim.api.nvim_win_set_cursor(oil_win, { line + 1, column or 0 })
+			end
+			vim.api.nvim_set_current_win(oil_win)
+		end
+
 		vim.keymap.set("n", "<leader>tn", function()
 			require("neotest").run.run()
 		end, { desc = "neotest: run nearest" })
