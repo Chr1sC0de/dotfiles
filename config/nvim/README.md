@@ -36,6 +36,13 @@ available and fall back to a Neovim terminal tab.
 This config includes a local Codex chat bridge under `lua/codex/` and a hook
 receiver at `bin/codex-nvim-hook`.
 
+Commits use an explicit two-step workflow. Run `:CodexPrepareCommit` to stage
+all current changes and generate a Conventional Commit message in the
+background. When the ready notification appears, run `:CodexCommit` to commit
+that exact staged snapshot. Work added after preparation may remain unstaged;
+changing the staged snapshot requires preparing again. Neither command opens a
+delayed confirmation popup.
+
 When Neovim runs inside Herdr, it creates one persistent, unfocused `Codex`
 workspace with a `home` tab. Each new chat is launched as a real Codex agent in
 its own tab there, leaving the project workspace uncluttered. The Neovim chat

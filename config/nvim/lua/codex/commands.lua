@@ -52,7 +52,16 @@ function M.setup(api)
 		api.command_selection_diagnostics,
 		{ desc = "Run a Codex command using selected text and its diagnostics", range = true }
 	)
-	vim.api.nvim_create_user_command("CodexCommit", api.commit_all, { desc = "Commit all changes with Codex" })
+	vim.api.nvim_create_user_command(
+		"CodexPrepareCommit",
+		api.prepare_commit,
+		{ desc = "Stage all changes and prepare a commit message with Codex" }
+	)
+	vim.api.nvim_create_user_command(
+		"CodexCommit",
+		api.commit_prepared,
+		{ desc = "Commit the changes prepared by CodexPrepareCommit" }
+	)
 	vim.api.nvim_create_user_command("CodexEditFile", api.edit_file, { desc = "Edit the current file with Codex" })
 	vim.api.nvim_create_user_command(
 		"CodexEditSelection",

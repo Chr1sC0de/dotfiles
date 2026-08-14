@@ -3,7 +3,6 @@ local util = require("codex.util")
 
 local M = {}
 
-local MAX_FILE_CONTEXT = 256 * 1024
 local MAX_TOTAL_CONTEXT = 1024 * 1024
 
 local allowed_types = {
@@ -74,119 +73,26 @@ local function notify_failure(message, details)
 	util.notify(message, vim.log.levels.ERROR)
 end
 
-local function read_untracked(root, path)
-	local absolute = util.join_path(root, path)
-	local stat = (vim.uv or vim.loop).fs_stat(absolute)
-	if not stat or stat.type ~= "file" then
-		return nil, "untracked path is not a regular file: " .. path
-	end
-	if stat.size > MAX_FILE_CONTEXT then
-		return nil, "untracked file exceeds 256 KiB: " .. path
-	end
-	local content = table.concat(vim.fn.readfile(absolute, "b"), "\n")
-	if content:find("%z") then
-		return "[binary file omitted]", nil
-	end
-	return content, nil
-end
-
-local function build_context(root, status, diff, untracked)
-	local sections = {
-		"Repository: " .. root,
-		"",
-		"Git status:",
-		status,
-		"",
-		"Tracked diff:",
-		diff,
-	}
-	local total = #table.concat(sections, "\n")
-	for _, path in ipairs(untracked) do
-		local content, err = read_untracked(root, path)
-		if err then
-			return nil, err
-		end
-		table.insert(sections, "")
-		table.insert(sections, "Untracked file: " .. path)
-		table.insert(sections, content)
-		total = total + #path + #content
-		if total > MAX_TOTAL_CONTEXT then
-			return nil, "change context exceeds 1 MiB"
-		end
-	end
-	if total > MAX_TOTAL_CONTEXT then
-		return nil, "change context exceeds 1 MiB"
-	end
-	return table.concat(sections, "\n"), nil
-end
-
-local function collect_state(root, callback)
-	run_process({ "git", "status", "--porcelain=v1", "-z" }, { cwd = root }, function(status_code, status, status_err)
-		if status_code ~= 0 then
-			callback(nil, status_err ~= "" and status_err or "git status failed")
-			return
-		end
-		run_process(
-			{ "git", "ls-files", "--others", "--exclude-standard", "-z" },
-			{ cwd = root },
-			function(files_code, files, files_err)
-				if files_code ~= 0 then
-					callback(nil, files_err ~= "" and files_err or "git ls-files failed")
-					return
-				end
-				local untracked = {}
-				for path in (files .. "\0"):gmatch("(.-)%z") do
-					if path ~= "" then
-						table.insert(untracked, path)
-					end
-				end
-				run_process(
-					{ "git", "diff", "--binary", "--no-ext-diff", "HEAD", "--" },
-					{ cwd = root },
-					function(diff_code, diff, diff_err)
-						local finish = function(combined)
-							local context, context_err = build_context(root, status, combined, untracked)
-							if not context then
-								callback(nil, context_err)
-								return
-							end
-							callback({
-								context = context,
-								empty = status == "" and combined == "",
-								fingerprint = vim.fn.sha256(status .. "\0" .. combined .. "\0" .. context),
-							})
-						end
-						if diff_code == 0 then
-							finish(diff)
-							return
-						end
-						-- An unborn branch has no HEAD, so combine its staged and unstaged diffs.
-						run_process(
-							{ "git", "diff", "--binary", "--no-ext-diff", "--cached", "--" },
-							{ cwd = root },
-							function(cached_code, cached, cached_err)
-								if cached_code ~= 0 then
-									callback(nil, diff_err ~= "" and diff_err or cached_err or "git diff failed")
-									return
-								end
-								run_process(
-									{ "git", "diff", "--binary", "--no-ext-diff", "--" },
-									{ cwd = root },
-									function(working_code, working, working_err)
-										if working_code ~= 0 then
-											callback(nil, working_err ~= "" and working_err or "git diff failed")
-											return
-										end
-										finish(cached .. working)
-									end
-								)
-							end
-						)
-					end
-				)
+local function collect_staged_state(root, callback)
+	run_process(
+		{ "git", "diff", "--cached", "--binary", "--no-ext-diff", "--" },
+		{ cwd = root },
+		function(code, diff, stderr)
+			if code ~= 0 then
+				callback(nil, stderr ~= "" and stderr or "git diff --cached failed")
+				return
 			end
-		)
-	end)
+			if #diff > MAX_TOTAL_CONTEXT then
+				callback(nil, "staged change context exceeds 1 MiB")
+				return
+			end
+			callback({
+				context = table.concat({ "Repository: " .. root, "", "Staged diff:", diff }, "\n"),
+				empty = diff == "",
+				fingerprint = vim.fn.sha256(diff),
+			})
+		end
+	)
 end
 
 local function valid_scope(scope)
@@ -280,9 +186,15 @@ local function finish()
 	state.codex_commit_active = false
 end
 
-function M.commit_all()
+local function invalidate_prepared(message)
+	state.codex_prepared_commit = nil
+	finish()
+	util.notify(message, vim.log.levels.WARN)
+end
+
+function M.prepare()
 	if state.codex_commit_active then
-		util.notify("A Codex commit is already in progress", vim.log.levels.WARN)
+		util.notify("A Codex commit operation is already in progress", vim.log.levels.WARN)
 		return
 	end
 	if vim.fn.executable("git") ~= 1 then
@@ -295,12 +207,13 @@ function M.commit_all()
 	end
 
 	state.codex_commit_active = true
+	state.codex_prepared_commit = nil
 	local function abort(message, details)
 		finish()
 		notify_failure(message, details)
 	end
 
-	util.notify("Codex commit: locating Git worktree")
+	util.notify("Codex commit: staging changes for preparation")
 	run_process({ "git", "rev-parse", "--show-toplevel" }, {}, function(code, root, stderr)
 		if code ~= 0 then
 			abort("current directory is not inside a Git worktree", stderr)
@@ -309,127 +222,155 @@ function M.commit_all()
 		root = trim(root)
 		check_special_state(root, function(ok, reason)
 			if not ok then
-				abort("cannot commit in the current Git state", reason)
+				abort("cannot prepare a commit in the current Git state", reason)
 				return
 			end
-			util.notify("Codex commit: collecting changes")
-			collect_state(root, function(snapshot, collect_error)
-				if not snapshot then
-					abort("could not collect change context", collect_error)
+			run_process({ "git", "add", "-A" }, { cwd = root }, function(add_code, _, add_err)
+				if add_code ~= 0 then
+					abort("git add failed; existing staged changes were preserved", add_err)
 					return
 				end
-				if snapshot.empty then
-					abort("no changes to commit")
-					return
-				end
-				local prompt = table.concat({
-					"You are generating a Git commit message.",
-					"Do not edit files, run git commands, or perform any other action.",
-					"Return exactly one line in Conventional Commit format:",
-					"type(optional-scope): imperative description",
-					"Allowed types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test.",
-					"An optional ! may mark a breaking change. Return no Markdown, quotes, explanation, or body.",
-					"",
-					snapshot.context,
-				}, "\n")
-				util.notify("Codex commit: asking Codex for a message")
-				run_process(
-					{ "codex", "exec", "--ephemeral", "--sandbox", "read-only", "--cd", root, "-" },
-					{ cwd = root, input = prompt },
-					function(codex_code, stdout, codex_stderr)
-						if codex_code ~= 0 then
-							abort("Codex failed", codex_stderr ~= "" and codex_stderr or stdout)
-							return
-						end
-						local message, message_error = extract_message(stdout)
-						if not message then
-							abort("Codex returned an invalid commit message", message_error .. ": " .. stdout)
-							return
-						end
-						util.notify("Codex commit: validating message")
-						check_message(root, message, function(valid, validation_error)
-							if not valid then
-								abort("commit message validation failed", validation_error .. ": " .. message)
+				collect_staged_state(root, function(snapshot, collect_error)
+					if not snapshot then
+						abort("could not collect staged change context", collect_error)
+						return
+					end
+					if snapshot.empty then
+						abort("no changes to prepare")
+						return
+					end
+					local prompt = table.concat({
+						"You are generating a Git commit message.",
+						"Do not edit files, run git commands, or perform any other action.",
+						"Return exactly one line in Conventional Commit format:",
+						"type(optional-scope): imperative description",
+						"Allowed types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test.",
+						"An optional ! may mark a breaking change. Return no Markdown, quotes, explanation, or body.",
+						"",
+						snapshot.context,
+					}, "\n")
+					run_process(
+						{ "codex", "exec", "--ephemeral", "--sandbox", "read-only", "--cd", root, "-" },
+						{ cwd = root, input = prompt },
+						function(codex_code, stdout, codex_stderr)
+							if codex_code ~= 0 then
+								abort("Codex failed", codex_stderr ~= "" and codex_stderr or stdout)
 								return
 							end
-							vim.ui.select({ "Commit", "Cancel" }, { prompt = "Commit: " .. message }, function(choice)
-								if choice ~= "Commit" then
-									finish()
-									util.notify("Codex commit cancelled")
+							local message, message_error = extract_message(stdout)
+							if not message then
+								abort("Codex returned an invalid commit message", message_error .. ": " .. stdout)
+								return
+							end
+							check_message(root, message, function(valid, validation_error)
+								if not valid then
+									abort("commit message validation failed", validation_error .. ": " .. message)
 									return
 								end
-								util.notify("Codex commit: checking for changes since context collection")
-								collect_state(root, function(current, current_error)
+								collect_staged_state(root, function(current, current_error)
 									if not current then
-										abort("could not re-check change context", current_error)
+										abort("could not re-check staged changes", current_error)
 										return
 									end
 									if current.fingerprint ~= snapshot.fingerprint then
-										abort("working tree changed; review and retry")
+										invalidate_prepared(
+											"Staged changes changed during preparation; run :CodexPrepareCommit again"
+										)
 										return
 									end
-									util.notify("Codex commit: staging all changes")
-									run_process({ "git", "add", "-A" }, { cwd = root }, function(add_code, _, add_err)
-										if add_code ~= 0 then
-											abort("git add failed; staged changes were preserved", add_err)
-											return
-										end
-										run_process(
-											{ "git", "rev-parse", "--verify", "HEAD" },
-											{ cwd = root },
-											function(_, old_head)
-												util.notify("Codex commit: running commit and hooks")
-												run_process(
-													{ "git", "commit", "-m", message },
-													{ cwd = root },
-													function(commit_code, commit_out, commit_err)
-														finish()
-														if commit_code == 0 then
-															util.notify("Codex commit created: " .. message)
-															run_process(
-																{ "git", "status", "--short" },
-																{ cwd = root },
-																function(_, remaining)
-																	if remaining ~= "" then
-																		util.notify(
-																			"Commit succeeded; hooks left additional changes in the worktree",
-																			vim.log.levels.WARN
-																		)
-																	end
-																end
-															)
-															return
-														end
-														run_process(
-															{ "git", "rev-parse", "--verify", "HEAD" },
-															{ cwd = root },
-															function(_, new_head)
-																local details = commit_err ~= "" and commit_err
-																	or commit_out
-																if
-																	trim(new_head) ~= ""
-																	and trim(new_head) ~= trim(old_head)
-																then
-																	notify_failure(
-																		"commit was created, but a post-commit hook failed",
-																		details
-																	)
-																else
-																	notify_failure(
-																		"git commit failed; staged changes were preserved",
-																		details
-																	)
-																end
-															end
-														)
-													end
-												)
-											end
-										)
-									end)
+									state.codex_prepared_commit = {
+										root = root,
+										message = message,
+										fingerprint = snapshot.fingerprint,
+									}
+									finish()
+									util.notify("Codex commit ready: " .. message .. " — run :CodexCommit")
 								end)
 							end)
-						end)
+						end
+					)
+				end)
+			end)
+		end)
+	end)
+end
+
+function M.commit()
+	if state.codex_commit_active then
+		util.notify("Codex commit preparation is still in progress", vim.log.levels.WARN)
+		return
+	end
+	local prepared = state.codex_prepared_commit
+	if not prepared then
+		util.notify("No prepared commit; run :CodexPrepareCommit first", vim.log.levels.WARN)
+		return
+	end
+	if vim.fn.executable("git") ~= 1 then
+		notify_failure("git executable was not found")
+		return
+	end
+
+	state.codex_commit_active = true
+	check_special_state(prepared.root, function(ok, reason)
+		if not ok then
+			invalidate_prepared("Cannot commit in the current Git state: " .. tostring(reason))
+			return
+		end
+		collect_staged_state(prepared.root, function(current, current_error)
+			if not current then
+				finish()
+				notify_failure("could not check prepared staged changes", current_error)
+				return
+			end
+			if current.fingerprint ~= prepared.fingerprint then
+				invalidate_prepared("Staged changes no longer match; run :CodexPrepareCommit again")
+				return
+			end
+			run_process({ "git", "rev-parse", "--verify", "HEAD" }, { cwd = prepared.root }, function(_, old_head)
+				util.notify("Codex commit: running commit and hooks")
+				run_process(
+					{ "git", "commit", "-m", prepared.message },
+					{ cwd = prepared.root },
+					function(commit_code, commit_out, commit_err)
+						if commit_code == 0 then
+							state.codex_prepared_commit = nil
+							finish()
+							util.notify("Codex commit created: " .. prepared.message)
+							run_process({ "git", "status", "--short" }, { cwd = prepared.root }, function(_, remaining)
+								if remaining ~= "" then
+									util.notify(
+										"Commit succeeded; additional changes remain in the worktree",
+										vim.log.levels.WARN
+									)
+								end
+							end)
+							return
+						end
+						run_process(
+							{ "git", "rev-parse", "--verify", "HEAD" },
+							{ cwd = prepared.root },
+							function(_, new_head)
+								local details = commit_err ~= "" and commit_err or commit_out
+								if trim(new_head) ~= "" and trim(new_head) ~= trim(old_head) then
+									state.codex_prepared_commit = nil
+									finish()
+									notify_failure("commit was created, but a post-commit hook failed", details)
+									return
+								end
+								collect_staged_state(prepared.root, function(after, after_error)
+									if not after or after.fingerprint ~= prepared.fingerprint then
+										state.codex_prepared_commit = nil
+									end
+									finish()
+									local retry = state.codex_prepared_commit and "; run :CodexCommit to retry"
+										or "; run :CodexPrepareCommit again"
+									notify_failure(
+										"git commit failed; staged changes were preserved" .. retry,
+										after_error or details
+									)
+								end)
+							end
+						)
 					end
 				)
 			end)
@@ -437,6 +378,9 @@ function M.commit_all()
 	end)
 end
 
-M._test = { validate_fallback = M.validate_fallback }
+M._test = {
+	collect_staged_state = collect_staged_state,
+	validate_fallback = M.validate_fallback,
+}
 
 return M

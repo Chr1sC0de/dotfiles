@@ -37,7 +37,8 @@ M.edit_selection = context.edit_selection
 M.health = health.report
 M.toggle_jobs = jobs_panel.toggle
 M.activate_buffer = chat.activate_buffer
-M.commit_all = commit.commit_all
+M.prepare_commit = commit.prepare
+M.commit_prepared = commit.commit
 
 function M.delete_job(opts)
 	local id = opts and opts.args and opts.args ~= "" and opts.args or nil
