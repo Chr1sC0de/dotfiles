@@ -90,7 +90,13 @@ function M.report()
 
 	ok = add_line(lines, vim.fn.executable("codex") == 1, "codex cli", "codex on PATH") and ok
 	local in_herdr = vim.env.HERDR_ENV == "1"
-	local herdr_detail = in_herdr and ("workspace " .. tostring(vim.env.HERDR_WORKSPACE_ID or "unknown"))
+	local codex_workspace_id = in_herdr and chat.herdr_workspace_id() or nil
+	local herdr_detail = in_herdr
+			and string.format(
+				"current %s, Codex %s",
+				tostring(vim.env.HERDR_WORKSPACE_ID or "unknown"),
+				tostring(codex_workspace_id or "not created")
+			)
 		or "direct terminal fallback"
 	ok = add_line(lines, not in_herdr or chat.herdr_available(), "herdr", herdr_detail) and ok
 

@@ -36,21 +36,24 @@ available and fall back to a Neovim terminal tab.
 This config includes a local Codex chat bridge under `lua/codex/` and a hook
 receiver at `bin/codex-nvim-hook`.
 
-When Neovim runs inside Herdr, each new chat is launched as a real Codex agent
-in its own unfocused Herdr tab. The Neovim chat buffer displays that terminal
-through `herdr agent attach`, so Herdr retains native agent detection and the
-agent survives an editor restart. Outside Herdr, chats continue to launch
-directly in Neovim terminals.
+When Neovim runs inside Herdr, it creates one persistent, unfocused `Codex`
+workspace with a `home` tab. Each new chat is launched as a real Codex agent in
+its own tab there, leaving the project workspace uncluttered. The Neovim chat
+buffer displays that terminal through `herdr agent attach`, so Herdr retains
+native agent detection and the agent survives an editor restart. If the Codex
+workspace is closed manually, the next launch recreates it. Outside Herdr,
+chats continue to launch directly in Neovim terminals.
 
-Ephemeral commands and edits also run in their own unfocused Herdr tabs. Their
-labels include the action, job number, target file, and instruction, for
-example `edit #12 · jobs.lua · fix cancellation`. The tabs close themselves
-when the one-shot job finishes, while Neovim retains its spinner, diagnostics,
+Ephemeral commands and edits share that Codex workspace and run in their own
+unfocused tabs. Their labels include the action, job number, target file, and
+instruction, for example `edit #12 · jobs.lua · fix cancellation`. The tabs
+close themselves when the one-shot job finishes, while the persistent `home`
+tab keeps the workspace available and Neovim retains its spinner, diagnostics,
 jobs panel, cancellation controls, and Markdown result. If Neovim is not
 running inside Herdr, ephemeral jobs fall back to direct `codex exec` processes.
 
-Use `:CodexChatAttach` or `<leader>aA` to reconnect to a surviving agent in the
-current Herdr workspace. The chat-buffer panel also provides `a` for this
+Use `:CodexChatAttach` or `<leader>aA` to reconnect to a surviving agent across
+the current Herdr session. The chat-buffer panel also provides `a` for this
 picker. Explicitly deleting a chat closes its backing Herdr tab; hiding its
 buffer or exiting Neovim leaves the agent running. When Codex itself exits for
 any reason, its dedicated Herdr tab closes automatically and an attached

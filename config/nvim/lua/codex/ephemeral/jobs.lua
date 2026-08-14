@@ -363,7 +363,6 @@ end
 
 local function run_in_herdr(job, prompt)
 	job.transport = "herdr"
-	job.herdr_workspace_id = vim.env.HERDR_WORKSPACE_ID
 	if not prepare_herdr_files(job, prompt) then
 		fail_to_start(job, "could not write prompt state")
 		return

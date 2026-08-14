@@ -1609,9 +1609,9 @@ function M.attach_existing()
 			util.notify("Failed to list Herdr agents: " .. tostring(message), vim.log.levels.ERROR)
 		end,
 		on_success = function(agents)
-			local candidates = herdr.filter_agents(agents, vim.env.HERDR_WORKSPACE_ID, represented)
+			local candidates = herdr.filter_agents(agents, represented)
 			if #candidates == 0 then
-				util.notify("No detached Neovim Codex agents in this Herdr workspace")
+				util.notify("No detached Neovim Codex agents in Herdr")
 				return
 			end
 			vim.ui.select(candidates, {
@@ -1638,6 +1638,10 @@ end
 
 function M.herdr_available()
 	return herdr.available()
+end
+
+function M.herdr_workspace_id()
+	return herdr.codex_workspace_id()
 end
 
 ---Compatibility wrapper for callers expecting a boolean start result.
