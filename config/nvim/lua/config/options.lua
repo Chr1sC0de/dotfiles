@@ -67,6 +67,8 @@ vim.filetype.add({
 		[".*%.sql%.j.*"] = "sql",
 		[".*%.j2"] = "jinja",
 		["Caddyfile"] = "caddy",
+		[".*gitconfig"] = "gitconfig",
+		[".*tmux.conf"] = "tmux",
 		[".*/%.vscode/.*%.json"] = "jsonc",
 		[".*"] = {
 			---@diagnostic disable-next-line: unused-local

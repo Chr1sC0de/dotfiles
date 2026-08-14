@@ -6,7 +6,7 @@ DOTFILE_DIR="$(
     cd "$SCRIPT_DIR/.." || exit && pwd
 )"
 
-DEPENDENCIES_SCRIPTS_FOLDER="$SCRIPT_DIR/dependencies-scripts"
+DEPENDENCIES_SCRIPTS_FOLDER="utils/dependencies-scripts"
 
 DEFAULTS=(
     "my-profile"
@@ -18,6 +18,7 @@ DEFAULTS=(
 EXTRAS=(
     "tmux.conf"
     "gitconfig"
+    "config/herdr/config.toml"
     "config/kitty"
     "config/xdg-terminals.list"
 )

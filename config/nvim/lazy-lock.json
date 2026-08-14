@@ -62,7 +62,7 @@
   "remote-nvim.nvim": { "branch": "main", "commit": "9992c2fb8bf4f11aca2c8be8db286b506f92efcb" },
   "render-markdown.nvim": { "branch": "main", "commit": "4663eb3ecd538bd5062628fb6d95bbe6bdca78f6" },
   "rustaceanvim": { "branch": "main", "commit": "f4051fb4662c43a568ce809a37e47c0f4e3d7a31" },
-  "schemastore.nvim": { "branch": "main", "commit": "3067d706e9738fbed404fa0397199c9d1921fd1c" },
+  "schemastore.nvim": { "branch": "main", "commit": "7e3f6dd6ef6da93f74974521c81d8d5bff0443c5" },
   "snacks.nvim": { "branch": "main", "commit": "882c996cf28183f4d63640de0b4c02ec886d01f2" },
   "tabby.nvim": { "branch": "main", "commit": "3c130e1fcb598ce39a9c292847e32d7c3987cf11" },
   "todo-comments.nvim": { "branch": "main", "commit": "31e3c38ce9b29781e4422fc0322eb0a21f4e8668" },

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
-
-. "$SCRIPT_DIR/common.sh"
+. "utils/common.sh"
 
 TO_INSTALL=("${DEFAULTS[@]}")
 SYMLINK_CREATE_KWARGS=()
@@ -24,7 +22,7 @@ while [[ "$#" -gt 0 ]]; do
         exit 0
         ;;
     -k | --kitty)
-        TO_INSTALL+=("config/kitty")
+        TO_INSTALL+=("config/kitty" "config/herdr")
         ;;
     -t | --tmux)
         TO_INSTALL+=("tmux.conf")

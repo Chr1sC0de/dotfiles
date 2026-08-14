@@ -364,9 +364,34 @@ function M.setup_remote_start()
 	})
 end
 
+function visual_selection()
+	local start_line, start_col = unpack(vim.fn.getpos("'<"), 2, 3)
+	local end_line, end_col = unpack(vim.fn.getpos("'>"), 2, 3)
+
+	local lines = vim.fn.getline(start_line, end_line)
+
+	if #lines == 1 then
+		lines[1] = string.sub(lines[1], start_col, end_col)
+	else
+		lines[1] = string.sub(lines[1], start_col)
+		lines[#lines] = string.sub(lines[#lines], 1, end_col)
+	end
+
+	return table.concat(lines, "\n")
+end
+
 function M.setup()
 	local snacks_picker = picker()
 
+	vim.keymap.set({ "n", "x" }, "<leader>ff", function()
+		local opts = {}
+
+		if vim.fn.mode():match("[vV]") then
+			opts.search = visual_selection()
+		end
+
+		snacks_picker.smart(opts)
+	end, { desc = "Snacks: find files" })
 	vim.keymap.set("n", "<leader>fd", M.folders, { desc = "Snacks: open folder in Oil" })
 	vim.keymap.set("n", "<leader>ff", snacks_picker.smart, { desc = "Snacks: find files" })
 	vim.keymap.set("n", "<leader>fF", function()

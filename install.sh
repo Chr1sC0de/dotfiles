@@ -15,12 +15,8 @@ cd "$HOME" || exit 1
 git clone https://github.com/Chr1sC0de/dotfiles.git .dotfiles
 cd .dotfiles || exit 1
 
-SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
-
-UTILS_DIR="$SCRIPT_DIR/utils"
-
-bash "$UTILS_DIR/dependencies-install-all.sh"
-bash "$UTILS_DIR/dotfiles-install.sh" -f --tmux
-bash "$UTILS_DIR/profile-to-bashrc.sh"
+bash "utils/dependencies-install-all.sh"
+bash "utils/dotfiles-install.sh" -f --tmux
+bash "utils/profile-to-bashrc.sh"
 
 . "$HOME/.bashrc"

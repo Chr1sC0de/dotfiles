@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
-
-. "$SCRIPT_DIR/common.sh"
+. "utils/common.sh"
 
 CORE_SCRIPTS=(
     "core-dependencies-install.sh"

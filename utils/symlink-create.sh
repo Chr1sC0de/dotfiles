@@ -1,8 +1,6 @@
-#!/usr/bin/env bash
+#!/usr/bin/env -S bash
 
-SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
-
-. "$SCRIPT_DIR/common.sh"
+. "utils/common.sh"
 
 FORCE=false
 export VERBOSE=false
