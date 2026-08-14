@@ -7,6 +7,7 @@ SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 CORE_SCRIPTS=(
     "core-dependencies-install.sh"
     "rust-install.sh"
+    "cargo-binstall.sh"
     "nvm-install.sh"
     "uv-install.sh"
     "grip-grab-install.sh"
