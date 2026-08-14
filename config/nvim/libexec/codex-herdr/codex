@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -u
+
+real_codex="${CODEX_REAL_BIN:-}"
+herdr_bin="${CODEX_HERDR_BIN:-herdr}"
+tab_id="${HERDR_TAB_ID:-}"
+route_file="${CODEX_NVIM_STATE_FILE:-}"
+cleanup_done=0
+
+# ShellCheck does not follow function references installed through trap.
+# shellcheck disable=SC2317
+cleanup() {
+	if [ "${cleanup_done}" -eq 1 ]; then
+		return
+	fi
+	cleanup_done=1
+
+	if [ -n "${route_file}" ]; then
+		rm -f -- "${route_file}"
+	fi
+	if [ -n "${tab_id}" ]; then
+		"${herdr_bin}" tab close "${tab_id}" >/dev/null 2>&1 || true
+	fi
+}
+
+trap cleanup EXIT
+
+if [ -z "${real_codex}" ]; then
+	printf 'codex-herdr: CODEX_REAL_BIN is not set\n' >&2
+	exit 127
+fi
+
+"${real_codex}" "$@"
+exit $?

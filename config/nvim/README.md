@@ -42,10 +42,20 @@ through `herdr agent attach`, so Herdr retains native agent detection and the
 agent survives an editor restart. Outside Herdr, chats continue to launch
 directly in Neovim terminals.
 
+Ephemeral commands and edits also run in their own unfocused Herdr tabs. Their
+labels include the action, job number, target file, and instruction, for
+example `edit #12 · jobs.lua · fix cancellation`. The tabs close themselves
+when the one-shot job finishes, while Neovim retains its spinner, diagnostics,
+jobs panel, cancellation controls, and Markdown result. If Neovim is not
+running inside Herdr, ephemeral jobs fall back to direct `codex exec` processes.
+
 Use `:CodexChatAttach` or `<leader>aA` to reconnect to a surviving agent in the
 current Herdr workspace. The chat-buffer panel also provides `a` for this
 picker. Explicitly deleting a chat closes its backing Herdr tab; hiding its
-buffer or exiting Neovim leaves the agent running.
+buffer or exiting Neovim leaves the agent running. When Codex itself exits for
+any reason, its dedicated Herdr tab closes automatically and an attached
+Neovim chat buffer is removed. This cleanup is owned by the Herdr tab, so it
+still runs while Neovim is detached or closed.
 
 The dotfiles installer symlinks `config/nvim` by default, so the Neovim-side
 hook script is installed automatically on a new machine:

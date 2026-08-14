@@ -1,5 +1,6 @@
 local constants = require("codex.constants")
 local state = require("codex.state")
+local herdr = require("codex.herdr")
 local model = require("codex.ephemeral.model")
 local spinner = require("codex.ephemeral.spinner")
 local util = require("codex.util")
@@ -48,18 +49,33 @@ function M.create(action, target, selected_model, instruction)
 		id = id,
 		action = action,
 		cancel_requested = false,
+		completion_timer = nil,
+		cwd = vim.fn.getcwd(),
 		exit_code = nil,
 		finished_at = nil,
+		herdr_pane_id = nil,
+		herdr_tab_id = nil,
+		herdr_workspace_id = nil,
 		instruction = instruction,
 		job_id = nil,
 		kind = target.kind,
 		model = selected_model,
 		path = target.path,
+		prompt_path = nil,
+		reasoning_effort = nil,
 		result_path = nil,
+		sandbox = action == "edit" and "workspace-write" or "read-only",
+		snapshot_path = target.snapshot_path,
 		start_line = target.start_line,
 		started_at = os.time(),
 		status = "starting",
+		status_path = nil,
+		stderr_path = nil,
+		stdout_path = nil,
+		stop_activity = nil,
+		target = target,
 		end_line = target.end_line,
+		transport = nil,
 	}
 	state.ephemeral_jobs[id] = job
 	table.insert(state.ephemeral_job_order, id)
@@ -195,62 +211,180 @@ local function make_result_lines(action, instruction, target, selected_model, ex
 	return lines
 end
 
-function M.run(action, target, instruction)
-	if instruction == nil or instruction:match("^%s*$") then
-		return
-	end
-
-	if vim.fn.executable("codex") ~= 1 then
-		util.notify("codex executable was not found on PATH", vim.log.levels.ERROR)
-		return
-	end
-	if action == "edit" and target.modified == "yes" then
-		util.notify("Save the buffer before running ephemeral Codex edits", vim.log.levels.WARN)
-		return
-	end
-
-	local sandbox = action == "edit" and "workspace-write" or "read-only"
-	local selected_model = state.ephemeral_models[action]
-	local prompt = build_ephemeral_prompt(action, instruction, target)
-	local stdout_lines = {}
-	local stderr_lines = {}
-	local job_record = M.create(action, target, selected_model, instruction)
-	local stop_spinner = spinner.start_spinner(action, target, job_record)
-	local stop_diagnostic = spinner.start_diagnostic(action, target, job_record)
-	local function stop_activity()
-		stop_spinner()
-		stop_diagnostic()
-	end
+function M.command_args(job)
 	local command = {
 		"codex",
 		"exec",
 		"--ephemeral",
 		"--sandbox",
-		sandbox,
+		job.sandbox,
 		"--cd",
-		vim.fn.getcwd(),
+		job.cwd,
 		"-",
 	}
 
-	if selected_model then
+	if job.model then
 		table.insert(command, 3, "--model")
-		table.insert(command, 4, selected_model)
+		table.insert(command, 4, job.model)
 	end
-	if action == "command" and constants.EPHEMERAL_COMMAND_REASONING_EFFORT then
+	if job.reasoning_effort then
 		table.insert(command, 3, "-c")
-		table.insert(command, 4, 'model_reasoning_effort="' .. constants.EPHEMERAL_COMMAND_REASONING_EFFORT .. '"')
+		table.insert(command, 4, 'model_reasoning_effort="' .. job.reasoning_effort .. '"')
 	end
 
-	util.notify(
-		"Started ephemeral Codex "
-			.. action
-			.. " over "
-			.. target.kind
-			.. " with model "
-			.. model.display(selected_model)
-	)
+	return command
+end
 
-	local job_id = vim.fn.jobstart(command, {
+local function stop_completion_timer(job)
+	local timer = job.completion_timer
+	job.completion_timer = nil
+	if timer and not timer:is_closing() then
+		timer:stop()
+		timer:close()
+	end
+end
+
+local function stop_activity(job)
+	if job.stop_activity then
+		local stop = job.stop_activity
+		job.stop_activity = nil
+		stop()
+	end
+end
+
+local function read_lines(path)
+	if not path or vim.fn.filereadable(path) ~= 1 then
+		return {}
+	end
+	return vim.fn.readfile(path)
+end
+
+local function cleanup_job_files(job)
+	for _, path in ipairs({
+		job.prompt_path,
+		job.stdout_path,
+		job.stderr_path,
+		job.status_path,
+		job.snapshot_path,
+	}) do
+		if path then
+			pcall(vim.fn.delete, path)
+		end
+	end
+end
+
+local function finish(job, code, stdout_lines, stderr_lines)
+	if not job or job.finished_at then
+		return
+	end
+
+	stop_completion_timer(job)
+	stop_activity(job)
+	stdout_lines = stdout_lines or read_lines(job.stdout_path)
+	stderr_lines = stderr_lines or read_lines(job.stderr_path)
+	local result_path = write_result_file(
+		make_result_lines(job.action, job.instruction, job.target, job.model, code, stdout_lines, stderr_lines)
+	)
+	cleanup_job_files(job)
+	local status = job.cancel_requested and "cancelled" or (code == 0 and "success" or "failed")
+	M.update(job, {
+		exit_code = code,
+		finished_at = os.time(),
+		result_path = result_path,
+		status = status,
+	})
+
+	local level = (status == "success" or status == "cancelled") and vim.log.levels.INFO or vim.log.levels.WARN
+	local suffix = result_path and ": " .. vim.fn.fnamemodify(result_path, ":~") or ""
+	util.notify(
+		"Ephemeral Codex "
+			.. job.action
+			.. " "
+			.. status
+			.. " with model "
+			.. model.display(job.model)
+			.. " and code "
+			.. code
+			.. suffix,
+		level
+	)
+end
+
+local function fail_to_start(job, message)
+	if not job or job.finished_at then
+		return
+	end
+	stop_completion_timer(job)
+	stop_activity(job)
+	cleanup_job_files(job)
+	M.update(job, {
+		finished_at = os.time(),
+		status = "failed_to_start",
+	})
+	local suffix = message and message ~= "" and ": " .. message or ""
+	util.notify("Failed to start ephemeral Codex " .. job.action .. " job" .. suffix, vim.log.levels.ERROR)
+end
+
+local function prepare_herdr_files(job, prompt)
+	local stem = vim.fn.tempname()
+	job.prompt_path = stem .. ".prompt"
+	job.stdout_path = stem .. ".stdout"
+	job.stderr_path = stem .. ".stderr"
+	job.status_path = stem .. ".status"
+	local lines = vim.split(prompt, "\n", { plain = true })
+	return vim.fn.writefile(lines, job.prompt_path, "b") == 0
+end
+
+local function check_herdr_completion(job)
+	if job.finished_at or not job.status_path or vim.fn.filereadable(job.status_path) ~= 1 then
+		return false
+	end
+	local status_lines = vim.fn.readfile(job.status_path, "", 1)
+	local code = tonumber(status_lines[1])
+	if not code then
+		return false
+	end
+	finish(job, code)
+	return true
+end
+
+local function start_herdr_completion_poll(job)
+	if check_herdr_completion(job) then
+		return
+	end
+	local timer = vim.uv.new_timer()
+	job.completion_timer = timer
+	timer:start(100, 200, function()
+		vim.schedule(function()
+			check_herdr_completion(job)
+		end)
+	end)
+end
+
+local function run_in_herdr(job, prompt)
+	job.transport = "herdr"
+	job.herdr_workspace_id = vim.env.HERDR_WORKSPACE_ID
+	if not prepare_herdr_files(job, prompt) then
+		fail_to_start(job, "could not write prompt state")
+		return
+	end
+
+	herdr.launch_ephemeral(job, {
+		on_error = function(_, message)
+			fail_to_start(job, message)
+		end,
+		on_success = function()
+			M.update(job, { status = "running" })
+			start_herdr_completion_poll(job)
+		end,
+	})
+end
+
+local function run_direct(job, prompt)
+	job.transport = "direct"
+	local stdout_lines = {}
+	local stderr_lines = {}
+	local job_id = vim.fn.jobstart(M.command_args(job), {
 		stdin = "pipe",
 		stdout_buffered = true,
 		stderr_buffered = true,
@@ -266,59 +400,100 @@ function M.run(action, target, instruction)
 		end,
 		on_exit = function(_, code)
 			vim.schedule(function()
-				stop_activity()
-				local result_path = write_result_file(
-					make_result_lines(action, instruction, target, selected_model, code, stdout_lines, stderr_lines)
-				)
-				if target.snapshot_path then
-					pcall(vim.fn.delete, target.snapshot_path)
-				end
-				local status = job_record.cancel_requested and "cancelled" or (code == 0 and "success" or "failed")
-				M.update(job_record, {
-					exit_code = code,
-					finished_at = os.time(),
-					result_path = result_path,
-					status = status,
-				})
-
-				local level = (status == "success" or status == "cancelled") and vim.log.levels.INFO
-					or vim.log.levels.WARN
-				local suffix = result_path and ": " .. vim.fn.fnamemodify(result_path, ":~") or ""
-				util.notify(
-					"Ephemeral Codex "
-						.. action
-						.. " "
-						.. status
-						.. " with model "
-						.. model.display(selected_model)
-						.. " and code "
-						.. code
-						.. suffix,
-					level
-				)
+				finish(job, code, stdout_lines, stderr_lines)
 			end)
 		end,
 	})
 
 	if job_id <= 0 then
-		stop_activity()
-		if target.snapshot_path then
-			pcall(vim.fn.delete, target.snapshot_path)
-		end
-		M.update(job_record, {
-			finished_at = os.time(),
-			status = "failed_to_start",
-		})
-		util.notify("Failed to start ephemeral Codex " .. action .. " job", vim.log.levels.ERROR)
+		fail_to_start(job)
 		return
 	end
 
-	M.update(job_record, {
+	M.update(job, {
 		job_id = job_id,
 		status = "running",
 	})
 	vim.fn.chansend(job_id, prompt)
 	vim.fn.chanclose(job_id, "stdin")
+end
+
+function M.run(action, target, instruction)
+	if instruction == nil or instruction:match("^%s*$") then
+		return
+	end
+
+	if vim.fn.executable("codex") ~= 1 then
+		util.notify("codex executable was not found on PATH", vim.log.levels.ERROR)
+		return
+	end
+	if action == "edit" and target.modified == "yes" then
+		util.notify("Save the buffer before running ephemeral Codex edits", vim.log.levels.WARN)
+		return
+	end
+
+	local selected_model = state.ephemeral_models[action]
+	local prompt = build_ephemeral_prompt(action, instruction, target)
+	local job_record = M.create(action, target, selected_model, instruction)
+	local stop_spinner = spinner.start_spinner(action, target, job_record)
+	local stop_diagnostic = spinner.start_diagnostic(action, target, job_record)
+	job_record.reasoning_effort = action == "command" and constants.EPHEMERAL_COMMAND_REASONING_EFFORT or nil
+	job_record.stop_activity = function()
+		stop_spinner()
+		stop_diagnostic()
+	end
+
+	util.notify(
+		"Started ephemeral Codex "
+			.. action
+			.. " over "
+			.. target.kind
+			.. " with model "
+			.. model.display(selected_model)
+	)
+
+	if herdr.ephemeral_available() then
+		run_in_herdr(job_record, prompt)
+	else
+		run_direct(job_record, prompt)
+	end
+end
+
+function M.cancel(job)
+	if not job or not M.is_active(job) then
+		util.notify("No running Codex job under cursor", vim.log.levels.WARN)
+		return false
+	end
+
+	job.cancel_requested = true
+	M.update(job, { status = "cancelling" })
+	if job.transport == "herdr" and job.herdr_tab_id then
+		herdr.close_tab(job, {
+			on_success = function()
+				if not check_herdr_completion(job) then
+					finish(job, 130)
+				end
+			end,
+			on_error = function(_, message)
+				if check_herdr_completion(job) then
+					return
+				end
+				job.cancel_requested = false
+				M.update(job, { status = "running" })
+				util.notify("Failed to cancel Codex job #" .. job.id .. ": " .. message, vim.log.levels.ERROR)
+			end,
+		})
+	elseif job.job_id then
+		vim.fn.jobstop(job.job_id)
+	else
+		job.cancel_requested = false
+		M.update(job, { status = "running" })
+		util.notify("Codex job #" .. job.id .. " is not ready to cancel", vim.log.levels.WARN)
+		return false
+	end
+
+	util.notify("Cancelling Codex job #" .. job.id)
+	return true
 end
 
 function M.prompt_and_run(action, target, input_prompt)

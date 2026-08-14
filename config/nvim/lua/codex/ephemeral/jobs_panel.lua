@@ -141,16 +141,7 @@ end
 
 local function cancel_selected_ephemeral_job()
 	local job = M.selected()
-	if not job or not jobs.is_active(job) or not job.job_id then
-		util.notify("No running Codex job under cursor", vim.log.levels.WARN)
-		return
-	end
-
-	job.cancel_requested = true
-	job.status = "cancelling"
-	vim.fn.jobstop(job.job_id)
-	M.refresh_open()
-	util.notify("Cancelling Codex job #" .. job.id)
+	jobs.cancel(job)
 end
 
 function M.delete_selected()

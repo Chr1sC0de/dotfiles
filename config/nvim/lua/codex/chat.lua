@@ -10,6 +10,7 @@ local stop_task_timer
 local stop_pending_paste_timer
 local stop_paste_ready_timer
 local mark_paste_ready
+local handle_herdr_attachment_exit
 
 local ASKING_PATTERNS = {
 	"which option",
@@ -1290,43 +1291,61 @@ local function start_direct_chat(session, hook_env)
 	return true
 end
 
+handle_herdr_attachment_exit = function(session, exited_job_id, code)
+	if state.codex_deleted_jobs[exited_job_id] then
+		state.codex_deleted_jobs[exited_job_id] = nil
+		return
+	end
+
+	vim.schedule(function()
+		local current = state.codex_sessions[session.bufnr]
+		if not current or current.job_id ~= exited_job_id then
+			return
+		end
+		current.job_id = nil
+		current.paste_ready = false
+		if util.is_valid_buffer(current.bufnr) then
+			vim.b[current.bufnr].codex_job_id = nil
+		end
+		herdr.agent_exists(current.herdr_agent_name, function(exists)
+			local latest = state.codex_sessions[current.bufnr]
+			if not latest then
+				return
+			end
+			if exists then
+				latest.launch_status = "detached"
+				write_herdr_buffer_vars(latest)
+				if state.codex_active_buf == latest.bufnr then
+					sync_active_state(nil)
+				end
+				util.notify("Detached from " .. latest.herdr_agent_name)
+				refresh_chat_panel()
+				return
+			end
+
+			local was_active = state.codex_active_buf == latest.bufnr
+			local label = M.display_title(latest)
+			latest.launch_status = "exited"
+			write_herdr_buffer_vars(latest)
+			finish_chat_exit(latest, code)
+			-- The lifecycle shim normally closes the tab. This quiet retry covers
+			-- shim startup failures and is harmless when the tab is already gone.
+			herdr.close_tab(latest)
+			herdr.remove_route(latest)
+			remove_session(latest.bufnr, { delete_buffer = true })
+			if was_active then
+				sync_active_state(newest_live_session())
+			end
+			util.notify("Codex chat exited: " .. label, code == 0 and vim.log.levels.INFO or vim.log.levels.WARN)
+			refresh_chat_panel()
+		end)
+	end)
+end
+
 local function start_herdr_attachment(session)
 	local original_terminal_name = vim.api.nvim_buf_get_name(session.bufnr)
 	local job_id = herdr.attach(session, function(exited_job_id, code)
-		if state.codex_deleted_jobs[exited_job_id] then
-			state.codex_deleted_jobs[exited_job_id] = nil
-			return
-		end
-		vim.schedule(function()
-			local current = state.codex_sessions[session.bufnr]
-			if not current or current.job_id ~= exited_job_id then
-				return
-			end
-			current.job_id = nil
-			current.paste_ready = false
-			if util.is_valid_buffer(current.bufnr) then
-				vim.b[current.bufnr].codex_job_id = nil
-			end
-			herdr.agent_exists(current.herdr_agent_name, function(exists)
-				local latest = state.codex_sessions[current.bufnr]
-				if not latest then
-					return
-				end
-				if exists then
-					latest.launch_status = "detached"
-					write_herdr_buffer_vars(latest)
-					if state.codex_active_buf == latest.bufnr then
-						sync_active_state(nil)
-					end
-					util.notify("Detached from " .. latest.herdr_agent_name)
-					refresh_chat_panel()
-					return
-				end
-				latest.launch_status = "exited"
-				write_herdr_buffer_vars(latest)
-				finish_chat_exit(latest, code)
-			end)
-		end)
+		handle_herdr_attachment_exit(session, exited_job_id, code)
 	end)
 	if not job_id then
 		return false
@@ -1334,6 +1353,10 @@ local function start_herdr_attachment(session)
 	finish_terminal_start(session, job_id, original_terminal_name)
 	write_herdr_buffer_vars(session)
 	return true
+end
+
+if vim.g.codex_chat_test then
+	M._test.handle_herdr_attachment_exit = handle_herdr_attachment_exit
 end
 
 local function fail_herdr_launch(session, message)

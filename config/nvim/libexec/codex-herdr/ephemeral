@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -u
+
+real_codex="${CODEX_REAL_BIN:-}"
+herdr_bin="${CODEX_HERDR_BIN:-herdr}"
+tab_id="${HERDR_TAB_ID:-}"
+prompt_path="${CODEX_EPHEMERAL_PROMPT_PATH:-}"
+stdout_path="${CODEX_EPHEMERAL_STDOUT_PATH:-}"
+stderr_path="${CODEX_EPHEMERAL_STDERR_PATH:-}"
+status_path="${CODEX_EPHEMERAL_STATUS_PATH:-}"
+sandbox="${CODEX_EPHEMERAL_SANDBOX:-read-only}"
+model="${CODEX_EPHEMERAL_MODEL:-}"
+reasoning_effort="${CODEX_EPHEMERAL_REASONING_EFFORT:-}"
+cleanup_done=0
+status_published=0
+
+publish_status() {
+	local status="$1"
+	local temporary
+
+	if [ "${status_published}" -eq 1 ] || [ -z "${status_path}" ]; then
+		return
+	fi
+	status_published=1
+	temporary="${status_path}.tmp.$$"
+	printf '%s\n' "${status}" >"${temporary}"
+	mv -f -- "${temporary}" "${status_path}"
+}
+
+# ShellCheck does not follow function references installed through trap.
+# shellcheck disable=SC2329
+cleanup() {
+	if [ "${cleanup_done}" -eq 1 ]; then
+		return
+	fi
+	cleanup_done=1
+
+	if [ -n "${tab_id}" ]; then
+		"${herdr_bin}" tab close "${tab_id}" >/dev/null 2>&1 || true
+	fi
+}
+
+# shellcheck disable=SC2329
+handle_term() {
+	publish_status 143
+	exit 143
+}
+
+# shellcheck disable=SC2329
+handle_int() {
+	publish_status 130
+	exit 130
+}
+
+trap cleanup EXIT
+trap handle_term TERM
+trap handle_int INT
+
+if [ -z "${real_codex}" ]; then
+	printf 'codex-herdr-ephemeral: CODEX_REAL_BIN is not set\n' >&2
+	publish_status 127
+	exit 127
+fi
+
+for required_path in "${prompt_path}" "${stdout_path}" "${stderr_path}" "${status_path}"; do
+	if [ -z "${required_path}" ]; then
+		printf 'codex-herdr-ephemeral: required path environment is incomplete\n' >&2
+		publish_status 125
+		exit 125
+	fi
+done
+
+args=(exec --ephemeral --sandbox "${sandbox}" --cd "${PWD}")
+if [ -n "${model}" ]; then
+	args+=(--model "${model}")
+fi
+if [ -n "${reasoning_effort}" ]; then
+	args+=(-c "model_reasoning_effort=\"${reasoning_effort}\"")
+fi
+args+=(-)
+
+set +e
+"${real_codex}" "${args[@]}" <"${prompt_path}" >"${stdout_path}" 2>"${stderr_path}"
+status=$?
+set -e
+
+publish_status "${status}"
+exit "${status}"

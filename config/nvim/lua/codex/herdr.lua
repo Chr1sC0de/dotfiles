@@ -3,7 +3,9 @@ local util = require("codex.util")
 local M = {}
 
 local AGENT_PREFIX = "nvim-codex-"
+local LIFECYCLE_SUBDIR = "libexec/codex-herdr"
 local ROUTE_SUBDIR = "codex/herdr"
+local EPHEMERAL_LABEL_LIMIT = 64
 
 local function herdr_binary()
 	local configured = vim.env.HERDR_BIN_PATH
@@ -15,6 +17,44 @@ end
 
 local function state_dir()
 	return util.join_path(vim.fn.stdpath("state"), ROUTE_SUBDIR)
+end
+
+local function executable_path(command)
+	local path = vim.fn.exepath(command)
+	if path and path ~= "" then
+		return path
+	end
+	return command
+end
+
+function M.lifecycle_wrapper_dir()
+	return util.join_path(vim.fn.stdpath("config"), LIFECYCLE_SUBDIR)
+end
+
+function M.ephemeral_runner_path()
+	return util.join_path(M.lifecycle_wrapper_dir(), "ephemeral")
+end
+
+local function truncate_label(label)
+	if vim.fn.strchars(label) <= EPHEMERAL_LABEL_LIMIT then
+		return label
+	end
+	return vim.fn.strcharpart(label, 0, EPHEMERAL_LABEL_LIMIT - 1) .. "…"
+end
+
+function M.ephemeral_label(job)
+	local action = job.action == "command" and "cmd" or tostring(job.action or "job")
+	local path = tostring(job.path or "")
+	local target = vim.fn.fnamemodify(path, ":t")
+	if target == "" then
+		target = "[No Name]"
+	end
+	local instruction = util.trim_whitespace(tostring(job.instruction or "")):gsub("%s+", " ")
+	local prefix = string.format("%s #%s · %s", action, tostring(job.id or "?"), target)
+	if instruction == "" then
+		return truncate_label(prefix)
+	end
+	return truncate_label(prefix .. " · " .. instruction)
 end
 
 local function command_error(result)
@@ -54,6 +94,10 @@ function M.available()
 		and vim.env.HERDR_WORKSPACE_ID ~= nil
 		and vim.env.HERDR_WORKSPACE_ID ~= ""
 		and vim.fn.executable(herdr_binary()) == 1
+end
+
+function M.ephemeral_available()
+	return M.available() and vim.fn.executable(M.ephemeral_runner_path()) == 1
 end
 
 function M.agent_name(id)
@@ -98,6 +142,9 @@ end
 function M.prepare(session, agent_name)
 	session.launch_mode = "herdr"
 	session.launch_status = "starting"
+	session.codex_real_bin = executable_path("codex")
+	session.herdr_real_bin = executable_path(herdr_binary())
+	session.herdr_wrapper_dir = M.lifecycle_wrapper_dir()
 	session.herdr_agent_name = agent_name or M.agent_name(session.id)
 	session.herdr_route_path = M.route_path(session.herdr_agent_name)
 	session.herdr_workspace_id = vim.env.HERDR_WORKSPACE_ID
@@ -106,6 +153,9 @@ function M.prepare(session, agent_name)
 end
 
 function M.tab_create_args(session, workspace_id)
+	local current_path = vim.env.PATH or ""
+	local wrapper_dir = session.herdr_wrapper_dir or M.lifecycle_wrapper_dir()
+	local wrapped_path = wrapper_dir .. (current_path ~= "" and (":" .. current_path) or "")
 	return {
 		"tab",
 		"create",
@@ -119,6 +169,12 @@ function M.tab_create_args(session, workspace_id)
 		"CODEX_NVIM_STATE_FILE=" .. session.herdr_route_path,
 		"--env",
 		"CODEX_THREAD_ID=",
+		"--env",
+		"CODEX_REAL_BIN=" .. session.codex_real_bin,
+		"--env",
+		"CODEX_HERDR_BIN=" .. session.herdr_real_bin,
+		"--env",
+		"PATH=" .. wrapped_path,
 		"--no-focus",
 	}
 end
@@ -134,6 +190,74 @@ function M.parse_tab_create(output)
 		return nil, nil, "Herdr tab response did not include tab and pane ids"
 	end
 	return tab.tab_id, pane.pane_id
+end
+
+function M.ephemeral_tab_create_args(job)
+	local env = {
+		"CODEX_EPHEMERAL_PROMPT_PATH=" .. job.prompt_path,
+		"CODEX_EPHEMERAL_STDOUT_PATH=" .. job.stdout_path,
+		"CODEX_EPHEMERAL_STDERR_PATH=" .. job.stderr_path,
+		"CODEX_EPHEMERAL_STATUS_PATH=" .. job.status_path,
+		"CODEX_EPHEMERAL_SANDBOX=" .. job.sandbox,
+		"CODEX_EPHEMERAL_MODEL=" .. (job.model or ""),
+		"CODEX_EPHEMERAL_REASONING_EFFORT=" .. (job.reasoning_effort or ""),
+		"CODEX_REAL_BIN=" .. executable_path("codex"),
+		"CODEX_HERDR_BIN=" .. executable_path(herdr_binary()),
+		"CODEX_THREAD_ID=",
+	}
+	local args = {
+		"tab",
+		"create",
+		"--workspace",
+		job.herdr_workspace_id,
+		"--cwd",
+		job.cwd,
+		"--label",
+		M.ephemeral_label(job),
+	}
+	for _, value in ipairs(env) do
+		table.insert(args, "--env")
+		table.insert(args, value)
+	end
+	table.insert(args, "--no-focus")
+	return args
+end
+
+function M.ephemeral_pane_run_args(job)
+	return {
+		"pane",
+		"run",
+		job.herdr_pane_id,
+		vim.fn.shellescape(M.ephemeral_runner_path()),
+	}
+end
+
+function M.launch_ephemeral(job, opts)
+	opts = opts or {}
+	run(M.ephemeral_tab_create_args(job), {
+		on_error = opts.on_error,
+		on_success = function(result)
+			local tab_id, pane_id, err = M.parse_tab_create(result.stdout)
+			if not tab_id then
+				if opts.on_error then
+					opts.on_error(result, err)
+				end
+				return
+			end
+
+			job.herdr_tab_id = tab_id
+			job.herdr_pane_id = pane_id
+			run(M.ephemeral_pane_run_args(job), {
+				on_success = opts.on_success,
+				on_error = function(start_result, message)
+					M.close_tab(job)
+					if opts.on_error then
+						opts.on_error(start_result, message)
+					end
+				end,
+			})
+		end,
+	})
 end
 
 function M.agent_start_args(session)
