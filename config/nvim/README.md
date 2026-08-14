@@ -62,8 +62,14 @@ unfocused tabs. Their labels include the action, job number, target file, and
 instruction, for example `edit #12 · jobs.lua · fix cancellation`. The tabs
 close themselves when the one-shot job finishes, while the persistent `home`
 tab keeps the workspace available and Neovim retains its spinner, diagnostics,
-jobs panel, cancellation controls, and Markdown result. If Neovim is not
-running inside Herdr, ephemeral jobs fall back to direct `codex exec` processes.
+jobs panel, cancellation controls, and session-only Markdown scratch result.
+Open a completed result from `:CodexJobs`; it appears in the current window
+without creating a result file. Press `f` from either the result or its jobs
+panel row to continue the native Codex thread, `s` to return to its source, or
+`q` to close the result. Codex persists the underlying thread so follow-ups use
+its native conversation history, but Neovim does not restore result buffers or
+jobs after restarting. If Neovim is not running inside Herdr, jobs fall back to
+direct `codex exec` processes with the same result and follow-up behavior.
 
 Use `:CodexChatAttach` or `<leader>aA` to reconnect to a surviving agent across
 the current Herdr session. The chat-buffer panel also provides `a` for this

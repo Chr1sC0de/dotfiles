@@ -277,7 +277,7 @@ pane_history = false
 # scrollback_limit_bytes = 10000000
 
 [[keys.command]]
-key = "prefix+up"
+key = "prefix+k"
 type = "plugin_action"
 command = "sessionizer.open"
 description = "open project workspace"

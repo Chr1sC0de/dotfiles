@@ -41,15 +41,122 @@ function M.jump_to_source(job)
 	pcall(vim.api.nvim_win_set_cursor, 0, { math.max(job.start_line or 1, 1), 0 })
 end
 
+local function result_line_range(job)
+	if not job.start_line or not job.end_line then
+		return "?"
+	end
+	if job.start_line == job.end_line then
+		return tostring(job.start_line)
+	end
+	return job.start_line .. "-" .. job.end_line
+end
+
+local function quote_markdown(lines)
+	local quoted = {}
+	for _, line in ipairs(vim.split(lines or "", "\n", { plain = true })) do
+		table.insert(quoted, line == "" and ">" or "> " .. line)
+	end
+	return quoted
+end
+
+function M.result_lines(job)
+	local lines = {}
+	if job.answer_lines and #job.answer_lines > 0 then
+		vim.list_extend(lines, job.answer_lines)
+	else
+		table.insert(lines, "*No final response was returned.*")
+	end
+
+	vim.list_extend(lines, {
+		"",
+		"---",
+		"",
+		"## Job details",
+		"",
+		"- Job: #" .. job.id,
+		"- Status: " .. job.status,
+		"- Action: " .. job.action,
+		"- Model: " .. model.display(job.model),
+		"- Source: `" .. job.path .. ":" .. result_line_range(job) .. "`",
+		"- Exit code: " .. tostring(job.exit_code or "n/a"),
+		"- Thread: `" .. tostring(job.thread_id or "unavailable") .. "`",
+		"",
+		"## Instruction",
+		"",
+	})
+	vim.list_extend(lines, quote_markdown(job.instruction))
+
+	if job.status ~= "success" and job.stderr_lines and #job.stderr_lines > 0 then
+		vim.list_extend(lines, {
+			"",
+			"## Error output",
+			"",
+			"```text",
+		})
+		vim.list_extend(lines, job.stderr_lines)
+		table.insert(lines, "```")
+	end
+
+	return lines
+end
+
+local function close_result(job)
+	if util.is_valid_buffer(job.result_return_bufnr) then
+		vim.api.nvim_set_current_buf(job.result_return_bufnr)
+		return
+	end
+	M.jump_to_source(job)
+end
+
+local function ensure_result_buffer(job)
+	if util.is_valid_buffer(job.result_bufnr) then
+		return job.result_bufnr
+	end
+
+	local bufnr = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_name(bufnr, "codex://job/" .. job.id)
+	vim.bo[bufnr].bufhidden = "hide"
+	vim.bo[bufnr].buftype = "nofile"
+	vim.bo[bufnr].filetype = "markdown"
+	vim.bo[bufnr].swapfile = false
+	vim.bo[bufnr].modifiable = true
+	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, M.result_lines(job))
+	vim.bo[bufnr].modified = false
+	vim.bo[bufnr].modifiable = false
+	vim.b[bufnr].codex_ephemeral_job_id = job.id
+	job.result_bufnr = bufnr
+
+	local opts = { buffer = bufnr, nowait = true, silent = true }
+	vim.keymap.set("n", "f", function()
+		jobs.prompt_follow_up(job)
+	end, vim.tbl_extend("force", opts, { desc = "Codex: follow up on this result" }))
+	vim.keymap.set("n", "s", function()
+		M.jump_to_source(job)
+	end, vim.tbl_extend("force", opts, { desc = "Codex: jump to result source" }))
+	vim.keymap.set("n", "q", function()
+		close_result(job)
+	end, vim.tbl_extend("force", opts, { desc = "Codex: close result" }))
+	vim.keymap.set("n", "<Esc>", function()
+		close_result(job)
+	end, opts)
+
+	return bufnr
+end
+
 function M.open_result(job)
-	if not job or not job.result_path or vim.fn.filereadable(job.result_path) ~= 1 then
-		util.notify("No result file for Codex job", vim.log.levels.WARN)
+	if not job or not job.finished_at then
+		util.notify("No completed result for Codex job", vim.log.levels.WARN)
 		return false
 	end
 
+	local bufnr = ensure_result_buffer(job)
 	M.close()
-	vim.cmd("edit " .. vim.fn.fnameescape(job.result_path))
-	vim.bo.filetype = "markdown"
+	local return_bufnr = vim.api.nvim_get_current_buf()
+	if return_bufnr == bufnr or return_bufnr == state.codex_jobs_buf then
+		return_bufnr = job.target and job.target.spinner_buf or nil
+	end
+	job.result_return_bufnr = return_bufnr
+	vim.api.nvim_set_current_buf(bufnr)
 	return true
 end
 
@@ -144,6 +251,10 @@ local function cancel_selected_ephemeral_job()
 	jobs.cancel(job)
 end
 
+local function follow_up_selected_ephemeral_job()
+	jobs.prompt_follow_up(M.selected())
+end
+
 function M.delete_selected()
 	jobs.delete(M.selected())
 end
@@ -173,7 +284,8 @@ local function ensure_codex_jobs_buffer()
 	vim.keymap.set("n", "r", M.refresh_open, opts)
 	vim.keymap.set("n", "<CR>", open_selected_ephemeral_job, opts)
 	vim.keymap.set("n", "d", M.delete_selected, opts)
-	vim.keymap.set("n", "g", jump_to_selected_ephemeral_job_source, opts)
+	vim.keymap.set("n", "f", follow_up_selected_ephemeral_job, opts)
+	vim.keymap.set("n", "s", jump_to_selected_ephemeral_job_source, opts)
 	vim.keymap.set("n", "o", open_selected_ephemeral_job_result, opts)
 	vim.keymap.set("n", "p", preview_selected_ephemeral_job_instruction, opts)
 	vim.keymap.set("n", "x", cancel_selected_ephemeral_job, opts)
@@ -261,11 +373,11 @@ local function job_location(job)
 end
 
 local function job_result_display(job)
-	if not job.result_path then
+	if not job.finished_at then
 		return "-"
 	end
 
-	return vim.fn.fnamemodify(job.result_path, ":~:.")
+	return "codex://job/" .. job.id
 end
 
 local function job_model_display(job)
@@ -276,7 +388,7 @@ local function build_codex_jobs_lines()
 	local lines = {
 		"Codex Jobs",
 		"",
-		"Keys: <CR> open/jump  o result  g source  p preview  x cancel  d delete  r refresh  q close",
+		"Keys: <CR> open/jump  o result  f follow-up  s source  p preview  x cancel  d delete  r refresh  q close",
 		"",
 	}
 	state.codex_jobs_line_to_id = {}

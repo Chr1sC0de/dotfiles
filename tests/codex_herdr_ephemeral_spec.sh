@@ -8,10 +8,19 @@ cat >"${test_dir}/codex-real" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$@" >"${CODEX_TEST_ARGS}"
 cat >"${CODEX_TEST_STDIN}"
+write_message=0
+for arg in "$@"; do
+	if [ "${write_message}" -eq 1 ]; then
+		printf 'final answer\n' >"${arg}"
+		write_message=0
+	elif [ "${arg}" = "--output-last-message" ]; then
+		write_message=1
+	fi
+done
 if [ "${CODEX_TEST_SIGNAL:-}" = "TERM" ]; then
 	kill -TERM "$$"
 fi
-printf 'captured stdout\n'
+printf '%s\n' '{"type":"thread.started","thread_id":"thread-123"}'
 printf 'captured stderr\n' >&2
 exit "${CODEX_TEST_EXIT:-0}"
 SH
@@ -33,12 +42,13 @@ run_case() {
 	local stdout_file="${test_dir}/stdout"
 	local stderr_file="${test_dir}/stderr"
 	local status_file="${test_dir}/status"
+	local message_file="${test_dir}/message"
 	local args_file="${test_dir}/args"
 	local stdin_file="${test_dir}/stdin"
 	local calls_file="${test_dir}/calls"
 	printf 'Please inspect this file.\n' >"${prompt_file}"
 	: >"${calls_file}"
-	rm -f -- "${stdout_file}" "${stderr_file}" "${status_file}"
+	rm -f -- "${stdout_file}" "${stderr_file}" "${status_file}" "${message_file}"
 
 	set +e
 	CODEX_REAL_BIN="${test_dir}/codex-real" \
@@ -47,9 +57,11 @@ run_case() {
 		CODEX_EPHEMERAL_STDOUT_PATH="${stdout_file}" \
 		CODEX_EPHEMERAL_STDERR_PATH="${stderr_file}" \
 		CODEX_EPHEMERAL_STATUS_PATH="${status_file}" \
+		CODEX_EPHEMERAL_MESSAGE_PATH="${message_file}" \
 		CODEX_EPHEMERAL_SANDBOX="read-only" \
 		CODEX_EPHEMERAL_MODEL="gpt-test" \
 		CODEX_EPHEMERAL_REASONING_EFFORT="low" \
+		CODEX_EPHEMERAL_THREAD_ID="${CODEX_TEST_THREAD_ID:-}" \
 		CODEX_TEST_ARGS="${args_file}" \
 		CODEX_TEST_STDIN="${stdin_file}" \
 		CODEX_TEST_EXIT="${codex_status}" \
@@ -66,21 +78,29 @@ run_case() {
 	[ "$(wc -l <"${calls_file}")" -eq 1 ]
 	grep -Fx -- "tab close w1:t9" "${calls_file}" >/dev/null
 	grep -Fx -- "exec" "${args_file}" >/dev/null
-	grep -Fx -- "--ephemeral" "${args_file}" >/dev/null
+	grep -Fx -- "--json" "${args_file}" >/dev/null
+	if grep -Fx -- "--ephemeral" "${args_file}" >/dev/null; then
+		return 1
+	fi
 	grep -Fx -- "--sandbox" "${args_file}" >/dev/null
 	grep -Fx -- "read-only" "${args_file}" >/dev/null
 	grep -Fx -- "--model" "${args_file}" >/dev/null
 	grep -Fx -- "gpt-test" "${args_file}" >/dev/null
 	grep -Fx -- 'model_reasoning_effort="low"' "${args_file}" >/dev/null
+	grep -Fx -- "--output-last-message" "${args_file}" >/dev/null
 
 	if [ -z "${signal}" ]; then
-		grep -Fx -- "captured stdout" "${stdout_file}" >/dev/null
+		grep -F -- '"thread_id":"thread-123"' "${stdout_file}" >/dev/null
 		grep -Fx -- "captured stderr" "${stderr_file}" >/dev/null
+		grep -Fx -- "final answer" "${message_file}" >/dev/null
 	fi
 }
 
 run_case 0
 run_case 23 23
 run_case 143 0 TERM
+CODEX_TEST_THREAD_ID="thread-existing" run_case 0
+grep -Fx -- "resume" "${test_dir}/args" >/dev/null
+grep -Fx -- "thread-existing" "${test_dir}/args" >/dev/null
 
 printf '%s\n' "codex_herdr_ephemeral_spec.sh: ok"

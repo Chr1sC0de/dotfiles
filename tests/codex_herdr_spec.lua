@@ -308,10 +308,12 @@ tests["ephemeral tab creation is unfocused and carries runner state"] = function
 		path = "/tmp/project/jobs.lua",
 		prompt_path = "/tmp/prompt",
 		reasoning_effort = "high",
+		result_message_path = "/tmp/message",
 		sandbox = "workspace-write",
 		status_path = "/tmp/status",
 		stderr_path = "/tmp/stderr",
 		stdout_path = "/tmp/stdout",
+		thread_id = "thread-123",
 	})
 
 	assert_equal(args[1], "tab", "command group")
@@ -321,9 +323,11 @@ tests["ephemeral tab creation is unfocused and carries runner state"] = function
 	assert_contains(args, "CODEX_EPHEMERAL_STDOUT_PATH=/tmp/stdout", "stdout state")
 	assert_contains(args, "CODEX_EPHEMERAL_STDERR_PATH=/tmp/stderr", "stderr state")
 	assert_contains(args, "CODEX_EPHEMERAL_STATUS_PATH=/tmp/status", "status state")
+	assert_contains(args, "CODEX_EPHEMERAL_MESSAGE_PATH=/tmp/message", "message state")
 	assert_contains(args, "CODEX_EPHEMERAL_SANDBOX=workspace-write", "sandbox")
 	assert_contains(args, "CODEX_EPHEMERAL_MODEL=gpt-test", "model")
 	assert_contains(args, "CODEX_EPHEMERAL_REASONING_EFFORT=high", "reasoning effort")
+	assert_contains(args, "CODEX_EPHEMERAL_THREAD_ID=thread-123", "thread state")
 	assert_contains(args, "--no-focus", "focus policy")
 end
 

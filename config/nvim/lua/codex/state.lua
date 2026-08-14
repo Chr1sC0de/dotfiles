@@ -16,7 +16,6 @@ return {
 	ephemeral_job_order = {},
 	next_ephemeral_job_id = 1,
 	next_ephemeral_diagnostic_id = 1,
-	next_ephemeral_result_id = 1,
 	next_ephemeral_sign_id = 1,
 	next_codex_session_id = 1,
 	ephemeral_models = {

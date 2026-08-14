@@ -9,7 +9,6 @@ M.CODEX_TITLE_REASONING_EFFORT = "low"
 M.CODEX_JOBS_BUF_NAME = "codex://jobs"
 M.CODEX_JOBS_HIGHLIGHT_NAMESPACE = vim.api.nvim_create_namespace("codex-jobs")
 M.EPHEMERAL_COMMAND_REASONING_EFFORT = "low"
-M.EPHEMERAL_RESULT_SUBDIR = "codex/ephemeral"
 M.EPHEMERAL_DIAGNOSTIC_NAMESPACE = vim.api.nvim_create_namespace("codex-ephemeral")
 M.EPHEMERAL_SPINNER_NAMESPACE = vim.api.nvim_create_namespace("codex-ephemeral-spinner")
 M.EPHEMERAL_RECENT_JOB_LIMIT = 20

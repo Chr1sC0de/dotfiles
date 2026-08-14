@@ -8,9 +8,11 @@ prompt_path="${CODEX_EPHEMERAL_PROMPT_PATH:-}"
 stdout_path="${CODEX_EPHEMERAL_STDOUT_PATH:-}"
 stderr_path="${CODEX_EPHEMERAL_STDERR_PATH:-}"
 status_path="${CODEX_EPHEMERAL_STATUS_PATH:-}"
+message_path="${CODEX_EPHEMERAL_MESSAGE_PATH:-}"
 sandbox="${CODEX_EPHEMERAL_SANDBOX:-read-only}"
 model="${CODEX_EPHEMERAL_MODEL:-}"
 reasoning_effort="${CODEX_EPHEMERAL_REASONING_EFFORT:-}"
+thread_id="${CODEX_EPHEMERAL_THREAD_ID:-}"
 cleanup_done=0
 status_published=0
 
@@ -62,7 +64,7 @@ if [ -z "${real_codex}" ]; then
 	exit 127
 fi
 
-for required_path in "${prompt_path}" "${stdout_path}" "${stderr_path}" "${status_path}"; do
+for required_path in "${prompt_path}" "${stdout_path}" "${stderr_path}" "${status_path}" "${message_path}"; do
 	if [ -z "${required_path}" ]; then
 		printf 'codex-herdr-ephemeral: required path environment is incomplete\n' >&2
 		publish_status 125
@@ -70,12 +72,15 @@ for required_path in "${prompt_path}" "${stdout_path}" "${stderr_path}" "${statu
 	fi
 done
 
-args=(exec --ephemeral --sandbox "${sandbox}" --cd "${PWD}")
+args=(exec --json --sandbox "${sandbox}" --cd "${PWD}" --output-last-message "${message_path}")
 if [ -n "${model}" ]; then
 	args+=(--model "${model}")
 fi
 if [ -n "${reasoning_effort}" ]; then
 	args+=(-c "model_reasoning_effort=\"${reasoning_effort}\"")
+fi
+if [ -n "${thread_id}" ]; then
+	args+=(resume "${thread_id}")
 fi
 args+=(-)
 
