@@ -73,9 +73,10 @@ local function session_summary()
 		table.insert(
 			parts,
 			string.format(
-				"#%s status=%s ipc=%s",
+				"#%s status=%s launch=%s ipc=%s",
 				session.id,
 				chat.task_status_label(session),
+				chat.launch_status_label(session),
 				chat.ipc_status_label(session)
 			)
 		)
@@ -88,6 +89,10 @@ function M.report()
 	local ok = true
 
 	ok = add_line(lines, vim.fn.executable("codex") == 1, "codex cli", "codex on PATH") and ok
+	local in_herdr = vim.env.HERDR_ENV == "1"
+	local herdr_detail = in_herdr and ("workspace " .. tostring(vim.env.HERDR_WORKSPACE_ID or "unknown"))
+		or "direct terminal fallback"
+	ok = add_line(lines, not in_herdr or chat.herdr_available(), "herdr", herdr_detail) and ok
 
 	local hook_path = util.codex_nvim_hook_path()
 	ok = add_line(lines, vim.fn.executable(hook_path) == 1, "nvim hook", hook_path) and ok

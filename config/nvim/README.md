@@ -36,6 +36,17 @@ available and fall back to a Neovim terminal tab.
 This config includes a local Codex chat bridge under `lua/codex/` and a hook
 receiver at `bin/codex-nvim-hook`.
 
+When Neovim runs inside Herdr, each new chat is launched as a real Codex agent
+in its own unfocused Herdr tab. The Neovim chat buffer displays that terminal
+through `herdr agent attach`, so Herdr retains native agent detection and the
+agent survives an editor restart. Outside Herdr, chats continue to launch
+directly in Neovim terminals.
+
+Use `:CodexChatAttach` or `<leader>aA` to reconnect to a surviving agent in the
+current Herdr workspace. The chat-buffer panel also provides `a` for this
+picker. Explicitly deleting a chat closes its backing Herdr tab; hiding its
+buffer or exiting Neovim leaves the agent running.
+
 The dotfiles installer symlinks `config/nvim` by default, so the Neovim-side
 hook script is installed automatically on a new machine:
 

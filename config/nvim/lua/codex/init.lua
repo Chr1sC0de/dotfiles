@@ -13,6 +13,7 @@ local M = {}
 
 M.toggle = chat.toggle
 M.new_chat = chat.new
+M.attach_chat = chat.attach_existing
 M.paste = chat.paste
 M.delete_chat_buffer = chat.delete_buffer
 M.generate_chat_title = chat.generate_title

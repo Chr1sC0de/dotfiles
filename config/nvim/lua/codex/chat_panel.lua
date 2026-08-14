@@ -59,6 +59,11 @@ local function create_chat()
 	chat.new()
 end
 
+local function attach_chat()
+	M.close()
+	chat.attach_existing()
+end
+
 local function delete_selected_chat()
 	local bufnr = M.selected()
 	local session = chat.session(bufnr)
@@ -78,7 +83,11 @@ local function delete_selected_chat()
 		end
 
 		if chat.delete_buffer(bufnr) then
-			util.notify("Deleted Codex chat: " .. label)
+			if session.launch_mode == "herdr" then
+				util.notify("Closing Codex Herdr tab: " .. label)
+			else
+				util.notify("Deleted Codex chat: " .. label)
+			end
 			M.refresh_open()
 		end
 	end)
@@ -213,6 +222,7 @@ local function ensure_chat_buffers_buffer()
 	vim.keymap.set("n", "<CR>", open_selected_chat, opts)
 	vim.keymap.set("n", "s", switch_selected_chat_target, opts)
 	vim.keymap.set("n", "n", create_chat, opts)
+	vim.keymap.set("n", "a", attach_chat, opts)
 	vim.keymap.set("n", "d", delete_selected_chat, opts)
 	vim.keymap.set("n", "t", title_selected_chat, opts)
 	vim.keymap.set("n", "p", preview_selected_chat, opts)
@@ -232,7 +242,7 @@ local function build_chat_buffers_lines()
 	local lines = {
 		"Codex Chat Buffers",
 		"",
-		"Keys: <CR> open  s switch  n new  d delete  t title  p preview  r refresh  R resync  q close",
+		"Keys: <CR> open  s switch  n new  a attach  d delete  t title  p preview  r refresh  R resync  q close",
 		"",
 	}
 	state.codex_chat_line_to_buf = {}
@@ -251,9 +261,10 @@ local function build_chat_buffers_lines()
 	table.insert(
 		lines,
 		string.format(
-			"%-4s %-6s %-7s %-6s %-6s %-8s %-30s %-28s %s",
+			"%-4s %-6s %-9s %-7s %-6s %-6s %-8s %-30s %-28s %s",
 			"ID",
 			"Status",
+			"Launch",
 			"IPC",
 			"Active",
 			"Buffer",
@@ -270,11 +281,13 @@ local function build_chat_buffers_lines()
 		local name = vim.api.nvim_buf_get_name(session.bufnr)
 		local active = session.bufnr == active_buf and "yes" or ""
 		local status = chat.task_status_label(session)
+		local launch = chat.launch_status_label(session)
 		local ipc = chat.ipc_status_label(session)
 		local line = string.format(
-			"%-4d %-6s %-7s %-6s %-6d %-8s %-30s %-28s %s",
+			"%-4d %-6s %-9s %-7s %-6s %-6d %-8s %-30s %-28s %s",
 			session.id,
 			status,
+			launch,
 			ipc,
 			active,
 			session.bufnr,

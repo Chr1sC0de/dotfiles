@@ -4,6 +4,24 @@ set -u
 server="${CODEX_NVIM_SERVER:-}"
 session_id="${CODEX_NVIM_SESSION_ID:-}"
 token="${CODEX_NVIM_HOOK_TOKEN:-}"
+state_file="${CODEX_NVIM_STATE_FILE:-}"
+
+if [ -n "${state_file}" ] && [ -r "${state_file}" ]; then
+  state_server=""
+  state_session_id=""
+  state_token=""
+  {
+    IFS= read -r state_server || true
+    IFS= read -r state_session_id || true
+    IFS= read -r state_token || true
+  } <"${state_file}"
+
+  if [ -n "${state_server}" ] && [ -n "${state_session_id}" ] && [ -n "${state_token}" ]; then
+    server="${state_server}"
+    session_id="${state_session_id}"
+    token="${state_token}"
+  fi
+fi
 
 if [ -z "${server}" ] || [ -z "${session_id}" ] || [ -z "${token}" ]; then
   exit 0

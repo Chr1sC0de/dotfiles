@@ -1,0 +1,117 @@
+vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
+vim.opt.runtimepath:append(".")
+package.path = table.concat({
+	vim.fn.getcwd() .. "/config/nvim/lua/?.lua",
+	vim.fn.getcwd() .. "/config/nvim/lua/?/init.lua",
+	package.path,
+}, ";")
+
+local herdr = require("codex.herdr")
+
+local function assert_equal(actual, expected, label)
+	if not vim.deep_equal(actual, expected) then
+		error(string.format("%s: expected %s, got %s", label, vim.inspect(expected), vim.inspect(actual)))
+	end
+end
+
+local function assert_contains(values, expected, label)
+	for _, value in ipairs(values) do
+		if value == expected then
+			return
+		end
+	end
+	error(string.format("%s: expected %q in %s", label, expected, vim.inspect(values)))
+end
+
+local tests = {}
+
+tests["agent names are valid and bounded"] = function()
+	local name = herdr.agent_name(123456789)
+	assert_equal(name:match("^[a-z][a-z0-9_-]*$") ~= nil, true, "agent name syntax")
+	assert_equal(#name <= 32, true, "agent name length")
+end
+
+tests["tab creation preserves cwd and injects route state"] = function()
+	local args = herdr.tab_create_args({
+		cwd = "/tmp/project with spaces",
+		herdr_route_path = "/tmp/codex.route",
+		herdr_tab_label = "codex-4",
+	}, "w7")
+
+	assert_equal(args[1], "tab", "command group")
+	assert_equal(args[2], "create", "command")
+	assert_contains(args, "w7", "workspace")
+	assert_contains(args, "/tmp/project with spaces", "cwd")
+	assert_contains(args, "CODEX_NVIM_STATE_FILE=/tmp/codex.route", "route env")
+	assert_contains(args, "CODEX_THREAD_ID=", "thread id reset")
+	assert_contains(args, "--no-focus", "focus policy")
+end
+
+tests["tab creation response exposes stable ids"] = function()
+	local tab_id, pane_id = herdr.parse_tab_create(vim.json.encode({
+		id = "cli:tab:create",
+		result = {
+			tab = { tab_id = "w7:t3" },
+			root_pane = { pane_id = "w7:p9" },
+		},
+	}))
+
+	assert_equal(tab_id, "w7:t3", "tab id")
+	assert_equal(pane_id, "w7:p9", "pane id")
+end
+
+tests["agent start targets the backing pane"] = function()
+	local args = herdr.agent_start_args({
+		cwd = "/tmp/project",
+		herdr_agent_name = "nvim-codex-123-2",
+		herdr_pane_id = "w7:p9",
+	})
+
+	assert_equal(args, {
+		"agent",
+		"start",
+		"nvim-codex-123-2",
+		"--kind",
+		"codex",
+		"--pane",
+		"w7:p9",
+		"--timeout",
+		"60000",
+		"--",
+		"--cd",
+		"/tmp/project",
+	}, "agent start args")
+end
+
+tests["reattach candidates are scoped and require route state"] = function()
+	local route_path = vim.fn.tempname()
+	vim.fn.writefile({ "server", "1", "token" }, route_path)
+
+	local original_route_path = herdr.route_path
+	herdr.route_path = function(name)
+		if name == "nvim-codex-123-2" then
+			return route_path
+		end
+		return route_path .. ".missing"
+	end
+
+	local candidates = herdr.filter_agents({
+		{ name = "nvim-codex-123-2", agent = "codex", workspace_id = "w7", pane_id = "w7:p9" },
+		{ name = "nvim-codex-123-3", agent = "codex", workspace_id = "w8", pane_id = "w8:p1" },
+		{ name = "reviewer", agent = "codex", workspace_id = "w7", pane_id = "w7:p2" },
+	}, "w7", {})
+
+	herdr.route_path = original_route_path
+	vim.fn.delete(route_path)
+	assert_equal(#candidates, 1, "candidate count")
+	assert_equal(candidates[1].name, "nvim-codex-123-2", "candidate name")
+end
+
+for name, test in pairs(tests) do
+	local ok, err = xpcall(test, debug.traceback)
+	if not ok then
+		error(name .. "\n" .. err)
+	end
+end
+
+print("codex_herdr_spec.lua: ok")

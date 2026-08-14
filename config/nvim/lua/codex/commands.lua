@@ -18,6 +18,11 @@ function M.setup(api)
 	)
 	vim.api.nvim_create_user_command("CodexChatNew", api.new_chat, { desc = "Start a new Codex chat" })
 	vim.api.nvim_create_user_command(
+		"CodexChatAttach",
+		api.attach_chat,
+		{ desc = "Attach a surviving Herdr Codex agent" }
+	)
+	vim.api.nvim_create_user_command(
 		"CodexChatResync",
 		api.resync_chat_command,
 		{ desc = "Resync the Codex chat", nargs = "?" }
@@ -96,6 +101,7 @@ function M.setup(api)
 	vim.keymap.set("n", "<leader>aa", api.toggle, { desc = "Codex: toggle the chat window" })
 	vim.keymap.set("n", "<leader>ab", api.toggle_chat_buffers, { desc = "Codex: toggle chat buffers" })
 	vim.keymap.set("n", "<leader>an", api.new_chat, { desc = "Codex: start a new chat" })
+	vim.keymap.set("n", "<leader>aA", api.attach_chat, { desc = "Codex: attach a Herdr agent" })
 	vim.keymap.set(
 		"n",
 		"<leader>ac",

@@ -1,4 +1,5 @@
 local constants = require("codex.constants")
+local herdr = require("codex.herdr")
 local state = require("codex.state")
 local util = require("codex.util")
 
@@ -182,6 +183,13 @@ local function register_existing_buffer(bufnr)
 		hook_server = vim.b[bufnr].codex_hook_server,
 		hook_started_with_env = vim.b[bufnr].codex_hook_started_with_env == true,
 		hook_token = vim.b[bufnr].codex_hook_token,
+		launch_mode = vim.b[bufnr].codex_launch_mode or "direct",
+		launch_status = vim.b[bufnr].codex_launch_status,
+		herdr_agent_name = vim.b[bufnr].codex_herdr_agent_name,
+		herdr_pane_id = vim.b[bufnr].codex_herdr_pane_id,
+		herdr_route_path = vim.b[bufnr].codex_herdr_route_path,
+		herdr_tab_id = vim.b[bufnr].codex_herdr_tab_id,
+		herdr_workspace_id = vim.b[bufnr].codex_herdr_workspace_id,
 		title = vim.b[bufnr].codex_title,
 	}
 
@@ -201,6 +209,9 @@ local function session_for_buffer(bufnr)
 end
 
 local function session_is_running(session)
+	if session and session.launch_mode == "herdr" and session.launch_status == "starting" then
+		return not session.exited and util.is_valid_buffer(session.bufnr)
+	end
 	if not session or session.exited or not util.is_valid_buffer(session.bufnr) or not session.job_id then
 		return false
 	end
@@ -992,6 +1003,9 @@ function M.set_title(bufnr, title)
 	session.title_error = nil
 	vim.b[session.bufnr].codex_title = title
 	pcall(vim.api.nvim_buf_set_name, session.bufnr, codex_buffer_name(session.id, title))
+	if session.launch_mode == "herdr" then
+		herdr.rename_tab(session, title)
+	end
 	return true
 end
 
@@ -1159,6 +1173,216 @@ function M.generate_title(bufnr)
 	return true
 end
 
+local function initialize_chat_buffer(session)
+	local buf = session.bufnr
+	state.codex_sessions[buf] = session
+	append_to_order(buf)
+
+	vim.bo[buf].buflisted = true
+	vim.bo[buf].bufhidden = "hide"
+	vim.bo[buf].swapfile = false
+	vim.bo[buf].filetype = "codex"
+	vim.b[buf].codex_chat = true
+	vim.b[buf].codex_session_id = session.id
+	vim.b[buf].codex_cwd = session.cwd
+	vim.b[buf].codex_started_at = session.started_at
+	vim.b[buf].codex_launch_mode = session.launch_mode
+	vim.b[buf].codex_launch_status = session.launch_status
+	vim.b[buf].codex_herdr_agent_name = session.herdr_agent_name
+	vim.b[buf].codex_herdr_pane_id = session.herdr_pane_id
+	vim.b[buf].codex_herdr_route_path = session.herdr_route_path
+	vim.b[buf].codex_herdr_tab_id = session.herdr_tab_id
+	vim.b[buf].codex_herdr_workspace_id = session.herdr_workspace_id
+	write_session_task_vars(session)
+	pcall(vim.api.nvim_buf_set_name, buf, codex_buffer_name(session.id))
+end
+
+local function write_herdr_buffer_vars(session)
+	if not session or not util.is_valid_buffer(session.bufnr) then
+		return
+	end
+	vim.b[session.bufnr].codex_launch_mode = session.launch_mode
+	vim.b[session.bufnr].codex_launch_status = session.launch_status
+	vim.b[session.bufnr].codex_herdr_agent_name = session.herdr_agent_name
+	vim.b[session.bufnr].codex_herdr_pane_id = session.herdr_pane_id
+	vim.b[session.bufnr].codex_herdr_route_path = session.herdr_route_path
+	vim.b[session.bufnr].codex_herdr_tab_id = session.herdr_tab_id
+	vim.b[session.bufnr].codex_herdr_workspace_id = session.herdr_workspace_id
+end
+
+local function finish_chat_exit(session, code)
+	if not session then
+		return
+	end
+	session.exited = true
+	session.exit_code = code
+	session.job_id = nil
+	if util.is_valid_buffer(session.bufnr) then
+		vim.b[session.bufnr].codex_exited = true
+		vim.b[session.bufnr].codex_exit_code = code
+		vim.b[session.bufnr].codex_job_id = nil
+	end
+	stop_pending_paste_timer(session)
+	stop_paste_ready_timer(session)
+	if session.pending_pastes and #session.pending_pastes > 0 then
+		session.pending_pastes = nil
+		util.notify("Codex chat exited before pending prompt could be sent", vim.log.levels.WARN)
+	end
+	if TASK_ACTIVE[session.task_status] then
+		set_task_status(session, code == 0 and "DONE" or "ERR", {
+			error = code == 0 and nil or ("exit code " .. code),
+		})
+	elseif code ~= 0 then
+		set_task_status(session, "ERR", { error = "exit code " .. code })
+	end
+	if state.codex_active_buf == session.bufnr then
+		sync_active_state(nil)
+	end
+	refresh_chat_panel()
+end
+
+local function finish_terminal_start(session, job_id, original_terminal_name)
+	session.job_id = job_id
+	session.launch_status = session.launch_mode == "herdr" and "attached" or "direct"
+	session.paste_ready = false
+	if util.is_valid_buffer(session.bufnr) then
+		delete_stale_terminal_buffer(original_terminal_name, session.bufnr)
+		pcall(vim.api.nvim_buf_set_name, session.bufnr, codex_buffer_name(session.id, session.title))
+		vim.bo[session.bufnr].filetype = "codex"
+		vim.b[session.bufnr].codex_job_id = job_id
+		vim.b[session.bufnr].codex_launch_status = session.launch_status
+	end
+	attach_task_monitor(session)
+	M.activate_buffer(session.bufnr)
+	if vim.api.nvim_get_current_buf() == session.bufnr then
+		vim.cmd("startinsert")
+	end
+	refresh_chat_panel()
+end
+
+local function start_direct_chat(session, hook_env)
+	local term_buf = session.bufnr
+	local original_terminal_name = vim.api.nvim_buf_get_name(term_buf)
+	local job_id = vim.fn.jobstart({ "codex", "--cd", session.cwd }, {
+		env = hook_env,
+		term = true,
+		on_exit = function(exited_job_id, code)
+			if state.codex_deleted_jobs[exited_job_id] then
+				state.codex_deleted_jobs[exited_job_id] = nil
+				return
+			end
+			vim.schedule(function()
+				local current = state.codex_sessions[term_buf]
+				if current and current.job_id == exited_job_id then
+					finish_chat_exit(current, code)
+					util.notify(
+						"Codex chat #" .. current.id .. " exited with code " .. code,
+						code == 0 and vim.log.levels.INFO or vim.log.levels.WARN
+					)
+				end
+			end)
+		end,
+	})
+	if job_id <= 0 then
+		return false
+	end
+	finish_terminal_start(session, job_id, original_terminal_name)
+	return true
+end
+
+local function start_herdr_attachment(session)
+	local original_terminal_name = vim.api.nvim_buf_get_name(session.bufnr)
+	local job_id = herdr.attach(session, function(exited_job_id, code)
+		if state.codex_deleted_jobs[exited_job_id] then
+			state.codex_deleted_jobs[exited_job_id] = nil
+			return
+		end
+		vim.schedule(function()
+			local current = state.codex_sessions[session.bufnr]
+			if not current or current.job_id ~= exited_job_id then
+				return
+			end
+			current.job_id = nil
+			current.paste_ready = false
+			if util.is_valid_buffer(current.bufnr) then
+				vim.b[current.bufnr].codex_job_id = nil
+			end
+			herdr.agent_exists(current.herdr_agent_name, function(exists)
+				local latest = state.codex_sessions[current.bufnr]
+				if not latest then
+					return
+				end
+				if exists then
+					latest.launch_status = "detached"
+					write_herdr_buffer_vars(latest)
+					if state.codex_active_buf == latest.bufnr then
+						sync_active_state(nil)
+					end
+					util.notify("Detached from " .. latest.herdr_agent_name)
+					refresh_chat_panel()
+					return
+				end
+				latest.launch_status = "exited"
+				write_herdr_buffer_vars(latest)
+				finish_chat_exit(latest, code)
+			end)
+		end)
+	end)
+	if not job_id then
+		return false
+	end
+	finish_terminal_start(session, job_id, original_terminal_name)
+	write_herdr_buffer_vars(session)
+	return true
+end
+
+local function fail_herdr_launch(session, message)
+	herdr.remove_route(session)
+	remove_session(session.bufnr, { delete_buffer = true })
+	util.notify("Failed to start Codex in Herdr: " .. tostring(message), vim.log.levels.ERROR)
+	refresh_chat_panel()
+end
+
+local function start_herdr_chat(session)
+	util.notify("Starting Codex in a background Herdr tab...")
+	herdr.create_backing_agent(session, {
+		on_error = function(_, message)
+			fail_herdr_launch(session, message)
+		end,
+		on_success = function()
+			if not state.codex_sessions[session.bufnr] then
+				herdr.close_tab(session)
+				return
+			end
+			write_herdr_buffer_vars(session)
+			if not start_herdr_attachment(session) then
+				herdr.close_tab(session)
+				fail_herdr_launch(session, "could not attach the Neovim terminal")
+			end
+		end,
+	})
+end
+
+local function new_session(buf, cwd)
+	local id = state.next_codex_session_id
+	state.next_codex_session_id = id + 1
+	return {
+		id = id,
+		bufnr = buf,
+		cwd = cwd or vim.fn.getcwd(),
+		started_at = os.time(),
+		job_id = nil,
+		exited = false,
+		exit_code = nil,
+		paste_ready = false,
+		task_status = "IDLE",
+		task_generation = 0,
+		task_monitor_ready_at = os.time() + 5,
+		launch_mode = "direct",
+		launch_status = "starting",
+	}
+end
+
 ---Starts a new Codex terminal buffer and begins the interactive session.
 ---
 ---@return table|nil session when Codex starts successfully.
@@ -1172,111 +1396,27 @@ function M.create()
 	M.remember_previous_buffer()
 	vim.cmd("enew")
 
-	local buf = vim.api.nvim_get_current_buf()
-	local id = state.next_codex_session_id
-	state.next_codex_session_id = id + 1
-
-	local session = {
-		id = id,
-		bufnr = buf,
-		cwd = vim.fn.getcwd(),
-		started_at = os.time(),
-		job_id = nil,
-		exited = false,
-		exit_code = nil,
-		paste_ready = false,
-		task_status = "IDLE",
-		task_generation = 0,
-		task_monitor_ready_at = os.time() + 5,
-	}
-	local hook_env = session_hook_env(session)
-	-- A chat launched from an existing Codex session inherits its thread ID.
-	-- Herdr uses that variable to reject hooks from nested sessions, so leave
-	-- it empty here while preserving HERDR_* and the Neovim hook environment.
-	hook_env = hook_env or {}
+	local session = new_session(vim.api.nvim_get_current_buf())
+	local hook_env = session_hook_env(session) or {}
 	hook_env.CODEX_THREAD_ID = ""
 
-	state.codex_sessions[buf] = session
-	append_to_order(buf)
+	if herdr.available() then
+		if not herdr.prepare(session) then
+			delete_session_buffer(session.bufnr)
+			util.notify("Failed to create Codex Herdr routing state", vim.log.levels.ERROR)
+			return nil
+		end
+	end
 
-	vim.bo[buf].buflisted = true
-	vim.bo[buf].bufhidden = "hide"
-	vim.bo[buf].swapfile = false
-	vim.bo[buf].filetype = "codex"
-	vim.b[buf].codex_chat = true
-	vim.b[buf].codex_session_id = id
-	vim.b[buf].codex_cwd = session.cwd
-	vim.b[buf].codex_started_at = session.started_at
-	write_session_task_vars(session)
-
-	local term_buf = buf
-	local job_id = vim.fn.jobstart({ "codex", "--cd", session.cwd }, {
-		env = hook_env,
-		term = true,
-		on_exit = function(exited_job_id, code)
-			if state.codex_deleted_jobs[exited_job_id] then
-				state.codex_deleted_jobs[exited_job_id] = nil
-				return
-			end
-
-			local exited_session = state.codex_sessions[term_buf]
-			if exited_session and exited_session.job_id == exited_job_id then
-				exited_session.exited = true
-				exited_session.exit_code = code
-				exited_session.job_id = nil
-			end
-
-			if state.codex_active_buf == term_buf then
-				sync_active_state(nil)
-			end
-
-			vim.schedule(function()
-				if util.is_valid_buffer(term_buf) then
-					vim.b[term_buf].codex_exited = true
-					vim.b[term_buf].codex_exit_code = code
-				end
-				local scheduled_session = state.codex_sessions[term_buf]
-				if scheduled_session then
-					stop_pending_paste_timer(scheduled_session)
-					stop_paste_ready_timer(scheduled_session)
-					if scheduled_session.pending_pastes and #scheduled_session.pending_pastes > 0 then
-						scheduled_session.pending_pastes = nil
-						util.notify("Codex chat exited before pending prompt could be sent", vim.log.levels.WARN)
-					end
-					if TASK_ACTIVE[scheduled_session.task_status] then
-						set_task_status(scheduled_session, code == 0 and "DONE" or "ERR", {
-							error = code == 0 and nil or ("exit code " .. code),
-						})
-					elseif code ~= 0 then
-						set_task_status(scheduled_session, "ERR", {
-							error = "exit code " .. code,
-						})
-					end
-				end
-				util.notify(
-					"Codex chat #" .. id .. " exited with code " .. code,
-					code == 0 and vim.log.levels.INFO or vim.log.levels.WARN
-				)
-				refresh_chat_panel()
-			end)
-		end,
-	})
-
-	if job_id <= 0 then
-		remove_session(buf, { delete_buffer = true })
+	initialize_chat_buffer(session)
+	if session.launch_mode == "herdr" then
+		start_herdr_chat(session)
+	elseif not start_direct_chat(session, hook_env) then
+		remove_session(session.bufnr, { delete_buffer = true })
 		util.notify("Failed to start Codex chat", vim.log.levels.ERROR)
 		return nil
 	end
 
-	local original_terminal_name = vim.api.nvim_buf_get_name(buf)
-	session.job_id = job_id
-	vim.api.nvim_buf_set_name(buf, codex_buffer_name(id))
-	delete_stale_terminal_buffer(original_terminal_name, buf)
-	vim.bo[buf].filetype = "codex"
-	vim.b[buf].codex_job_id = job_id
-	attach_task_monitor(session)
-	M.activate_buffer(buf)
-	vim.cmd("startinsert")
 	return session
 end
 
@@ -1290,6 +1430,44 @@ function M.delete_buffer(bufnr)
 	end
 
 	local was_active = state.codex_active_buf == session.bufnr
+	if session.launch_mode == "herdr" then
+		if session.launch_status == "closing" then
+			return false
+		end
+		session.launch_status = "closing"
+		write_herdr_buffer_vars(session)
+		herdr.close_tab(session, {
+			on_error = function(_, message)
+				local current = state.codex_sessions[session.bufnr]
+				if current then
+					current.launch_status = current.job_id and "attached" or "detached"
+					write_herdr_buffer_vars(current)
+				end
+				util.notify("Failed to close Codex Herdr tab: " .. tostring(message), vim.log.levels.ERROR)
+				refresh_chat_panel()
+			end,
+			on_success = function()
+				local current = state.codex_sessions[session.bufnr]
+				if not current then
+					return
+				end
+				local label = M.display_title(current)
+				if current.job_id then
+					state.codex_deleted_jobs[current.job_id] = true
+					pcall(vim.fn.jobstop, current.job_id)
+				end
+				herdr.remove_route(current)
+				remove_session(current.bufnr, { delete_buffer = true })
+				if was_active then
+					sync_active_state(newest_live_session())
+				end
+				util.notify("Deleted Codex chat: " .. label)
+				refresh_chat_panel()
+			end,
+		})
+		return true
+	end
+
 	if session.job_id and session_is_running(session) then
 		state.codex_deleted_jobs[session.job_id] = true
 		pcall(vim.fn.jobstop, session.job_id)
@@ -1327,10 +1505,116 @@ function M.resync(bufnr)
 		session.hook_server = server
 		vim.b[session.bufnr].codex_hook_server = server
 	end
+	if session.launch_mode == "herdr" and not herdr.write_route(session) then
+		util.notify("Failed to update Codex Herdr hook routing", vim.log.levels.WARN)
+		refresh_chat_panel()
+		return false
+	end
 
 	util.notify("Codex hook IPC " .. M.ipc_status_label(session) .. ": " .. M.display_title(session))
 	refresh_chat_panel()
 	return true
+end
+
+local function attach_existing_agent(agent, previous_session)
+	M.remember_previous_buffer()
+	vim.cmd("enew")
+	local session = new_session(
+		vim.api.nvim_get_current_buf(),
+		agent.foreground_cwd or agent.cwd or vim.fn.getcwd()
+	)
+	local status_map = {
+		blocked = "WAIT",
+		done = "DONE",
+		idle = "IDLE",
+		unknown = "IDLE",
+		working = "RUN",
+	}
+	session.task_status = status_map[agent.agent_status] or "IDLE"
+	session.title = agent.title or agent.display_agent
+
+	if not session_hook_env(session) then
+		delete_session_buffer(session.bufnr)
+		util.notify("Failed to start Codex hook IPC", vim.log.levels.ERROR)
+		return nil
+	end
+	if not herdr.prepare(session, agent.name) then
+		delete_session_buffer(session.bufnr)
+		util.notify("Failed to update Codex Herdr routing state", vim.log.levels.ERROR)
+		return nil
+	end
+	session.herdr_pane_id = agent.pane_id
+	session.herdr_tab_id = agent.tab_id
+	session.herdr_workspace_id = agent.workspace_id
+	session.launch_status = "detached"
+	initialize_chat_buffer(session)
+	write_herdr_buffer_vars(session)
+	if previous_session then
+		remove_session(previous_session.bufnr, { delete_buffer = true })
+	end
+
+	if not start_herdr_attachment(session) then
+		session.launch_status = "detached"
+		write_herdr_buffer_vars(session)
+		util.notify("Failed to attach to " .. tostring(agent.name), vim.log.levels.ERROR)
+		return session
+	end
+	return session
+end
+
+---Selects a surviving Neovim-created Herdr Codex agent and attaches it.
+function M.attach_existing()
+	ensure_session_state()
+	if not herdr.available() then
+		util.notify("Herdr is not available in this Neovim session", vim.log.levels.WARN)
+		return
+	end
+
+	local represented = {}
+	local local_sessions = {}
+	for _, session in pairs(state.codex_sessions or {}) do
+		if session.herdr_agent_name then
+			local_sessions[session.herdr_agent_name] = session
+			if session.launch_status ~= "detached" and session.launch_status ~= "exited" then
+				represented[session.herdr_agent_name] = true
+			end
+		end
+	end
+
+	herdr.list_agents({
+		on_error = function(_, message)
+			util.notify("Failed to list Herdr agents: " .. tostring(message), vim.log.levels.ERROR)
+		end,
+		on_success = function(agents)
+			local candidates = herdr.filter_agents(agents, vim.env.HERDR_WORKSPACE_ID, represented)
+			if #candidates == 0 then
+				util.notify("No detached Neovim Codex agents in this Herdr workspace")
+				return
+			end
+			vim.ui.select(candidates, {
+				prompt = "Attach Codex agent",
+				format_item = function(agent)
+					local cwd = vim.fn.fnamemodify(agent.foreground_cwd or agent.cwd or "", ":~")
+					return string.format("%s  [%s]  %s", agent.name, agent.agent_status or "unknown", cwd)
+				end,
+			}, function(choice)
+				if choice then
+					attach_existing_agent(choice, local_sessions[choice.name])
+				end
+			end)
+		end,
+	})
+end
+
+function M.launch_status_label(session)
+	if not session or session.launch_mode ~= "herdr" then
+		return "DIRECT"
+	end
+	return tostring(session.launch_status or "unknown"):upper()
+end
+
+function M.herdr_available()
+	return herdr.available()
 end
 
 ---Compatibility wrapper for callers expecting a boolean start result.
