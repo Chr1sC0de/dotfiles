@@ -41,7 +41,7 @@ local function directory_preview(ctx)
 
 	local cmd
 	if vim.fn.executable("eza") == 1 then
-		cmd = { "eza", "--all", "--long", "--icons=always", "--git", "--color=always", "--binary", path }
+		cmd = { "eza", "--all", "--long", "--icons=always", "--header", "--git", "--color=always", "--binary", path }
 	else
 		cmd = { "ls", "-la", path }
 	end
