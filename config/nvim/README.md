@@ -1,35 +1,40 @@
 # README
 
-## Workmux Keybindings
+## Worktree Keybindings
 
-This config adds guided [workmux](https://workmux.raine.dev/) bindings under `<leader>w`.
-The leader key is space.
+This config adds a multiplexer-aware worktree workflow under `<leader>w`. The
+leader key is space. Inside Herdr, commands use Herdr-native workspaces,
+worktrees, panes, and agents. Inside tmux, the same commands retain their
+existing [Workmux](https://workmux.raine.dev/) behavior. Herdr takes precedence
+if both `HERDR_ENV` and `TMUX` are present.
 
 | Key | Action |
 | --- | --- |
-| `<leader>wa` | Prompt for a task, then run `workmux add -A -p <prompt>` with current-file context by default; in visual mode, include the selected lines as context. |
-| `<leader>wA` | Prompt for a branch or worktree name, then run `workmux add <name>` to create a new worktree for that name. |
-| `<leader>wo` | Load choices from `workmux list --json`, pick one, then run `workmux open <handle>` to open that worktree. |
-| `<leader>wO` | Pick a worktree and run `workmux open <handle> --continue`; `--continue` reopens the agent session while opening it. |
-| `<leader>ww` | Run `workmux dashboard --tab worktrees` in a terminal so the dashboard starts on the worktrees tab. |
-| `<leader>wd` | Run `workmux dashboard` in a terminal to open the default interactive dashboard. |
-| `<leader>wD` | Run `workmux dashboard --diff` in a terminal to open the dashboard diff view. |
-| `<leader>ws` | Run `workmux sidebar`; with no subcommand this toggles the Workmux sidebar. |
-| `<leader>wn` | Run `workmux sidebar next` to move focus to the next agent shown in the sidebar. |
-| `<leader>wp` | Run `workmux sidebar prev` to move focus to the previous agent shown in the sidebar. |
-| `<leader>wL` | Run `workmux last-done` to jump to the most recently done or waiting agent. |
-| `<leader>wc` | Pick a non-main worktree, then run `workmux close <handle>` to close its Workmux window without removing the worktree. |
-| `<leader>wm` | Pick a non-main worktree, type its exact handle to confirm, then run `workmux merge <branch>` in a terminal. |
-| `<leader>wr` | Pick a non-main worktree, type its exact handle to confirm, then run `workmux remove <handle>` in a terminal. |
+| `<leader>wa` | Prompt for a contextual task. Herdr generates a branch, starts a single-pane Codex workspace in the background, submits the task, and notifies when it has started; Workmux runs `add -A -p`. Visual mode includes the selection. |
+| `<leader>wA` | Prompt for an explicit branch, create its worktree, and open Neovim in the root pane without starting Codex. |
+| `<leader>wo` | Pick and open a worktree with a fresh agent when a new workspace is required. |
+| `<leader>wO` | Pick and open a worktree, using `codex resume --last` when Herdr must recreate its workspace. |
+| `<leader>ww` | Browse worktrees (the Workmux worktree dashboard in tmux). |
+| `<leader>wd` | Browse Herdr workspaces or open the Workmux dashboard. |
+| `<leader>wD` | Open Workmux dashboard diff; Herdr reports that no native equivalent exists. |
+| `<leader>ws` | Toggle the Workmux sidebar; in Herdr use its native `prefix+b` sidebar. |
+| `<leader>wn` | Focus the next agent, wrapping at the end. |
+| `<leader>wp` | Focus the previous agent, wrapping at the beginning. |
+| `<leader>wL` | Focus the latest done/blocked Herdr agent or Workmux's last done agent. |
+| `<leader>wc` | Close an open non-main workspace while preserving its worktree. |
+| `<leader>wm` | Merge through Workmux; Herdr reports that merging remains an explicit Git operation. |
+| `<leader>wr` | Exactly confirm and remove a selected non-main worktree. |
 
-Use `:WorkmuxPromptContextToggle` to switch `<leader>wa` and
-`:WorkmuxAddPrompt` between context-aware prompts and plain prompt text for the
-current Neovim session. Context-aware mode is enabled by default.
+Use `:WorktreePromptContextToggle` to switch `<leader>wa` and
+`:WorktreeAddPrompt` between context-aware prompts and plain prompt text for the
+current Neovim session. Context-aware mode is enabled by default. The old
+`:WorkmuxPromptContextToggle` and `:WorkmuxAddPrompt` names remain aliases.
 
 The implementation lives in `lua/workmux/`, is exposed through
 `lua/config/workmux.lua`, and registers its own keymaps from
-`lua/workmux/commands.lua`. Interactive TUI commands use `FTerm` when
-available and fall back to a Neovim terminal tab.
+`lua/workmux/commands.lua`. Workmux TUI commands use `FTerm` when available and
+fall back to a Neovim terminal tab. Herdr orchestration uses its structured CLI
+responses directly and leaves the Sessionizer plugin independent.
 
 ## Codex Integration
 
@@ -139,8 +144,11 @@ session:
 ```
 
 If `~/.codex/hooks.json` already contains hooks, keep those entries and append
-the `codex-nvim-hook` entry to each matching event. For example, the existing
-`workmux set-window-status ...` hooks can coexist with the Neovim hook.
+the `codex-nvim-hook` entry to each matching event. Use
+`$HOME/.config/nvim/bin/codex-mux-status-hook <status>` for lifecycle status
+hooks, where status is `working`, `waiting`, `done`, or `clear`. The dispatcher
+lets Herdr own its detected agent state, delegates to Workmux inside tmux, and
+safely does nothing outside either multiplexer.
 
 After changing hooks, start a new Codex chat and run `:CodexHealth` in Neovim.
 The chat buffer panel should show IPC as `READY` when the hook server is

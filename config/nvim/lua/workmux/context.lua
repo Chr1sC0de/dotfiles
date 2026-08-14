@@ -21,7 +21,7 @@ end
 
 function M.build_prompt(prompt, target)
 	local lines = {
-		"Use this " .. target.kind .. " as context for the Workmux agent task.",
+		"Use this " .. target.kind .. " as context for the worktree agent task.",
 		"",
 		"Task:",
 		prompt,

@@ -3,21 +3,21 @@ local state = require("workmux.state")
 local M = {}
 
 local keymaps = {
-	{ "n", "<leader>wa", "add_prompt", "Workmux: add from prompt" },
-	{ "x", "<leader>wa", "add_prompt_selection", "Workmux: add from prompt with selection" },
-	{ "n", "<leader>wA", "add_branch", "Workmux: add branch" },
-	{ "n", "<leader>wo", "open", "Workmux: open worktree" },
-	{ "n", "<leader>wO", "open_continue", "Workmux: open and continue agent" },
-	{ "n", "<leader>ww", "dashboard_worktrees", "Workmux: dashboard worktrees" },
-	{ "n", "<leader>wd", "dashboard", "Workmux: dashboard" },
-	{ "n", "<leader>wD", "dashboard_diff", "Workmux: dashboard diff" },
-	{ "n", "<leader>ws", "sidebar_toggle", "Workmux: toggle sidebar" },
-	{ "n", "<leader>wn", "sidebar_next", "Workmux: next agent" },
-	{ "n", "<leader>wp", "sidebar_prev", "Workmux: previous agent" },
-	{ "n", "<leader>wL", "last_done", "Workmux: last done agent" },
-	{ "n", "<leader>wc", "close", "Workmux: close window" },
-	{ "n", "<leader>wm", "merge", "Workmux: merge branch" },
-	{ "n", "<leader>wr", "remove", "Workmux: remove worktree" },
+	{ "n", "<leader>wa", "add_prompt", "Worktree: add from prompt" },
+	{ "x", "<leader>wa", "add_prompt_selection", "Worktree: add from prompt with selection" },
+	{ "n", "<leader>wA", "add_branch", "Worktree: add branch" },
+	{ "n", "<leader>wo", "open", "Worktree: open" },
+	{ "n", "<leader>wO", "open_continue", "Worktree: open and continue agent" },
+	{ "n", "<leader>ww", "dashboard_worktrees", "Worktree: browse worktrees" },
+	{ "n", "<leader>wd", "dashboard", "Worktree: dashboard or workspaces" },
+	{ "n", "<leader>wD", "dashboard_diff", "Worktree: dashboard diff" },
+	{ "n", "<leader>ws", "sidebar_toggle", "Worktree: toggle sidebar" },
+	{ "n", "<leader>wn", "sidebar_next", "Worktree: next agent" },
+	{ "n", "<leader>wp", "sidebar_prev", "Worktree: previous agent" },
+	{ "n", "<leader>wL", "last_done", "Worktree: latest agent needing attention" },
+	{ "n", "<leader>wc", "close", "Worktree: close workspace" },
+	{ "n", "<leader>wm", "merge", "Worktree: merge branch" },
+	{ "n", "<leader>wr", "remove", "Worktree: remove" },
 }
 
 function M.setup(api)
@@ -26,6 +26,8 @@ function M.setup(api)
 	end
 	state.setup_done = true
 
+	vim.api.nvim_create_user_command("WorktreeAddPrompt", api.add_prompt, { range = true })
+	vim.api.nvim_create_user_command("WorktreePromptContextToggle", api.toggle_prompt_context, {})
 	vim.api.nvim_create_user_command("WorkmuxAddPrompt", api.add_prompt, { range = true })
 	vim.api.nvim_create_user_command("WorkmuxPromptContextToggle", api.toggle_prompt_context, {})
 

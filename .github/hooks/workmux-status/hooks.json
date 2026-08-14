@@ -4,19 +4,19 @@
     "userPromptSubmitted": [
       {
         "type": "command",
-        "bash": "workmux set-window-status working"
+        "bash": "$HOME/.config/nvim/bin/codex-mux-status-hook working"
       }
     ],
     "postToolUse": [
       {
         "type": "command",
-        "bash": "workmux set-window-status working"
+        "bash": "$HOME/.config/nvim/bin/codex-mux-status-hook working"
       }
     ],
     "agentStop": [
       {
         "type": "command",
-        "bash": "workmux set-window-status done"
+        "bash": "$HOME/.config/nvim/bin/codex-mux-status-hook done"
       }
     ]
   }

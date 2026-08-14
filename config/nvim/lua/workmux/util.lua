@@ -1,11 +1,11 @@
 local M = {}
 
----Show a namespaced Workmux notification.
+---Show a namespaced worktree workflow notification.
 ---
 ---@param message string
 ---@param level? integer `vim.log.levels` value.
 function M.notify(message, level)
-	vim.notify("workmux: " .. message, level or vim.log.levels.INFO)
+	vim.notify("worktree: " .. message, level or vim.log.levels.INFO)
 end
 
 ---Trim leading and trailing whitespace from optional user or process text.

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -u
+
+status="${1:-}"
+
+case "${status}" in
+working | waiting | done | clear) ;;
+*) exit 0 ;;
+esac
+
+# Herdr detects the live Codex state itself. Its installed integration reports
+# the native conversation id, so Workmux status hooks must stay out of the way.
+if [ "${HERDR_ENV:-}" = "1" ]; then
+  exit 0
+fi
+
+if [ -n "${TMUX:-}" ] && command -v workmux >/dev/null 2>&1; then
+  workmux set-window-status "${status}" >/dev/null 2>&1 || true
+fi
+
+exit 0
