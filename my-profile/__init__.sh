@@ -39,6 +39,7 @@ fi
 . "$PROFILE_FOLDER/eza.sh"
 . "$PROFILE_FOLDER/popos_fast_switching.sh"
 . "$PROFILE_FOLDER/texlive.sh"
+. "$PROFILE_FOLDER/zoxide.sh"
 
 # disable ctrl+s in terminal
 stty -ixon

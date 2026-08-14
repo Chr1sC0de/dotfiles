@@ -1190,6 +1190,11 @@ function M.create()
 		task_monitor_ready_at = os.time() + 5,
 	}
 	local hook_env = session_hook_env(session)
+	-- A chat launched from an existing Codex session inherits its thread ID.
+	-- Herdr uses that variable to reject hooks from nested sessions, so leave
+	-- it empty here while preserving HERDR_* and the Neovim hook environment.
+	hook_env = hook_env or {}
+	hook_env.CODEX_THREAD_ID = ""
 
 	state.codex_sessions[buf] = session
 	append_to_order(buf)

@@ -16,6 +16,7 @@ CORE_SCRIPTS=(
     "starship-install.sh"
     "duckdb-install.sh"
     "treesitter-cli.sh"
+    "zoxide.sh"
 )
 
 EXTRA_SCRIPTS=(
