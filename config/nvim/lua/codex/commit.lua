@@ -140,6 +140,38 @@ local function extract_message(output)
 	return messages[1]
 end
 
+local function generation_prompt(context)
+	return table.concat({
+		"You are generating a Git commit message.",
+		"Do not edit files, run git commands, or perform any other action.",
+		"Return exactly one line in Conventional Commit format:",
+		"type(optional-scope): imperative description",
+		"Allowed types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test.",
+		"An optional ! may mark a breaking change. Return no Markdown, quotes, explanation, or body.",
+		"",
+		context,
+	}, "\n")
+end
+
+local function revision_prompt(context, message, feedback)
+	return table.concat({
+		"You are revising a proposed Git commit message in response to reviewer feedback.",
+		"Do not edit files, run git commands, or perform any other action.",
+		"Return exactly one revised line in Conventional Commit format:",
+		"type(optional-scope): imperative description",
+		"Allowed types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test.",
+		"An optional ! may mark a breaking change. Return no Markdown, quotes, explanation, or body.",
+		"",
+		"Current message:",
+		message,
+		"",
+		"Reviewer feedback:",
+		feedback,
+		"",
+		context,
+	}, "\n")
+end
+
 local function check_message(root, message, callback)
 	if vim.fn.executable("cz") == 1 then
 		run_process({ "cz", "check", "--message", message }, { cwd = root }, function(code, _, stderr)
@@ -192,6 +224,48 @@ local function invalidate_prepared(message)
 	util.notify(message, vim.log.levels.WARN)
 end
 
+local function start_prepared_operation()
+	if state.codex_commit_active then
+		util.notify("A Codex commit operation is already in progress", vim.log.levels.WARN)
+		return nil
+	end
+	if not state.codex_prepared_commit then
+		util.notify("No prepared commit; run :CodexPrepareCommit first", vim.log.levels.WARN)
+		return nil
+	end
+	if vim.fn.executable("git") ~= 1 then
+		notify_failure("git executable was not found")
+		return nil
+	end
+
+	state.codex_commit_active = true
+	return state.codex_prepared_commit
+end
+
+local function verify_prepared_snapshot(prepared, callback)
+	check_special_state(prepared.root, function(ok, reason)
+		if not ok then
+			invalidate_prepared("Prepared commit is no longer valid: " .. tostring(reason))
+			callback(nil)
+			return
+		end
+		collect_staged_state(prepared.root, function(current, current_error)
+			if not current then
+				finish()
+				notify_failure("could not check prepared staged changes", current_error)
+				callback(nil)
+				return
+			end
+			if current.fingerprint ~= prepared.fingerprint then
+				invalidate_prepared("Staged changes no longer match; run :CodexPrepareCommit again")
+				callback(nil)
+				return
+			end
+			callback(current)
+		end)
+	end)
+end
+
 function M.prepare()
 	if state.codex_commit_active then
 		util.notify("A Codex commit operation is already in progress", vim.log.levels.WARN)
@@ -239,16 +313,7 @@ function M.prepare()
 						abort("no changes to prepare")
 						return
 					end
-					local prompt = table.concat({
-						"You are generating a Git commit message.",
-						"Do not edit files, run git commands, or perform any other action.",
-						"Return exactly one line in Conventional Commit format:",
-						"type(optional-scope): imperative description",
-						"Allowed types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test.",
-						"An optional ! may mark a breaking change. Return no Markdown, quotes, explanation, or body.",
-						"",
-						snapshot.context,
-					}, "\n")
+					local prompt = generation_prompt(snapshot.context)
 					run_process(
 						{ "codex", "exec", "--ephemeral", "--sandbox", "read-only", "--cd", root, "-" },
 						{ cwd = root, input = prompt },
@@ -284,7 +349,11 @@ function M.prepare()
 										fingerprint = snapshot.fingerprint,
 									}
 									finish()
-									util.notify("Codex commit ready: " .. message .. " — run :CodexCommit")
+									util.notify(
+										"Codex commit ready: "
+											.. message
+											.. " — run :CodexReviewCommit or :CodexCommit"
+									)
 								end)
 							end)
 						end
@@ -293,6 +362,129 @@ function M.prepare()
 			end)
 		end)
 	end)
+end
+
+function M.inspect(callback)
+	local prepared = start_prepared_operation()
+	if not prepared then
+		callback(nil)
+		return
+	end
+	verify_prepared_snapshot(prepared, function(current)
+		if not current then
+			callback(nil)
+			return
+		end
+		finish()
+		callback(prepared)
+	end)
+end
+
+function M.update_message(message, callback)
+	local prepared = start_prepared_operation()
+	if not prepared then
+		callback(false)
+		return
+	end
+	verify_prepared_snapshot(prepared, function(current)
+		if not current then
+			callback(false)
+			return
+		end
+		check_message(prepared.root, message, function(valid, validation_error)
+			if not valid then
+				finish()
+				notify_failure("commit message validation failed", validation_error)
+				callback(false)
+				return
+			end
+			verify_prepared_snapshot(prepared, function(latest)
+				if not latest then
+					callback(false)
+					return
+				end
+				prepared.message = message
+				finish()
+				callback(true, prepared)
+			end)
+		end)
+	end)
+end
+
+function M.revise(feedback, callback)
+	local prepared = start_prepared_operation()
+	if not prepared then
+		callback(false)
+		return
+	end
+	if vim.fn.executable("codex") ~= 1 then
+		finish()
+		notify_failure("codex executable was not found")
+		callback(false)
+		return
+	end
+
+	verify_prepared_snapshot(prepared, function(current)
+		if not current then
+			callback(false)
+			return
+		end
+		local prompt = revision_prompt(current.context, prepared.message, feedback)
+		run_process(
+			{ "codex", "exec", "--ephemeral", "--sandbox", "read-only", "--cd", prepared.root, "-" },
+			{ cwd = prepared.root, input = prompt },
+			function(codex_code, stdout, codex_stderr)
+				if codex_code ~= 0 then
+					finish()
+					notify_failure(
+						"Codex failed to revise the commit message",
+						codex_stderr ~= "" and codex_stderr or stdout
+					)
+					callback(false)
+					return
+				end
+				local message, message_error = extract_message(stdout)
+				if not message then
+					finish()
+					notify_failure("Codex returned an invalid revised commit message", message_error .. ": " .. stdout)
+					callback(false)
+					return
+				end
+				check_message(prepared.root, message, function(valid, validation_error)
+					if not valid then
+						finish()
+						notify_failure("revised commit message validation failed", validation_error .. ": " .. message)
+						callback(false)
+						return
+					end
+					verify_prepared_snapshot(prepared, function(latest)
+						if not latest then
+							callback(false)
+							return
+						end
+						prepared.message = message
+						finish()
+						util.notify("Codex commit message revised: " .. message)
+						callback(true, prepared)
+					end)
+				end)
+			end
+		)
+	end)
+end
+
+function M.reject()
+	if state.codex_commit_active then
+		util.notify("A Codex commit operation is already in progress", vim.log.levels.WARN)
+		return false
+	end
+	if not state.codex_prepared_commit then
+		util.notify("No prepared commit to reject", vim.log.levels.WARN)
+		return false
+	end
+	state.codex_prepared_commit = nil
+	util.notify("Prepared commit message rejected; staged changes were preserved")
+	return true
 end
 
 function M.commit()
@@ -380,6 +572,8 @@ end
 
 M._test = {
 	collect_staged_state = collect_staged_state,
+	generation_prompt = generation_prompt,
+	revision_prompt = revision_prompt,
 	validate_fallback = M.validate_fallback,
 }
 

@@ -40,8 +40,14 @@ Commits use an explicit two-step workflow. Run `:CodexPrepareCommit` to stage
 all current changes and generate a Conventional Commit message in the
 background. When the ready notification appears, run `:CodexCommit` to commit
 that exact staged snapshot. Work added after preparation may remain unstaged;
-changing the staged snapshot requires preparing again. Neither command opens a
-delayed confirmation popup.
+changing the staged snapshot requires preparing again.
+
+Run `:CodexReviewCommit` before committing to open an optional review popup.
+Press `a` or `<Enter>` to accept and commit, `e` to edit the subject, `f` to
+send feedback to Codex and request another proposal, or `r` to reject the
+prepared message while preserving staged changes. Press `q` or `<Esc>` to close
+the popup without discarding the prepared message. `:CodexCommit` remains
+available when no review is needed.
 
 When Neovim runs inside Herdr, it creates one persistent, unfocused `Codex`
 workspace with a `home` tab. Each new chat is launched as a real Codex agent in

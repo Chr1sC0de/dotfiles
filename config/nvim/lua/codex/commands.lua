@@ -62,6 +62,11 @@ function M.setup(api)
 		api.commit_prepared,
 		{ desc = "Commit the changes prepared by CodexPrepareCommit" }
 	)
+	vim.api.nvim_create_user_command(
+		"CodexReviewCommit",
+		api.review_commit,
+		{ desc = "Review the commit message prepared by CodexPrepareCommit" }
+	)
 	vim.api.nvim_create_user_command("CodexEditFile", api.edit_file, { desc = "Edit the current file with Codex" })
 	vim.api.nvim_create_user_command(
 		"CodexEditSelection",
