@@ -3,12 +3,12 @@ set -u
 
 real_codex="${CODEX_REAL_BIN:-}"
 herdr_bin="${CODEX_HERDR_BIN:-herdr}"
-tab_id="${HERDR_TAB_ID:-}"
+pane_id="${HERDR_PANE_ID:-}"
 route_file="${CODEX_NVIM_STATE_FILE:-}"
 cleanup_done=0
 
 # ShellCheck does not follow function references installed through trap.
-# shellcheck disable=SC2317
+# shellcheck disable=SC2329
 cleanup() {
 	if [ "${cleanup_done}" -eq 1 ]; then
 		return
@@ -18,8 +18,8 @@ cleanup() {
 	if [ -n "${route_file}" ]; then
 		rm -f -- "${route_file}"
 	fi
-	if [ -n "${tab_id}" ]; then
-		"${herdr_bin}" tab close "${tab_id}" >/dev/null 2>&1 || true
+	if [ -n "${pane_id}" ]; then
+		"${herdr_bin}" pane close "${pane_id}" >/dev/null 2>&1 || true
 	fi
 }
 

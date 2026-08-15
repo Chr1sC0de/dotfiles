@@ -54,20 +54,20 @@ prepared message while preserving staged changes. Press `q` or `<Esc>` to close
 the popup without discarding the prepared message. `:CodexCommit` remains
 available when no review is needed.
 
-When Neovim runs inside Herdr, it creates one persistent, unfocused `Codex`
-workspace with a `home` tab. Each new chat is launched as a real Codex agent in
-its own tab there, leaving the project workspace uncluttered. The Neovim chat
-buffer displays that terminal through `herdr agent attach`, so Herdr retains
-native agent detection and the agent survives an editor restart. If the Codex
-workspace is closed manually, the next launch recreates it. Outside Herdr,
-chats continue to launch directly in Neovim terminals.
+When Neovim runs inside Herdr, each new chat starts as a real Codex agent in a
+right-hand split of Neovim's current tab. The split remains visible until the
+shell and agent are ready; Neovim then regains focus and its pane is zoomed.
+Lifecycle notifications report startup, readiness, and failure. The Neovim
+chat buffer displays the terminal through `herdr agent attach` and includes a
+virtual keybinding header, so the attached buffer remains the primary chat UI
+while Herdr retains native agent detection. Outside Herdr, chats continue to
+launch directly in Neovim terminals.
 
-Ephemeral commands and edits share that Codex workspace and run in their own
-unfocused tabs. Their labels include the action, job number, target file, and
-instruction, for example `edit #12 · jobs.lua · fix cancellation`. The tabs
-close themselves when the one-shot job finishes, while the persistent `home`
-tab keeps the workspace available and Neovim retains its spinner, diagnostics,
-jobs panel, cancellation controls, and session-only Markdown scratch result.
+Ephemeral commands and edits always run as independent background `codex exec`
+processes managed by Neovim. They can run in parallel without creating Herdr
+workspaces, tabs, or splits. Neovim retains its spinner, diagnostics, lifecycle
+notifications, jobs panel, cancellation controls, and session-only Markdown
+scratch result.
 Open a completed result from `:CodexJobs`; it appears in the current window
 without creating a result file. Press `f` from either the result or its jobs
 panel row to continue the native Codex thread, `s` to return to its source, or
@@ -78,10 +78,10 @@ direct `codex exec` processes with the same result and follow-up behavior.
 
 Use `:CodexChatAttach` or `<leader>aA` to reconnect to a surviving agent across
 the current Herdr session. The chat-buffer panel also provides `a` for this
-picker. Explicitly deleting a chat closes its backing Herdr tab; hiding its
+picker. Explicitly deleting a chat closes its backing Herdr pane; hiding its
 buffer or exiting Neovim leaves the agent running. When Codex itself exits for
-any reason, its dedicated Herdr tab closes automatically and an attached
-Neovim chat buffer is removed. This cleanup is owned by the Herdr tab, so it
+any reason, its dedicated Herdr pane closes automatically and an attached
+Neovim chat buffer is removed. This cleanup is owned by the Herdr pane, so it
 still runs while Neovim is detached or closed.
 
 The dotfiles installer symlinks `config/nvim` by default, so the Neovim-side

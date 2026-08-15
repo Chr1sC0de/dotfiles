@@ -4,14 +4,10 @@ local M = {}
 M._test = {}
 
 local AGENT_PREFIX = "nvim-codex-"
-local CODEX_HOME_TAB_LABEL = "home"
-local CODEX_WORKSPACE_LABEL = "Codex"
 local LIFECYCLE_SUBDIR = "libexec/codex-herdr"
 local ROUTE_SUBDIR = "codex/herdr"
-local EPHEMERAL_LABEL_LIMIT = 64
-local codex_workspace_id = nil
-local workspace_resolution_pending = false
-local workspace_waiters = {}
+local SHELL_READY_ATTEMPTS = 40
+local SHELL_READY_DELAY_MS = 100
 
 local function herdr_binary()
 	local configured = vim.env.HERDR_BIN_PATH
@@ -33,86 +29,12 @@ local function executable_path(command)
 	return command
 end
 
-function M.workspace_state_path()
-	local socket_path = vim.env.HERDR_SOCKET_PATH or "default"
-	local digest = vim.fn.sha256(socket_path):sub(1, 16)
-	return util.join_path(state_dir(), "workspace-" .. digest .. ".state")
-end
-
-local function read_workspace_state()
-	local path = M.workspace_state_path()
-	if vim.fn.filereadable(path) ~= 1 then
-		return nil
-	end
-	local lines = vim.fn.readfile(path, "", 1)
-	local workspace_id = util.trim_whitespace(lines[1] or "")
-	return workspace_id ~= "" and workspace_id or nil
-end
-
-local function write_workspace_state(workspace_id)
-	vim.fn.mkdir(state_dir(), "p", 448)
-	local path = M.workspace_state_path()
-	local temporary = path .. ".tmp." .. tostring(vim.fn.getpid())
-	if vim.fn.writefile({ workspace_id }, temporary, "s") ~= 0 then
-		return false
-	end
-	pcall(vim.uv.fs_chmod, temporary, 384)
-	local ok = vim.uv.fs_rename(temporary, path)
-	if not ok then
-		pcall(vim.fn.delete, temporary)
-	end
-	return ok and true or false
-end
-
-local function clear_workspace_state()
-	codex_workspace_id = nil
-	pcall(vim.fn.delete, M.workspace_state_path())
-end
-
 function M.codex_workspace_id()
-	if not codex_workspace_id then
-		codex_workspace_id = read_workspace_state()
-	end
-	return codex_workspace_id
-end
-
-function M._test.reset_workspace_state(remove_file)
-	codex_workspace_id = nil
-	workspace_resolution_pending = false
-	workspace_waiters = {}
-	if remove_file then
-		pcall(vim.fn.delete, M.workspace_state_path())
-	end
+	return vim.env.HERDR_WORKSPACE_ID
 end
 
 function M.lifecycle_wrapper_dir()
 	return util.join_path(vim.fn.stdpath("config"), LIFECYCLE_SUBDIR)
-end
-
-function M.ephemeral_runner_path()
-	return util.join_path(M.lifecycle_wrapper_dir(), "ephemeral")
-end
-
-local function truncate_label(label)
-	if vim.fn.strchars(label) <= EPHEMERAL_LABEL_LIMIT then
-		return label
-	end
-	return vim.fn.strcharpart(label, 0, EPHEMERAL_LABEL_LIMIT - 1) .. "…"
-end
-
-function M.ephemeral_label(job)
-	local action = job.action == "command" and "cmd" or tostring(job.action or "job")
-	local path = tostring(job.path or "")
-	local target = vim.fn.fnamemodify(path, ":t")
-	if target == "" then
-		target = "[No Name]"
-	end
-	local instruction = util.trim_whitespace(tostring(job.instruction or "")):gsub("%s+", " ")
-	local prefix = string.format("%s #%s · %s", action, tostring(job.id or "?"), target)
-	if instruction == "" then
-		return truncate_label(prefix)
-	end
-	return truncate_label(prefix .. " · " .. instruction)
 end
 
 local function command_error(result)
@@ -156,102 +78,6 @@ function M.available()
 		and vim.env.HERDR_WORKSPACE_ID ~= nil
 		and vim.env.HERDR_WORKSPACE_ID ~= ""
 		and vim.fn.executable(herdr_binary()) == 1
-end
-
-function M.ephemeral_available()
-	return M.available() and vim.fn.executable(M.ephemeral_runner_path()) == 1
-end
-
-function M.workspace_create_args(cwd)
-	return {
-		"workspace",
-		"create",
-		"--cwd",
-		cwd,
-		"--label",
-		CODEX_WORKSPACE_LABEL,
-		"--no-focus",
-	}
-end
-
-function M.parse_workspace_create(output)
-	local ok, response = pcall(vim.json.decode, output or "")
-	if not ok or type(response) ~= "table" or type(response.result) ~= "table" then
-		return nil, nil, nil, "invalid Herdr workspace response"
-	end
-	local workspace = response.result.workspace
-	local tab = response.result.tab
-	local pane = response.result.root_pane
-	if
-		type(workspace) ~= "table"
-		or type(tab) ~= "table"
-		or type(pane) ~= "table"
-		or not workspace.workspace_id
-		or not tab.tab_id
-		or not pane.pane_id
-	then
-		return nil, nil, nil, "Herdr workspace response did not include workspace, tab, and pane ids"
-	end
-	return workspace.workspace_id, tab.tab_id, pane.pane_id
-end
-
-local function settle_workspace_resolution(workspace_id, result, message)
-	workspace_resolution_pending = false
-	local waiters = workspace_waiters
-	workspace_waiters = {}
-	for _, waiter in ipairs(waiters) do
-		if workspace_id then
-			if waiter.on_success then
-				waiter.on_success(workspace_id)
-			end
-		elseif waiter.on_error then
-			waiter.on_error(result, message)
-		end
-	end
-end
-
-local function create_codex_workspace(cwd)
-	run(M.workspace_create_args(cwd), {
-		on_error = function(result, message)
-			settle_workspace_resolution(nil, result, message)
-		end,
-		on_success = function(result)
-			local workspace_id, home_tab_id, _, err = M.parse_workspace_create(result.stdout)
-			if not workspace_id then
-				settle_workspace_resolution(nil, result, err)
-				return
-			end
-			codex_workspace_id = workspace_id
-			write_workspace_state(workspace_id)
-			run({ "tab", "rename", home_tab_id, CODEX_HOME_TAB_LABEL })
-			settle_workspace_resolution(workspace_id, result)
-		end,
-	})
-end
-
-function M.ensure_codex_workspace(cwd, opts)
-	opts = opts or {}
-	table.insert(workspace_waiters, opts)
-	if workspace_resolution_pending then
-		return
-	end
-	workspace_resolution_pending = true
-
-	local workspace_id = M.codex_workspace_id()
-	if not workspace_id then
-		create_codex_workspace(cwd)
-		return
-	end
-
-	run({ "workspace", "get", workspace_id }, {
-		on_success = function(result)
-			settle_workspace_resolution(workspace_id, result)
-		end,
-		on_error = function()
-			clear_workspace_state()
-			create_codex_workspace(cwd)
-		end,
-	})
 end
 
 function M.agent_name(id)
@@ -301,24 +127,26 @@ function M.prepare(session, agent_name)
 	session.herdr_wrapper_dir = M.lifecycle_wrapper_dir()
 	session.herdr_agent_name = agent_name or M.agent_name(session.id)
 	session.herdr_route_path = M.route_path(session.herdr_agent_name)
-	session.herdr_workspace_id = nil
-	session.herdr_tab_label = "codex-" .. tostring(session.id)
+	session.herdr_workspace_id = vim.env.HERDR_WORKSPACE_ID
+	session.herdr_tab_id = vim.env.HERDR_TAB_ID
+	session.herdr_host_pane_id = vim.env.HERDR_PANE_ID
 	return M.write_route(session)
 end
 
-function M.tab_create_args(session, workspace_id)
+function M.pane_split_args(session)
 	local current_path = vim.env.PATH or ""
 	local wrapper_dir = session.herdr_wrapper_dir or M.lifecycle_wrapper_dir()
 	local wrapped_path = wrapper_dir .. (current_path ~= "" and (":" .. current_path) or "")
 	return {
-		"tab",
-		"create",
-		"--workspace",
-		workspace_id or session.herdr_workspace_id,
+		"pane",
+		"split",
+		session.herdr_host_pane_id,
+		"--direction",
+		"right",
+		"--ratio",
+		"0.4",
 		"--cwd",
 		session.cwd,
-		"--label",
-		session.herdr_tab_label,
 		"--env",
 		"CODEX_NVIM_STATE_FILE=" .. session.herdr_route_path,
 		"--env",
@@ -329,95 +157,61 @@ function M.tab_create_args(session, workspace_id)
 		"CODEX_HERDR_BIN=" .. session.herdr_real_bin,
 		"--env",
 		"PATH=" .. wrapped_path,
-		"--no-focus",
+		"--focus",
 	}
 end
 
-function M.parse_tab_create(output)
+function M.parse_pane_split(output)
 	local ok, response = pcall(vim.json.decode, output or "")
 	if not ok or type(response) ~= "table" or type(response.result) ~= "table" then
-		return nil, nil, "invalid Herdr tab response"
+		return nil, "invalid Herdr pane response"
 	end
-	local tab = response.result.tab
-	local pane = response.result.root_pane
-	if type(tab) ~= "table" or type(pane) ~= "table" or not tab.tab_id or not pane.pane_id then
-		return nil, nil, "Herdr tab response did not include tab and pane ids"
+	local pane = response.result.pane or response.result.root_pane
+	if type(pane) ~= "table" or not pane.pane_id then
+		return nil, "Herdr pane response did not include a pane id"
 	end
-	return tab.tab_id, pane.pane_id
+	return pane.pane_id
 end
 
-function M.ephemeral_tab_create_args(job)
-	local env = {
-		"CODEX_EPHEMERAL_PROMPT_PATH=" .. job.prompt_path,
-		"CODEX_EPHEMERAL_STDOUT_PATH=" .. job.stdout_path,
-		"CODEX_EPHEMERAL_STDERR_PATH=" .. job.stderr_path,
-		"CODEX_EPHEMERAL_STATUS_PATH=" .. job.status_path,
-		"CODEX_EPHEMERAL_MESSAGE_PATH=" .. (job.result_message_path or ""),
-		"CODEX_EPHEMERAL_SANDBOX=" .. job.sandbox,
-		"CODEX_EPHEMERAL_MODEL=" .. (job.model or ""),
-		"CODEX_EPHEMERAL_REASONING_EFFORT=" .. (job.reasoning_effort or ""),
-		"CODEX_EPHEMERAL_THREAD_ID=" .. (job.thread_id or ""),
-		"CODEX_REAL_BIN=" .. executable_path("codex"),
-		"CODEX_HERDR_BIN=" .. executable_path(herdr_binary()),
-		"CODEX_THREAD_ID=",
-	}
-	local args = {
-		"tab",
-		"create",
-		"--workspace",
-		job.herdr_workspace_id,
-		"--cwd",
-		job.cwd,
-		"--label",
-		M.ephemeral_label(job),
-	}
-	for _, value in ipairs(env) do
-		table.insert(args, "--env")
-		table.insert(args, value)
+local function shell_is_ready(output)
+	local ok, response = pcall(vim.json.decode, output or "")
+	local result = ok and type(response) == "table" and response.result or nil
+	local info = type(result) == "table" and result.process_info or nil
+	if type(info) ~= "table" or type(info.shell_pid) ~= "number" then
+		return false
 	end
-	table.insert(args, "--no-focus")
-	return args
+	if info.foreground_process_group_id == info.shell_pid then
+		return true
+	end
+	for _, process in ipairs(info.foreground_processes or {}) do
+		if process.pid == info.shell_pid then
+			return true
+		end
+	end
+	return false
 end
 
-function M.ephemeral_pane_run_args(job)
-	return {
-		"pane",
-		"run",
-		job.herdr_pane_id,
-		vim.fn.shellescape(M.ephemeral_runner_path()),
-	}
-end
-
-function M.launch_ephemeral(job, opts)
-	opts = opts or {}
-	M.ensure_codex_workspace(job.cwd, {
-		on_error = opts.on_error,
-		on_success = function(workspace_id)
-			job.herdr_workspace_id = workspace_id
-			run(M.ephemeral_tab_create_args(job), {
-				on_error = opts.on_error,
-				on_success = function(result)
-					local tab_id, pane_id, err = M.parse_tab_create(result.stdout)
-					if not tab_id then
-						if opts.on_error then
-							opts.on_error(result, err)
-						end
-						return
-					end
-
-					job.herdr_tab_id = tab_id
-					job.herdr_pane_id = pane_id
-					run(M.ephemeral_pane_run_args(job), {
-						on_success = opts.on_success,
-						on_error = function(start_result, message)
-							M.close_tab(job)
-							if opts.on_error then
-								opts.on_error(start_result, message)
-							end
-						end,
-					})
-				end,
-			})
+local function wait_for_shell(pane_id, opts, attempt)
+	attempt = attempt or 1
+	local function retry(result, message)
+		if attempt >= SHELL_READY_ATTEMPTS then
+			if opts.on_error then
+				opts.on_error(result, message or "timed out waiting for the Codex pane shell")
+			end
+			return
+		end
+		vim.defer_fn(function()
+			wait_for_shell(pane_id, opts, attempt + 1)
+		end, SHELL_READY_DELAY_MS)
+	end
+	run({ "pane", "process-info", "--pane", pane_id }, {
+		on_error = retry,
+		on_success = function(result)
+			if shell_is_ready(result.stdout) then
+				opts.on_success(result)
+				return
+			end
+			retry(result)
 		end,
 	})
 end
@@ -439,36 +233,82 @@ function M.agent_start_args(session)
 	}
 end
 
-function M.create_backing_agent(session, opts)
-	opts = opts or {}
-	M.ensure_codex_workspace(session.cwd, {
+local function start_agent_when_available(session, opts, attempt)
+	attempt = attempt or 1
+	wait_for_shell(session.herdr_pane_id, {
 		on_error = opts.on_error,
-		on_success = function(workspace_id)
-			session.herdr_workspace_id = workspace_id
-			run(M.tab_create_args(session), {
-				on_error = opts.on_error,
-				on_success = function(result)
-					local tab_id, pane_id, err = M.parse_tab_create(result.stdout)
-					if not tab_id then
+		on_success = function()
+			run(M.agent_start_args(session), {
+				on_success = opts.on_success,
+				on_error = function(result, message)
+					local pane_busy = tostring(message or ""):find("agent_pane_busy", 1, true) ~= nil
+					if not pane_busy or attempt >= SHELL_READY_ATTEMPTS then
 						if opts.on_error then
-							opts.on_error(result, err)
+							opts.on_error(result, message)
 						end
 						return
 					end
-					session.herdr_tab_id = tab_id
-					session.herdr_pane_id = pane_id
-					run(M.agent_start_args(session), {
-						on_success = opts.on_success,
-						on_error = function(start_result, message)
-							M.close_tab(session)
-							if opts.on_error then
-								opts.on_error(start_result, message)
-							end
-						end,
-					})
+					vim.defer_fn(function()
+						start_agent_when_available(session, opts, attempt + 1)
+					end, SHELL_READY_DELAY_MS)
 				end,
 			})
 		end,
+	})
+end
+
+function M.create_backing_agent(session, opts)
+	opts = opts or {}
+	run(M.pane_split_args(session), {
+		on_error = opts.on_error,
+		on_success = function(result)
+			local pane_id, err = M.parse_pane_split(result.stdout)
+			if not pane_id then
+				if opts.on_error then
+					opts.on_error(result, err)
+				end
+				return
+			end
+			session.herdr_pane_id = pane_id
+			start_agent_when_available(session, {
+				on_error = function(start_result, message)
+					M.restore_host_view(session, function()
+						M.close_pane(session)
+						if opts.on_error then
+							opts.on_error(start_result, message)
+						end
+					end)
+				end,
+				on_success = function(start_result)
+					M.restore_host_view(session, function()
+						if opts.on_success then
+							opts.on_success(start_result)
+						end
+					end)
+				end,
+			})
+		end,
+	})
+end
+
+function M.restore_host_view(session, callback)
+	local function zoom_host()
+		run({ "pane", "zoom", session.herdr_host_pane_id, "--on" }, {
+			on_error = function()
+				if callback then
+					callback()
+				end
+			end,
+			on_success = function()
+				if callback then
+					callback()
+				end
+			end,
+		})
+	end
+	run({ "pane", "focus", "--pane", session.herdr_pane_id, "--direction", "left" }, {
+		on_error = zoom_host,
+		on_success = zoom_host,
 	})
 end
 
@@ -501,15 +341,15 @@ function M.agent_exists(agent_name, callback)
 	})
 end
 
-function M.close_tab(session, opts)
+function M.close_pane(session, opts)
 	opts = opts or {}
-	if not session or not session.herdr_tab_id then
+	if not session or not session.herdr_pane_id then
 		if opts.on_success then
 			opts.on_success({ code = 0, stdout = "", stderr = "" })
 		end
 		return
 	end
-	run({ "tab", "close", session.herdr_tab_id }, opts)
+	run({ "pane", "close", session.herdr_pane_id }, opts)
 end
 
 function M.rename_tab(session, title)

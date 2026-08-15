@@ -5,6 +5,9 @@ local util = require("codex.util")
 
 --- Utility functions for launching and interacting with Codex terminal chat buffers.
 local M = {}
+local CHAT_HELP_NAMESPACE = vim.api.nvim_create_namespace("codex-chat-help")
+local CHAT_HELP =
+	" Codex: <leader>aa toggle · <leader>an new · <leader>ab sessions · <leader>aA attach · <C-\\><C-n> normal mode "
 local recent_scrollback
 local stop_task_timer
 local stop_pending_paste_timer
@@ -187,6 +190,7 @@ local function register_existing_buffer(bufnr)
 		launch_mode = vim.b[bufnr].codex_launch_mode or "direct",
 		launch_status = vim.b[bufnr].codex_launch_status,
 		herdr_agent_name = vim.b[bufnr].codex_herdr_agent_name,
+		herdr_host_pane_id = vim.b[bufnr].codex_herdr_host_pane_id,
 		herdr_pane_id = vim.b[bufnr].codex_herdr_pane_id,
 		herdr_route_path = vim.b[bufnr].codex_herdr_route_path,
 		herdr_tab_id = vim.b[bufnr].codex_herdr_tab_id,
@@ -669,7 +673,12 @@ local function handle_decoded_hook_event(decoded)
 	elseif event_name == "Stop" then
 		local message = event.last_assistant_message
 		if message_needs_user_input(message) then
-			mark_task_waiting(session, "question", hook_event_key(event), { source = "hook", force = true, notify = true })
+			mark_task_waiting(
+				session,
+				"question",
+				hook_event_key(event),
+				{ source = "hook", force = true, notify = true }
+			)
 		else
 			set_task_status(session, "DONE", { source = "hook", notify = true })
 		end
@@ -1190,12 +1199,17 @@ local function initialize_chat_buffer(session)
 	vim.b[buf].codex_launch_mode = session.launch_mode
 	vim.b[buf].codex_launch_status = session.launch_status
 	vim.b[buf].codex_herdr_agent_name = session.herdr_agent_name
+	vim.b[buf].codex_herdr_host_pane_id = session.herdr_host_pane_id
 	vim.b[buf].codex_herdr_pane_id = session.herdr_pane_id
 	vim.b[buf].codex_herdr_route_path = session.herdr_route_path
 	vim.b[buf].codex_herdr_tab_id = session.herdr_tab_id
 	vim.b[buf].codex_herdr_workspace_id = session.herdr_workspace_id
 	write_session_task_vars(session)
 	pcall(vim.api.nvim_buf_set_name, buf, codex_buffer_name(session.id))
+	pcall(vim.api.nvim_buf_set_extmark, buf, CHAT_HELP_NAMESPACE, 0, 0, {
+		virt_lines = { { { CHAT_HELP, "Comment" } } },
+		virt_lines_above = true,
+	})
 end
 
 local function write_herdr_buffer_vars(session)
@@ -1205,6 +1219,7 @@ local function write_herdr_buffer_vars(session)
 	vim.b[session.bufnr].codex_launch_mode = session.launch_mode
 	vim.b[session.bufnr].codex_launch_status = session.launch_status
 	vim.b[session.bufnr].codex_herdr_agent_name = session.herdr_agent_name
+	vim.b[session.bufnr].codex_herdr_host_pane_id = session.herdr_host_pane_id
 	vim.b[session.bufnr].codex_herdr_pane_id = session.herdr_pane_id
 	vim.b[session.bufnr].codex_herdr_route_path = session.herdr_route_path
 	vim.b[session.bufnr].codex_herdr_tab_id = session.herdr_tab_id
@@ -1328,9 +1343,9 @@ handle_herdr_attachment_exit = function(session, exited_job_id, code)
 			latest.launch_status = "exited"
 			write_herdr_buffer_vars(latest)
 			finish_chat_exit(latest, code)
-			-- The lifecycle shim normally closes the tab. This quiet retry covers
-			-- shim startup failures and is harmless when the tab is already gone.
-			herdr.close_tab(latest)
+			-- The lifecycle shim normally closes the backing pane. This quiet retry
+			-- covers shim startup failures and is harmless when it is already gone.
+			herdr.close_pane(latest)
 			herdr.remove_route(latest)
 			remove_session(latest.bufnr, { delete_buffer = true })
 			if was_active then
@@ -1357,6 +1372,8 @@ end
 
 if vim.g.codex_chat_test then
 	M._test.handle_herdr_attachment_exit = handle_herdr_attachment_exit
+	M._test.initialize_chat_buffer = initialize_chat_buffer
+	M._test.chat_help_namespace = CHAT_HELP_NAMESPACE
 end
 
 local function fail_herdr_launch(session, message)
@@ -1367,21 +1384,23 @@ local function fail_herdr_launch(session, message)
 end
 
 local function start_herdr_chat(session)
-	util.notify("Starting Codex in a background Herdr tab...")
+	util.notify("Opening a Codex split and waiting for the agent to become ready...")
 	herdr.create_backing_agent(session, {
 		on_error = function(_, message)
 			fail_herdr_launch(session, message)
 		end,
 		on_success = function()
 			if not state.codex_sessions[session.bufnr] then
-				herdr.close_tab(session)
+				herdr.close_pane(session)
 				return
 			end
 			write_herdr_buffer_vars(session)
 			if not start_herdr_attachment(session) then
-				herdr.close_tab(session)
+				herdr.close_pane(session)
 				fail_herdr_launch(session, "could not attach the Neovim terminal")
+				return
 			end
+			util.notify("Codex is ready; returned to the Neovim pane")
 		end,
 	})
 end
@@ -1459,7 +1478,7 @@ function M.delete_buffer(bufnr)
 		end
 		session.launch_status = "closing"
 		write_herdr_buffer_vars(session)
-		herdr.close_tab(session, {
+		herdr.close_pane(session, {
 			on_error = function(_, message)
 				local current = state.codex_sessions[session.bufnr]
 				if current then
@@ -1542,10 +1561,7 @@ end
 local function attach_existing_agent(agent, previous_session)
 	M.remember_previous_buffer()
 	vim.cmd("enew")
-	local session = new_session(
-		vim.api.nvim_get_current_buf(),
-		agent.foreground_cwd or agent.cwd or vim.fn.getcwd()
-	)
+	local session = new_session(vim.api.nvim_get_current_buf(), agent.foreground_cwd or agent.cwd or vim.fn.getcwd())
 	local status_map = {
 		blocked = "WAIT",
 		done = "DONE",

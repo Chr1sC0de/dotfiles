@@ -1,6 +1,5 @@
 local constants = require("codex.constants")
 local state = require("codex.state")
-local herdr = require("codex.herdr")
 local model = require("codex.ephemeral.model")
 local spinner = require("codex.ephemeral.spinner")
 local util = require("codex.util")
@@ -330,61 +329,6 @@ local function fail_to_start(job, message)
 	util.notify("Failed to start ephemeral Codex " .. job.action .. " job" .. suffix, vim.log.levels.ERROR)
 end
 
-local function prepare_herdr_files(job, prompt)
-	local stem = vim.fn.tempname()
-	job.prompt_path = stem .. ".prompt"
-	job.stdout_path = stem .. ".stdout"
-	job.stderr_path = stem .. ".stderr"
-	job.status_path = stem .. ".status"
-	job.result_message_path = stem .. ".message"
-	local lines = vim.split(prompt, "\n", { plain = true })
-	return vim.fn.writefile(lines, job.prompt_path, "b") == 0
-end
-
-local function check_herdr_completion(job)
-	if job.finished_at or not job.status_path or vim.fn.filereadable(job.status_path) ~= 1 then
-		return false
-	end
-	local status_lines = vim.fn.readfile(job.status_path, "", 1)
-	local code = tonumber(status_lines[1])
-	if not code then
-		return false
-	end
-	finish(job, code)
-	return true
-end
-
-local function start_herdr_completion_poll(job)
-	if check_herdr_completion(job) then
-		return
-	end
-	local timer = vim.uv.new_timer()
-	job.completion_timer = timer
-	timer:start(100, 200, function()
-		vim.schedule(function()
-			check_herdr_completion(job)
-		end)
-	end)
-end
-
-local function run_in_herdr(job, prompt)
-	job.transport = "herdr"
-	if not prepare_herdr_files(job, prompt) then
-		fail_to_start(job, "could not write prompt state")
-		return
-	end
-
-	herdr.launch_ephemeral(job, {
-		on_error = function(_, message)
-			fail_to_start(job, message)
-		end,
-		on_success = function()
-			M.update(job, { status = "running" })
-			start_herdr_completion_poll(job)
-		end,
-	})
-end
-
 local function run_direct(job, prompt)
 	job.transport = "direct"
 	job.result_message_path = vim.fn.tempname() .. ".message"
@@ -458,11 +402,7 @@ function M.run(action, target, instruction)
 			.. model.display(selected_model)
 	)
 
-	if herdr.ephemeral_available() then
-		run_in_herdr(job_record, prompt)
-	else
-		run_direct(job_record, prompt)
-	end
+	run_direct(job_record, prompt)
 end
 
 local function active_thread_job(thread_id)
@@ -512,11 +452,7 @@ function M.follow_up(job, instruction)
 	end
 
 	util.notify("Resuming Codex thread from job #" .. job.id .. " as job #" .. next_job.id)
-	if herdr.ephemeral_available() then
-		run_in_herdr(next_job, instruction)
-	else
-		run_direct(next_job, instruction)
-	end
+	run_direct(next_job, instruction)
 	return true
 end
 
@@ -543,23 +479,7 @@ function M.cancel(job)
 
 	job.cancel_requested = true
 	M.update(job, { status = "cancelling" })
-	if job.transport == "herdr" and job.herdr_tab_id then
-		herdr.close_tab(job, {
-			on_success = function()
-				if not check_herdr_completion(job) then
-					finish(job, 130)
-				end
-			end,
-			on_error = function(_, message)
-				if check_herdr_completion(job) then
-					return
-				end
-				job.cancel_requested = false
-				M.update(job, { status = "running" })
-				util.notify("Failed to cancel Codex job #" .. job.id .. ": " .. message, vim.log.levels.ERROR)
-			end,
-		})
-	elseif job.job_id then
+	if job.job_id then
 		vim.fn.jobstop(job.job_id)
 	else
 		job.cancel_requested = false

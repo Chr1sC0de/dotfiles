@@ -40,7 +40,7 @@ run_case() {
 		CODEX_TEST_EXIT="${codex_status}" \
 		CODEX_TEST_HERDR_CALLS="${calls_file}" \
 		CODEX_TEST_SIGNAL="${signal}" \
-		HERDR_TAB_ID="w1:t9" \
+		HERDR_PANE_ID="w1:p9" \
 		"${wrapper}" --cd "/tmp/project with spaces"
 	local actual_status=$?
 	set -e
@@ -48,7 +48,7 @@ run_case() {
 	[ "${actual_status}" -eq "${expected_status}" ]
 	[ ! -e "${route_file}" ]
 	[ "$(wc -l <"${calls_file}")" -eq 1 ]
-	grep -Fx -- "tab close w1:t9" "${calls_file}" >/dev/null
+	grep -Fx -- "pane close w1:p9" "${calls_file}" >/dev/null
 	grep -Fx -- "--cd" "${args_file}" >/dev/null
 	grep -Fx -- "/tmp/project with spaces" "${args_file}" >/dev/null
 }
