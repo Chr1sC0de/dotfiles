@@ -11,6 +11,7 @@ return {
 			snacks = true,
 			telescope = false,
 		},
+		diff_viewer = "codediff",
 	},
 	cmd = "Neogit",
 	keys = {
