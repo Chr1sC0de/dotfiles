@@ -28,6 +28,11 @@ function M.setup(api)
 		{ desc = "Resync the Codex chat", nargs = "?" }
 	)
 	vim.api.nvim_create_user_command(
+		"CodexCommand",
+		api.command,
+		{ desc = "Run a context-free Codex command" }
+	)
+	vim.api.nvim_create_user_command(
 		"CodexCommandFile",
 		api.command_file,
 		{ desc = "Run a Codex command on the current file" }
@@ -122,6 +127,7 @@ function M.setup(api)
 		api.command_file,
 		{ desc = "Codex: run a command on the current file (no edits)" }
 	)
+	vim.keymap.set("n", "<leader>aq", api.command, { desc = "Codex: ask without editor context" })
 	vim.keymap.set(
 		"x",
 		"<leader>ac",

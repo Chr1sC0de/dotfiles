@@ -154,11 +154,15 @@ local function build_ephemeral_prompt(action, instruction, target)
 		"",
 		"Instruction:",
 		instruction,
-		"",
-		"Target: " .. target.kind,
 	}
 
-	vim.list_extend(lines, target.context_lines)
+	if target.kind ~= "prompt" then
+		vim.list_extend(lines, {
+			"",
+			"Target: " .. target.kind,
+		})
+		vim.list_extend(lines, target.context_lines)
+	end
 
 	return table.concat(lines, "\n")
 end

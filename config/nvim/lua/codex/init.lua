@@ -32,6 +32,7 @@ M.command_file_diagnostics = context.command_file_diagnostics
 M.command_line_diagnostics = context.command_line_diagnostics
 M.command_selection_diagnostics = context.command_selection_diagnostics
 M.command_file = context.command_file
+M.command = context.command
 M.command_selection = context.command_selection
 M.edit_file = context.edit_file
 M.edit_selection = context.edit_selection

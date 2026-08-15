@@ -3,6 +3,17 @@ local util = require("codex.util")
 
 local M = {}
 
+function M.build_prompt()
+	return {
+		kind = "prompt",
+		path = "",
+		modified = "no",
+		spinner_buf = vim.api.nvim_get_current_buf(),
+		spinner_line = vim.api.nvim_win_get_cursor(0)[1],
+		context_lines = {},
+	}
+end
+
 function M.build_file(opts)
 	opts = opts or {}
 	local path, line, filetype, modified = util.buffer_file_context()

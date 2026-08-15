@@ -32,7 +32,7 @@ end
 
 function M.jump_to_source(job)
 	if not job or job.path == "" or job.path == "[No Name]" then
-		util.notify("No source file for Codex job", vim.log.levels.WARN)
+		util.notify("This Codex job has no source file", vim.log.levels.WARN)
 		return
 	end
 
@@ -77,7 +77,8 @@ function M.result_lines(job)
 		"- Status: " .. job.status,
 		"- Action: " .. job.action,
 		"- Model: " .. model.display(job.model),
-		"- Source: `" .. job.path .. ":" .. result_line_range(job) .. "`",
+		job.path ~= "" and "- Source: `" .. job.path .. ":" .. result_line_range(job) .. "`"
+			or "- Workspace: `" .. job.cwd .. "`",
 		"- Exit code: " .. tostring(job.exit_code or "n/a"),
 		"- Thread: `" .. tostring(job.thread_id or "unavailable") .. "`",
 		"",
@@ -201,7 +202,8 @@ local function preview_ephemeral_job_instruction(job)
 		"Target: " .. job.kind,
 		"Model: " .. model.display(job.model),
 		"Status: " .. job.status,
-		"Location: " .. job.path .. ":" .. line_range,
+		job.path ~= "" and "Location: " .. job.path .. ":" .. line_range
+			or "Workspace: " .. job.cwd,
 		"",
 		"Instruction:",
 		"",
@@ -369,6 +371,9 @@ local function job_status_highlight(job)
 end
 
 local function job_location(job)
+	if job.path == "" then
+		return job.cwd
+	end
 	return job.path .. ":" .. job_line_range(job)
 end
 

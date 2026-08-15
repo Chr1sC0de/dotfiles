@@ -163,6 +163,10 @@ function M.command_file()
 	jobs.prompt_and_run("command", M.build_file_target({ include_modified_snapshot = true }))
 end
 
+function M.command()
+	jobs.prompt_and_run("command", targets.build_prompt())
+end
+
 function M.command_selection(opts)
 	jobs.prompt_and_run("command", M.build_selection_target(opts))
 end
