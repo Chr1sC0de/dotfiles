@@ -10,7 +10,45 @@ M.tmpfile = vim.fn.stdpath("cache") .. "/nvim_sql.sql"
 -- Find SQL injection under cursor
 -- ============================================================
 
-local function get_sql_node(bufnr)
+local function position_in_range(row, col, sr, sc, er, ec)
+	return (row > sr or (row == sr and col >= sc)) and (row < er or (row == er and col < ec))
+end
+
+local function get_node_text(bufnr, sr, sc, er, ec)
+	return table.concat(vim.api.nvim_buf_get_text(bufnr, sr, sc, er, ec, {}), "\n")
+end
+
+local function get_python_string_body(node)
+	while node and node:type() ~= "string" do
+		node = node:parent()
+	end
+
+	if not node then
+		return nil
+	end
+
+	local string_start
+	local string_end
+
+	for child in node:iter_children() do
+		if child:type() == "string_start" then
+			string_start = child
+		elseif child:type() == "string_end" then
+			string_end = child
+		end
+	end
+
+	if not string_start or not string_end then
+		return nil
+	end
+
+	local _, _, sr, sc = string_start:range()
+	local er, ec = string_end:range()
+
+	return sr, sc, er, ec
+end
+
+local function get_sql_text(bufnr)
 	local parser = vim.treesitter.get_parser(bufnr)
 
 	if not parser then
@@ -68,16 +106,22 @@ local function get_sql_node(bufnr)
 		return nil
 	end
 
-	for id, capture_node in query:iter_captures(root, bufnr, 0, -1) do
+	for id, capture_node, metadata in query:iter_captures(root, bufnr, 0, -1) do
 		local capture_name = query.captures[id]
 
-		if capture_name == "injection.content" then
+		if capture_name == "injection.content" and metadata["injection.language"] == "sql" then
+			if lang == "python" then
+				local sr, sc, er, ec = get_python_string_body(capture_node)
+
+				if sr and position_in_range(row, col, sr, sc, er, ec) then
+					return get_node_text(bufnr, sr, sc, er, ec)
+				end
+			end
+
 			local sr, sc, er, ec = capture_node:range()
 
-			local inside = (row > sr or (row == sr and col >= sc)) and (row < er or (row == er and col <= ec))
-
-			if inside then
-				return capture_node
+			if position_in_range(row, col, sr, sc, er, ec) then
+				return vim.treesitter.get_node_text(capture_node, bufnr)
 			end
 		end
 	end
@@ -131,18 +175,15 @@ end
 function M.sql_to_tmp()
 	local source_buf = vim.api.nvim_get_current_buf()
 
-	local node = get_sql_node(source_buf)
+	local sql = get_sql_text(source_buf)
 
-	if not node then
+	if not sql then
 		vim.notify("No SQL block found under cursor", vim.log.levels.WARN)
 
 		return
 	end
 
-	-- Extract SQL.
-	local sql = vim.treesitter.get_node_text(node, source_buf)
-
-	if not sql or sql == "" then
+	if sql == "" then
 		vim.notify("SQL block is empty", vim.log.levels.WARN)
 
 		return

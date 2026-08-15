@@ -37,3 +37,11 @@
           (interpolation)*)+ @injection.content)))
   (#match? @identifier ".*sql.*")
   (#set! injection.language "sql"))
+
+(keyword_argument
+  name: (identifier) @identifier
+  value: (string
+    ((string_content)
+      (interpolation)*)+ @injection.content)
+  (#match? @identifier ".*sql.*")
+  (#set! injection.language "sql"))
