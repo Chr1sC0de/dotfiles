@@ -1,7 +1,8 @@
 onboarding = false
 [theme]
-name = "catppuccin"
+name = "tokyo-night"
 
+auto_switch = false
 [terminal]
 
 default_shell = "/usr/bin/bash"
