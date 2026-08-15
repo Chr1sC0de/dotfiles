@@ -61,6 +61,27 @@ end
 
 function M.result_lines(job)
 	local lines = {}
+
+	vim.list_extend(lines, {
+		"## Commands",
+		"",
+		"- `f` — follow up on this result",
+		"- `s` — jump to the source",
+		"- `q` / `<Esc>` — close the result",
+		"",
+		"---",
+		"",
+		"## Instruction",
+		"",
+	})
+	vim.list_extend(lines, quote_markdown(job.instruction))
+	vim.list_extend(lines, {
+		"",
+		"---",
+		"## Response",
+		"",
+	})
+
 	if job.answer_lines and #job.answer_lines > 0 then
 		vim.list_extend(lines, job.answer_lines)
 	else
@@ -82,10 +103,7 @@ function M.result_lines(job)
 		"- Exit code: " .. tostring(job.exit_code or "n/a"),
 		"- Thread: `" .. tostring(job.thread_id or "unavailable") .. "`",
 		"",
-		"## Instruction",
-		"",
 	})
-	vim.list_extend(lines, quote_markdown(job.instruction))
 
 	if job.status ~= "success" and job.stderr_lines and #job.stderr_lines > 0 then
 		vim.list_extend(lines, {
@@ -202,8 +220,7 @@ local function preview_ephemeral_job_instruction(job)
 		"Target: " .. job.kind,
 		"Model: " .. model.display(job.model),
 		"Status: " .. job.status,
-		job.path ~= "" and "Location: " .. job.path .. ":" .. line_range
-			or "Workspace: " .. job.cwd,
+		job.path ~= "" and "Location: " .. job.path .. ":" .. line_range or "Workspace: " .. job.cwd,
 		"",
 		"Instruction:",
 		"",
