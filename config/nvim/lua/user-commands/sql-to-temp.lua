@@ -18,6 +18,43 @@ local function get_node_text(bufnr, sr, sc, er, ec)
 	return table.concat(vim.api.nvim_buf_get_text(bufnr, sr, sc, er, ec, {}), "\n")
 end
 
+local function common_prefix(left, right)
+	local length = math.min(#left, #right)
+
+	for index = 1, length do
+		if left:sub(index, index) ~= right:sub(index, index) then
+			return left:sub(1, index - 1)
+		end
+	end
+
+	return left:sub(1, length)
+end
+
+local function normalize_sql(sql)
+	sql = sql:gsub("^\n", "", 1):gsub("\n$", "", 1)
+
+	local lines = vim.split(sql, "\n", { plain = true })
+	local indent
+
+	for _, line in ipairs(lines) do
+		if line:find("%S") then
+			local line_indent = line:match("^[\t ]*")
+
+			indent = indent and common_prefix(indent, line_indent) or line_indent
+		end
+	end
+
+	if indent and indent ~= "" then
+		for index, line in ipairs(lines) do
+			if vim.startswith(line, indent) then
+				lines[index] = line:sub(#indent + 1)
+			end
+		end
+	end
+
+	return table.concat(lines, "\n")
+end
+
 local function get_python_string_body(node)
 	while node and node:type() ~= "string" do
 		node = node:parent()
@@ -183,7 +220,9 @@ function M.sql_to_tmp()
 		return
 	end
 
-	if sql == "" then
+	sql = normalize_sql(sql)
+
+	if not sql:find("%S") then
 		vim.notify("SQL block is empty", vim.log.levels.WARN)
 
 		return

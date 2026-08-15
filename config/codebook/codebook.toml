@@ -39,6 +39,7 @@ words = [
     "dedupe",
     "deltalake",
     "dfs",
+    "duckdb",
     "dwgm",
     "dwm",
     "ecgs",

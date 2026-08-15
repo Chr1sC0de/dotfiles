@@ -13,7 +13,7 @@
     ((string_content)
       (interpolation)*)+ @injection.content)
   (#match? @identifier ".*sql*.*")
-  (#set! injection.language "sql"))
+  (#set! injection.language "duckdb"))
 
 (call
   function: [
@@ -26,7 +26,7 @@
       ((string_content)
         (interpolation)*)+ @injection.content))
   (#match? @identifier ".*sql.*")
-  (#set! injection.language "sql"))
+  (#set! injection.language "duckdb"))
 
 (keyword_argument
   name: (identifier) @identifier
@@ -36,7 +36,7 @@
         ((string_content)
           (interpolation)*)+ @injection.content)))
   (#match? @identifier ".*sql.*")
-  (#set! injection.language "sql"))
+  (#set! injection.language "duckdb"))
 
 (keyword_argument
   name: (identifier) @identifier
@@ -44,4 +44,4 @@
     ((string_content)
       (interpolation)*)+ @injection.content)
   (#match? @identifier ".*sql.*")
-  (#set! injection.language "sql"))
+  (#set! injection.language "duckdb"))

@@ -40,18 +40,30 @@ return {
 				"toml",
 				"query",
 				"sql",
+				"duckdb",
 				"jinja",
 				"jinja_inline",
 				"caddy",
 				"mermaid",
 			}
 			-- require("nvim-treesitter").install()
+			vim.filetype.add({
+				extension = { duckdb = "duckdb" },
+				pattern = { [".*%.duckdb%.sql"] = "duckdb" },
+			})
+
 			require("tree-sitter-manager").setup({
 				languages = {
 					dap_repl = {
 						install_info = {
 							url = "https://github.com/LiadOz/nvim-dap-repl-highlights",
 							queries = "queries/dap_repl",
+						},
+					},
+					duckdb = {
+						install_info = {
+							url = "/home/cmamon/GitHub/duckdb-grammar",
+							queries = "queries",
 						},
 					},
 				},
