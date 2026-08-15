@@ -151,8 +151,9 @@ function M.setup(api)
 		{ desc = "Codex: run a command with selection diagnostics" }
 	)
 
-	vim.keymap.set("n", "<leader>af", api.send_file, { desc = "Codex: send the current file as context" })
 	vim.keymap.set("n", "<leader>ap", api.send_paragraph, { desc = "Codex: send the current paragraph" })
+
+	vim.keymap.set("n", "<leader>as", api.send_file, { desc = "Codex: send the current file as context" })
 	vim.keymap.set("x", "<leader>as", api.send_selection, { desc = "Codex: send selected text" })
 	vim.keymap.set("n", "<leader>al", api.send_line, { desc = "Codex: send the current line" })
 
