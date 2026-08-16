@@ -4,5 +4,14 @@ return {
 	dependencies = {
 		"nvim-treesitter/nvim-treesitter",
 	},
-	opts = {},
+	opts = {
+		buffers = {
+			preambles = {
+				bash = { "#!/usr/bin/env bash" },
+			},
+			ignore_pattern = {
+				bash = "^%s*#!",
+			},
+		},
+	},
 }

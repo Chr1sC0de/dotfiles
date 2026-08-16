@@ -7,41 +7,14 @@
   (#match? @identifier ".+_bash_*.*")
   (#set! injection.language "bash"))
 
-(assignment
-  left: (identifier) @identifier
-  right: (string
-    ((string_content)
-      (interpolation)*)+ @injection.content)
-  (#match? @identifier ".*sql*.*")
-  (#set! injection.language "duckdb"))
-
-(call
-  function: [
-    (identifier) @identifier
-    (attribute
-      attribute: (identifier) @identifier)
-  ]
-  arguments: (argument_list
-    (string
-      ((string_content)
-        (interpolation)*)+ @injection.content))
-  (#match? @identifier ".*sql.*")
-  (#set! injection.language "duckdb"))
-
-(keyword_argument
-  name: (identifier) @identifier
-  value: (lambda
-    body: (parenthesized_expression
-      (string
-        ((string_content)
-          (interpolation)*)+ @injection.content)))
-  (#match? @identifier ".*sql.*")
-  (#set! injection.language "duckdb"))
-
-(keyword_argument
-  name: (identifier) @identifier
-  value: (string
-    ((string_content)
-      (interpolation)*)+ @injection.content)
-  (#match? @identifier ".*sql.*")
-  (#set! injection.language "duckdb"))
+((string
+  (string_start)
+  (string_content) @marker @injection.content
+  [
+    (string_content) @injection.content
+    (interpolation) @injection.content
+  ]*
+  (string_end))
+  (#match? @marker "/[*][[:space:]]*[dD][uU][cC][kK][dD][bB][sS][qQ][lL][[:space:]]*[*]/")
+  (#set! injection.language "duckdbsql")
+  (#set! injection.include-children))

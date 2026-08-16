@@ -65,9 +65,15 @@ vim.highlight.priorities.semantic_tokens = 95
 -- adding filetypes
 
 vim.filetype.add({
+	filename = {
+		["CMakeLists.txt"] = "cmake",
+	},
 	pattern = {
-		[".*%.sql%.j.*"] = "sql",
+
+		[".*%.duckdbsql.j2"] = "duckdbsql",
+		[".*%.duckdbsql.jinja"] = "duckdbsql",
 		[".*%.j2"] = "jinja",
+		[".*%.jinja"] = "jinja",
 		["Caddyfile"] = "caddy",
 		[".*gitconfig"] = "gitconfig",
 		[".*tmux.conf"] = "tmux",
@@ -88,10 +94,6 @@ vim.filetype.add({
 		[".sqruff"] = "ini",
 		[".sqlfluff"] = "ini",
 	},
-
-	filename = {
-		["CMakeLists.txt"] = "cmake",
-	},
 })
 
 -- create command to route jinja injections
@@ -103,6 +105,7 @@ vim.treesitter.query.add_directive("inject-lang-jinja!", function(_, _, bufnr, _
 	elseif vim.tbl_contains({ "sql" }, ext) then
 		metadata["injection.language"] = "sql"
 	end
+
 	local _, _, caddyext = string.find(fname, "(Caddyfile)%..+")
 	if vim.tbl_contains({ "Caddyfile" }, caddyext) then
 		metadata["injection.language"] = "caddy"
