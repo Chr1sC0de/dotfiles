@@ -359,9 +359,10 @@ function M.rename_tab(session, title)
 	run({ "tab", "rename", session.herdr_tab_id, title })
 end
 
-function M.filter_agents(agents, represented)
+function M.filter_agents(agents, represented, opts)
 	local matches = {}
 	represented = represented or {}
+	opts = opts or {}
 	for _, agent in ipairs(agents or {}) do
 		local name = agent.name
 		if
@@ -369,6 +370,7 @@ function M.filter_agents(agents, represented)
 			and name:sub(1, #AGENT_PREFIX) == AGENT_PREFIX
 			and agent.agent == "codex"
 			and not represented[name]
+			and (not opts.tab_id or agent.tab_id == opts.tab_id)
 			and vim.fn.filereadable(M.route_path(name)) == 1
 		then
 			table.insert(matches, agent)

@@ -212,6 +212,24 @@ tests["reattach candidates require Neovim route state"] = function()
 	assert_equal(candidates[1].name, "nvim-codex-123-2", "candidate name")
 end
 
+tests["reattach candidates can be limited to the current Herdr tab"] = function()
+	local route_path = vim.fn.tempname()
+	vim.fn.writefile({ "server", "1", "token" }, route_path)
+	local original_route_path = herdr.route_path
+	herdr.route_path = function()
+		return route_path
+	end
+	local candidates = herdr.filter_agents({
+		{ name = "nvim-codex-123-2", agent = "codex", tab_id = "w7:t1" },
+		{ name = "nvim-codex-123-3", agent = "codex", tab_id = "w7:t2" },
+	}, {}, { tab_id = "w7:t1" })
+	herdr.route_path = original_route_path
+	vim.fn.delete(route_path)
+
+	assert_equal(#candidates, 1, "candidate count")
+	assert_equal(candidates[1].name, "nvim-codex-123-2", "same-tab candidate")
+end
+
 for name, test in pairs(tests) do
 	local ok, err = xpcall(test, debug.traceback)
 	if not ok then

@@ -14,6 +14,11 @@ local stop_pending_paste_timer
 local stop_paste_ready_timer
 local mark_paste_ready
 local handle_herdr_attachment_exit
+local target_resolution = {
+	focus = false,
+	in_flight = false,
+	pastes = {},
+}
 
 local ASKING_PATTERNS = {
 	"which option",
@@ -472,7 +477,9 @@ end
 local function queue_paste(session, text)
 	session.pending_pastes = session.pending_pastes or {}
 	table.insert(session.pending_pastes, text)
-	schedule_pending_paste_fallback(session)
+	if session.job_id then
+		schedule_pending_paste_fallback(session)
+	end
 	if session.paste_ready then
 		flush_pending_pastes(session)
 	end
@@ -1269,6 +1276,9 @@ local function finish_terminal_start(session, job_id, original_terminal_name)
 		vim.b[session.bufnr].codex_launch_status = session.launch_status
 	end
 	attach_task_monitor(session)
+	if session.pending_pastes and #session.pending_pastes > 0 then
+		schedule_pending_paste_fallback(session)
+	end
 	M.activate_buffer(session.bufnr)
 	if vim.api.nvim_get_current_buf() == session.bufnr then
 		vim.cmd("startinsert")
@@ -1660,6 +1670,127 @@ function M.herdr_workspace_id()
 	return herdr.codex_workspace_id()
 end
 
+local function reset_target_resolution()
+	local pending = target_resolution.pastes
+	local should_focus = target_resolution.focus
+	target_resolution.focus = false
+	target_resolution.in_flight = false
+	target_resolution.pastes = {}
+	return pending, should_focus
+end
+
+local function finish_target_resolution(session, message)
+	local pending, should_focus = reset_target_resolution()
+	if not session or not session_is_running(session) then
+		if #pending > 0 then
+			util.notify(message or "Codex chat was not ready; queued context was not sent", vim.log.levels.WARN)
+		end
+		return false
+	end
+
+	for _, text in ipairs(pending) do
+		if session.paste_ready == false then
+			queue_paste(session, text)
+		else
+			send_paste_payload(session, text)
+		end
+	end
+	if should_focus then
+		M.focus(session.bufnr)
+	end
+	return true
+end
+
+local function represented_herdr_sessions()
+	local represented = {}
+	local local_sessions = {}
+	for _, session in pairs(state.codex_sessions or {}) do
+		if session.herdr_agent_name then
+			local_sessions[session.herdr_agent_name] = session
+			if session.launch_status ~= "detached" and session.launch_status ~= "exited" then
+				represented[session.herdr_agent_name] = true
+			end
+		end
+	end
+	return represented, local_sessions
+end
+
+local function create_target_session()
+	local session = M.create()
+	if not session then
+		finish_target_resolution(nil, "Failed to create a Codex chat; queued context was not sent")
+		return
+	end
+	finish_target_resolution(session)
+end
+
+local function select_target_agent(candidates, callback)
+	if #candidates == 1 then
+		callback(candidates[1])
+		return
+	end
+
+	vim.ui.select(candidates, {
+		prompt = "Attach Codex agent in this Herdr tab",
+		format_item = function(agent)
+			local cwd = vim.fn.fnamemodify(agent.foreground_cwd or agent.cwd or "", ":~")
+			return string.format("%s  [%s]  %s", agent.name, agent.agent_status or "unknown", cwd)
+		end,
+	}, function(choice)
+		if not choice then
+			finish_target_resolution(nil, "Codex session selection was cancelled; queued context was not sent")
+			return
+		end
+		callback(choice)
+	end)
+end
+
+local function attach_target_agent(agent, previous_session)
+	if vim.g.codex_chat_test and M._test.attach_existing_agent then
+		return M._test.attach_existing_agent(agent, previous_session)
+	end
+	return attach_existing_agent(agent, previous_session)
+end
+
+local function begin_target_resolution()
+	if target_resolution.in_flight then
+		return
+	end
+	target_resolution.in_flight = true
+
+	local active = M.active_session()
+	if active then
+		finish_target_resolution(active)
+		return
+	end
+	if not herdr.available() then
+		create_target_session()
+		return
+	end
+
+	local represented, local_sessions = represented_herdr_sessions()
+	herdr.list_agents({
+		on_error = function(_, message)
+			finish_target_resolution(nil, "Failed to list Herdr agents: " .. tostring(message))
+		end,
+		on_success = function(agents)
+			local candidates = herdr.filter_agents(agents, represented, { tab_id = vim.env.HERDR_TAB_ID })
+			if #candidates == 0 then
+				create_target_session()
+				return
+			end
+			select_target_agent(candidates, function(agent)
+				local session = attach_target_agent(agent, local_sessions[agent.name])
+				if not session or not session_is_running(session) then
+					finish_target_resolution(nil, "Failed to attach Codex; queued context was not sent")
+					return
+				end
+				finish_target_resolution(session)
+			end)
+		end,
+	})
+end
+
 ---Compatibility wrapper for callers expecting a boolean start result.
 ---
 ---@return boolean true when Codex starts successfully, false when it fails.
@@ -1703,7 +1834,9 @@ function M.paste(text, opts)
 	else
 		session = M.active_session()
 		if not session then
-			session = M.create()
+			table.insert(target_resolution.pastes, text)
+			begin_target_resolution()
+			return true
 		end
 	end
 
@@ -1758,7 +1891,8 @@ function M.toggle()
 		return
 	end
 
-	M.create()
+	target_resolution.focus = true
+	begin_target_resolution()
 end
 
 return M

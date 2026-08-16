@@ -185,6 +185,158 @@ tests["explicit deletion suppresses attachment-exit cleanup"] = function()
 	vim.api.nvim_buf_delete(session.bufnr, { force = true })
 end
 
+tests["queued paste does not start its readiness fallback before attachment"] = function()
+	local session = make_session(nil)
+	session.launch_status = "starting"
+	session.paste_ready = false
+
+	assert_equal(chat.paste("queued while Herdr starts"), true, "paste accepted")
+	assert_equal(session.pending_pastes, { "queued while Herdr starts" }, "paste queued")
+	assert_equal(session.pending_paste_timer, nil, "fallback waits for terminal attachment")
+
+	vim.api.nvim_buf_delete(session.bufnr, { force = true })
+end
+
+tests["concurrent sends share same-tab discovery and reattach once"] = function()
+	reset_state()
+	local bufnr = vim.api.nvim_create_buf(false, true)
+	local attached_session = {
+		bufnr = bufnr,
+		exited = false,
+		job_id = nil,
+		launch_mode = "herdr",
+		launch_status = "starting",
+		paste_ready = false,
+	}
+	local list_calls = 0
+	local list_opts
+	local attached_agent
+	local original_available = herdr.available
+	local original_filter_agents = herdr.filter_agents
+	local original_list_agents = herdr.list_agents
+	herdr.available = function()
+		return true
+	end
+	herdr.list_agents = function(opts)
+		list_calls = list_calls + 1
+		list_opts = opts
+	end
+	herdr.filter_agents = function(agents, _, opts)
+		assert_equal(opts.tab_id, vim.env.HERDR_TAB_ID, "current tab filter")
+		return agents
+	end
+	chat._test.attach_existing_agent = function(agent)
+		attached_agent = agent
+		return attached_session
+	end
+
+	assert_equal(chat.paste("first"), true, "first paste accepted")
+	assert_equal(chat.paste("second"), true, "second paste accepted")
+	assert_equal(list_calls, 1, "one discovery")
+	list_opts.on_success({ { name = "nvim-codex-test", agent = "codex", tab_id = vim.env.HERDR_TAB_ID } })
+	assert_equal(attached_agent.name, "nvim-codex-test", "unique candidate attached")
+	assert_equal(attached_session.pending_pastes, { "first", "second" }, "ordered queued pastes")
+
+	chat._test.attach_existing_agent = nil
+	herdr.available = original_available
+	herdr.filter_agents = original_filter_agents
+	herdr.list_agents = original_list_agents
+	vim.api.nvim_buf_delete(bufnr, { force = true })
+end
+
+tests["multiple same-tab sessions use the picker choice"] = function()
+	reset_state()
+	local bufnr = vim.api.nvim_create_buf(false, true)
+	local attached_session = {
+		bufnr = bufnr,
+		exited = false,
+		job_id = nil,
+		launch_mode = "herdr",
+		launch_status = "starting",
+		paste_ready = false,
+	}
+	local chosen_agent
+	local original_available = herdr.available
+	local original_filter_agents = herdr.filter_agents
+	local original_list_agents = herdr.list_agents
+	local original_select = vim.ui.select
+	herdr.available = function()
+		return true
+	end
+	herdr.list_agents = function(opts)
+		opts.on_success({ { name = "first" }, { name = "second" } })
+	end
+	herdr.filter_agents = function(agents)
+		return agents
+	end
+	vim.ui.select = function(items, _, callback)
+		assert_equal(#items, 2, "picker candidates")
+		callback(items[2])
+	end
+	chat._test.attach_existing_agent = function(agent)
+		chosen_agent = agent
+		return attached_session
+	end
+
+	assert_equal(chat.paste("picked"), true, "paste accepted")
+	assert_equal(chosen_agent.name, "second", "picker choice attached")
+	assert_equal(attached_session.pending_pastes, { "picked" }, "paste queued for choice")
+
+	chat._test.attach_existing_agent = nil
+	herdr.available = original_available
+	herdr.filter_agents = original_filter_agents
+	herdr.list_agents = original_list_agents
+	vim.ui.select = original_select
+	vim.api.nvim_buf_delete(bufnr, { force = true })
+end
+
+tests["toggle reattaches and focuses a unique same-tab session"] = function()
+	reset_state()
+	local source_bufnr = vim.api.nvim_create_buf(false, true)
+	local target_bufnr = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_set_current_buf(source_bufnr)
+	local attached_session = {
+		bufnr = target_bufnr,
+		exited = false,
+		job_id = nil,
+		launch_mode = "herdr",
+		launch_status = "starting",
+		paste_ready = false,
+	}
+	local focused_bufnr
+	local original_available = herdr.available
+	local original_filter_agents = herdr.filter_agents
+	local original_list_agents = herdr.list_agents
+	local original_focus = chat.focus
+	herdr.available = function()
+		return true
+	end
+	herdr.list_agents = function(opts)
+		opts.on_success({ { name = "same-tab" } })
+	end
+	herdr.filter_agents = function(agents)
+		return agents
+	end
+	chat._test.attach_existing_agent = function()
+		return attached_session
+	end
+	chat.focus = function(bufnr)
+		focused_bufnr = bufnr
+		return true
+	end
+
+	chat.toggle()
+	assert_equal(focused_bufnr, target_bufnr, "reattached buffer focused")
+
+	chat._test.attach_existing_agent = nil
+	chat.focus = original_focus
+	herdr.available = original_available
+	herdr.filter_agents = original_filter_agents
+	herdr.list_agents = original_list_agents
+	vim.api.nvim_buf_delete(source_bufnr, { force = true })
+	vim.api.nvim_buf_delete(target_bufnr, { force = true })
+end
+
 for name, test in pairs(tests) do
 	local ok, err = xpcall(test, debug.traceback)
 	if not ok then
