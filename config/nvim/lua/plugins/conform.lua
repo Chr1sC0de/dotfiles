@@ -19,6 +19,7 @@ return {
 				cpp = { "clang-format" },
 				cmake = { "cmake_format" },
 				sql = { "sqruff" },
+				duckdbsql = { "sqruff" },
 				toml = function(bufnr)
 					if vim.api.nvim_buf_get_name(bufnr):match("pyproject%.toml$") then
 						return { "pyproject-fmt" }
