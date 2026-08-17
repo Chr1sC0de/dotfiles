@@ -67,9 +67,10 @@ vim.highlight.priorities.semantic_tokens = 95
 vim.filetype.add({
 	filename = {
 		["CMakeLists.txt"] = "cmake",
+		[".env"] = "env",
+		[".secrets"] = "env",
 	},
 	pattern = {
-
 		[".*%.duckdbsql.j2"] = "duckdbsql",
 		[".*%.duckdbsql.jinja"] = "duckdbsql",
 		[".*%.j2"] = "jinja",
