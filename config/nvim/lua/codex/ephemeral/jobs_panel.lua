@@ -120,11 +120,41 @@ function M.result_lines(job)
 end
 
 local function close_result(job)
-	if util.is_valid_buffer(job.result_return_bufnr) then
+	local current_tabpage = vim.api.nvim_get_current_tabpage()
+	local tabpages = vim.api.nvim_list_tabpages()
+	if #tabpages > 1 then
+		local return_tabpage = job.result_return_tabpage
+		local ok = pcall(vim.cmd, "tabclose")
+		if not ok then
+			util.notify("Could not close the Codex result tab", vim.log.levels.WARN)
+			return
+		end
+		job.result_tabpage = nil
+		if
+			return_tabpage
+			and return_tabpage ~= current_tabpage
+			and vim.api.nvim_tabpage_is_valid(return_tabpage)
+		then
+			vim.api.nvim_set_current_tabpage(return_tabpage)
+		end
+		return
+	end
+
+	if util.is_valid_buffer(job.result_return_bufnr) and job.result_return_bufnr ~= job.result_bufnr then
 		vim.api.nvim_set_current_buf(job.result_return_bufnr)
+		job.result_tabpage = nil
 		return
 	end
 	M.jump_to_source(job)
+end
+
+local function result_window(bufnr)
+	for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
+		if util.is_valid_window(winid) then
+			return winid
+		end
+	end
+	return nil
 end
 
 local function ensure_result_buffer(job)
@@ -170,12 +200,30 @@ function M.open_result(job)
 
 	local bufnr = ensure_result_buffer(job)
 	M.close()
+	local return_tabpage = vim.api.nvim_get_current_tabpage()
 	local return_bufnr = vim.api.nvim_get_current_buf()
 	if return_bufnr == bufnr or return_bufnr == state.codex_jobs_buf then
 		return_bufnr = job.target and job.target.spinner_buf or nil
 	end
+
+	local existing_win = result_window(bufnr)
+	if existing_win then
+		local result_tabpage = vim.api.nvim_win_get_tabpage(existing_win)
+		if return_tabpage ~= result_tabpage then
+			job.result_return_tabpage = return_tabpage
+			job.result_return_bufnr = return_bufnr
+		end
+		job.result_tabpage = result_tabpage
+		vim.api.nvim_set_current_tabpage(result_tabpage)
+		vim.api.nvim_set_current_win(existing_win)
+		return true
+	end
+
+	job.result_return_tabpage = return_tabpage
 	job.result_return_bufnr = return_bufnr
+	vim.cmd("tabnew")
 	vim.api.nvim_set_current_buf(bufnr)
+	job.result_tabpage = vim.api.nvim_get_current_tabpage()
 	return true
 end
 

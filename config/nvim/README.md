@@ -68,13 +68,15 @@ processes managed by Neovim. They can run in parallel without creating Herdr
 workspaces, tabs, or splits. Neovim retains its spinner, diagnostics, lifecycle
 notifications, jobs panel, cancellation controls, and session-only Markdown
 scratch result.
-Open a completed result from `:CodexJobs`; it appears in the current window
-without creating a result file. Press `f` from either the result or its jobs
+Open a completed result from `:CodexJobs`; it appears in a dedicated tab without
+creating a result file. Reopening a visible result focuses its existing tab
+instead of creating a duplicate. Press `f` from either the result or its jobs
 panel row to continue the native Codex thread, `s` to return to its source, or
-`q` to close the result. Codex persists the underlying thread so follow-ups use
-its native conversation history, but Neovim does not restore result buffers or
-jobs after restarting. If Neovim is not running inside Herdr, jobs fall back to
-direct `codex exec` processes with the same result and follow-up behavior.
+`q` to close the result tab and return to the originating tab. Codex persists
+the underlying thread so follow-ups use its native conversation history, but
+Neovim does not restore result buffers or jobs after restarting. If Neovim is
+not running inside Herdr, jobs fall back to direct `codex exec` processes with
+the same result and follow-up behavior.
 
 Use `:CodexChatAttach` or `<leader>aA` to reconnect to a surviving agent across
 the current Herdr session. The chat-buffer panel also provides `a` for this

@@ -261,7 +261,7 @@ tests["follow-ups resume the captured thread and inherit job settings"] = functi
 	assert_equal(child.thread_id, parent.thread_id, "child thread")
 end
 
-tests["result view is answer-first and only shows failure stderr"] = function()
+tests["result view shows commands, response, details, and failure stderr"] = function()
 	reset_state()
 	local job =
 		jobs.create("command", make_target({ start_line = 2, end_line = 4 }), "gpt-test", "Explain this\ncarefully")
@@ -273,7 +273,8 @@ tests["result view is answer-first and only shows failure stderr"] = function()
 	job.thread_id = "thread-123"
 
 	local rendered = table.concat(jobs_panel.result_lines(job), "\n")
-	assert_equal(rendered:sub(1, #"The answer."), "The answer.", "answer first")
+	assert_equal(rendered:sub(1, #"## Commands"), "## Commands", "commands first")
+	assert_contains_text(rendered, "## Response\n\nThe answer.", "response")
 	assert_contains_text(rendered, "## Job details", "job details")
 	assert_contains_text(rendered, "> Explain this\n> carefully", "quoted instruction")
 	assert_equal(rendered:find("progress noise", 1, true), nil, "successful stderr hidden")
@@ -284,13 +285,18 @@ tests["result view is answer-first and only shows failure stderr"] = function()
 	assert_contains_text(failed, "progress noise", "failure stderr")
 end
 
-tests["completed results open as disposable named scratch buffers"] = function()
+tests["completed results open in reusable dedicated tabs"] = function()
 	reset_state()
 	local notifications = {}
 	local old_notify = util.notify
 	util.notify = function(message)
 		table.insert(notifications, message)
 	end
+	local return_bufnr = vim.api.nvim_create_buf(true, false)
+	vim.api.nvim_set_current_buf(return_bufnr)
+	local return_tabpage = vim.api.nvim_get_current_tabpage()
+	local initial_tab_count = #vim.api.nvim_list_tabpages()
+	assert_equal(initial_tab_count, 1, "isolated test tab count")
 
 	local job = jobs.create("command", make_target(), "gpt-test", "Explain this")
 	job.answer_lines = { "The answer." }
@@ -300,7 +306,12 @@ tests["completed results open as disposable named scratch buffers"] = function()
 	job.thread_id = "thread-123"
 	assert_equal(jobs_panel.open_result(job), true, "result opened")
 
+	assert_equal(#vim.api.nvim_list_tabpages(), initial_tab_count + 1, "new result tab")
+	assert_equal(job.result_return_tabpage, return_tabpage, "return tab")
+	assert_equal(vim.api.nvim_get_current_tabpage(), job.result_tabpage, "current result tab")
 	assert_equal(vim.api.nvim_get_current_buf(), job.result_bufnr, "current result buffer")
+	local return_win = vim.api.nvim_tabpage_get_win(return_tabpage)
+	assert_equal(vim.api.nvim_win_get_buf(return_win), return_bufnr, "origin buffer preserved")
 	assert_equal(vim.api.nvim_buf_get_name(job.result_bufnr), "codex://job/1", "result buffer name")
 	assert_equal(vim.bo[job.result_bufnr].buftype, "nofile", "result buffer type")
 	assert_equal(vim.bo[job.result_bufnr].filetype, "markdown", "result filetype")
@@ -315,10 +326,53 @@ tests["completed results open as disposable named scratch buffers"] = function()
 	assert_equal(mapped.s, true, "source mapping")
 	assert_equal(mapped.g, nil, "g prefix remains unmapped")
 	assert_equal(mapped.q, true, "close mapping")
+	assert_equal(mapped["<Esc>"], true, "escape mapping")
+
+	assert_equal(jobs_panel.open_result(job), true, "visible result reopened")
+	assert_equal(#vim.api.nvim_list_tabpages(), initial_tab_count + 1, "visible result tab reused")
+	vim.api.nvim_set_current_tabpage(return_tabpage)
+	assert_equal(jobs_panel.open_result(job), true, "result reopened from origin")
+	assert_equal(#vim.api.nvim_list_tabpages(), initial_tab_count + 1, "origin reopen reused result tab")
+
+	local close_callback = nil
+	for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(job.result_bufnr, "n")) do
+		if mapping.lhs == "q" then
+			close_callback = mapping.callback
+			break
+		end
+	end
+	assert_equal(type(close_callback), "function", "close callback")
+	close_callback()
+	assert_equal(#vim.api.nvim_list_tabpages(), initial_tab_count, "result tab closed")
+	assert_equal(vim.api.nvim_get_current_tabpage(), return_tabpage, "origin tab restored")
+	assert_equal(vim.api.nvim_get_current_buf(), return_bufnr, "origin buffer restored")
+	assert_equal(vim.api.nvim_buf_is_valid(job.result_bufnr), true, "closed result remains reusable")
 
 	local result_bufnr = job.result_bufnr
 	assert_equal(jobs.delete(job), true, "job deleted")
 	assert_equal(vim.api.nvim_buf_is_valid(result_bufnr), false, "result buffer wiped")
+
+	local edit_job = jobs.create("edit", make_target(), nil, "Fix this")
+	edit_job.answer_lines = { "Updated." }
+	edit_job.exit_code = 0
+	edit_job.finished_at = os.time()
+	edit_job.status = "success"
+	assert_equal(jobs_panel.open_result(edit_job), true, "edit result opened")
+	assert_equal(#vim.api.nvim_list_tabpages(), initial_tab_count + 1, "edit result tab")
+	assert_equal(vim.api.nvim_get_current_buf(), edit_job.result_bufnr, "current edit result")
+	vim.api.nvim_set_current_tabpage(return_tabpage)
+	vim.cmd("tabclose")
+	assert_equal(#vim.api.nvim_list_tabpages(), 1, "origin tab closed")
+	assert_equal(vim.api.nvim_get_current_buf(), edit_job.result_bufnr, "edit result remains")
+	for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(edit_job.result_bufnr, "n")) do
+		if mapping.lhs == "q" then
+			mapping.callback()
+			break
+		end
+	end
+	assert_equal(#vim.api.nvim_list_tabpages(), 1, "last tab retained")
+	assert_equal(vim.api.nvim_get_current_buf(), return_bufnr, "closed-origin buffer fallback")
+	assert_equal(jobs.delete(edit_job), true, "edit job deleted")
 	util.notify = old_notify
 end
 
