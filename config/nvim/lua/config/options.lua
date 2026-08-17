@@ -105,6 +105,8 @@ vim.treesitter.query.add_directive("inject-lang-jinja!", function(_, _, bufnr, _
 		metadata["injection.language"] = "ini"
 	elseif vim.tbl_contains({ "sql" }, ext) then
 		metadata["injection.language"] = "sql"
+	else
+		metadata["injection.language"] = ext
 	end
 
 	local _, _, caddyext = string.find(fname, "(Caddyfile)%..+")

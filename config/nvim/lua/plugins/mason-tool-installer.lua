@@ -37,6 +37,8 @@ return {
 				"yamlfmt",
 				"hadolint",
 				-- formatters
+				"sqruff",
+				"prettierd",
 				"clang-format",
 				"pyproject-fmt",
 				"mbake",
