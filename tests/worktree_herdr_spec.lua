@@ -227,6 +227,110 @@ tests["prompt creation generates a branch and submits the task"] = function()
 	herdr._test.run = nil
 end
 
+tests["prompt creation retries while the root pane becomes available"] = function()
+	local agent_attempts = 0
+	local process_info_calls = 0
+	local prompt_calls = 0
+	local notifications = {}
+	local old_notify = vim.notify
+	local old_defer_fn = vim.defer_fn
+	vim.notify = function(message)
+		table.insert(notifications, message)
+	end
+	vim.defer_fn = function(callback)
+		callback()
+	end
+	herdr._test.generate_branch = function(_, callback)
+		callback("retry-agent-start")
+	end
+	herdr._test.validate_branch = function(branch, callback)
+		callback(branch)
+	end
+	herdr._test.run = function(args, opts)
+		local command = args[1] .. " " .. args[2]
+		if command == "worktree create" then
+			opts.on_success(response({
+				workspace = {
+					workspace_id = "wR",
+					cwd = "/tmp/retry-agent-start",
+					worktree = { checkout_path = "/tmp/retry-agent-start" },
+				},
+			}))
+		elseif command == "pane list" then
+			opts.on_success(response({ panes = { { pane_id = "wR:p1" } } }))
+		elseif command == "pane process-info" then
+			process_info_calls = process_info_calls + 1
+			opts.on_success(shell_ready_response())
+		elseif command == "agent start" then
+			agent_attempts = agent_attempts + 1
+			if agent_attempts < 3 then
+				opts.on_error(
+					{ code = 1, stderr = '{"error":{"code":"agent_pane_busy"}}', stdout = "" },
+					'{"error":{"code":"agent_pane_busy"}}'
+				)
+			else
+				opts.on_success(response({}))
+			end
+		elseif command == "agent prompt" then
+			prompt_calls = prompt_calls + 1
+			opts.on_success(response({}))
+		end
+	end
+
+	herdr.add_prompt("retry transient pane race")
+	assert_equal(agent_attempts, 3, "agent start attempts")
+	assert_equal(process_info_calls, 3, "shell readiness checks")
+	assert_equal(prompt_calls, 1, "initial prompt count")
+	assert_equal(notifications[#notifications], "worktree: Codex job started in retry-agent-start", "started notice")
+
+	vim.notify = old_notify
+	vim.defer_fn = old_defer_fn
+	herdr._test.generate_branch = nil
+	herdr._test.validate_branch = nil
+	herdr._test.run = nil
+end
+
+tests["prompt creation does not retry non-busy agent errors"] = function()
+	local agent_attempts = 0
+	local notifications = {}
+	local old_notify = vim.notify
+	vim.notify = function(message)
+		table.insert(notifications, message)
+	end
+	herdr._test.generate_branch = function(_, callback)
+		callback("failed-agent-start")
+	end
+	herdr._test.validate_branch = function(branch, callback)
+		callback(branch)
+	end
+	herdr._test.run = function(args, opts)
+		local command = args[1] .. " " .. args[2]
+		if command == "worktree create" then
+			opts.on_success(response({ workspace = { workspace_id = "wE", cwd = "/tmp/failed-agent-start" } }))
+		elseif command == "pane list" then
+			opts.on_success(response({ panes = { { pane_id = "wE:p1" } } }))
+		elseif command == "pane process-info" then
+			opts.on_success(shell_ready_response())
+		elseif command == "agent start" then
+			agent_attempts = agent_attempts + 1
+			opts.on_error({ code = 1, stderr = "agent executable missing", stdout = "" }, "agent executable missing")
+		end
+	end
+
+	herdr.add_prompt("fail without retry")
+	assert_equal(agent_attempts, 1, "agent start attempts")
+	assert_equal(
+		notifications[#notifications],
+		"worktree: Herdr Codex start failed: agent executable missing",
+		"failure notice"
+	)
+
+	vim.notify = old_notify
+	herdr._test.generate_branch = nil
+	herdr._test.validate_branch = nil
+	herdr._test.run = nil
+end
+
 tests["pane discovery failure preserves the created workspace"] = function()
 	local calls = {}
 	local old_notify = vim.notify

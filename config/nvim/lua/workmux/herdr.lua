@@ -166,7 +166,8 @@ local function wait_for_shell(pane_id, callback, attempt)
 	})
 end
 
-local function start_agent(workspace_id, pane_id, cwd, opts)
+local function start_agent_when_available(workspace_id, pane_id, cwd, opts, attempt)
+	attempt = attempt or 1
 	local name = agent_name(cwd)
 	local function finish_start()
 		if opts.focus then
@@ -194,31 +195,40 @@ local function start_agent(workspace_id, pane_id, cwd, opts)
 		vim.list_extend(args, { "--cd", cwd })
 	end
 
-	run(args, {
-		on_error = function(_, message)
-			fail_step("Codex start", message)
-			if opts.focus then
-				focus_workspace(workspace_id)
-			end
-		end,
-		on_success = function()
-			if opts.prompt == nil then
-				finish_start()
-				return
-			end
-			run({ "agent", "prompt", name, opts.prompt }, {
-				on_error = function(_, message)
-					fail_step("initial prompt", message)
-					if opts.focus then
-						focus_agent(name)
-					end
-				end,
-				on_success = function()
+	wait_for_shell(pane_id, function()
+		run(args, {
+			on_error = function(_, message)
+				local pane_busy = tostring(message or ""):find("agent_pane_busy", 1, true) ~= nil
+				if pane_busy and attempt < SHELL_READY_ATTEMPTS then
+					vim.defer_fn(function()
+						start_agent_when_available(workspace_id, pane_id, cwd, opts, attempt + 1)
+					end, SHELL_READY_DELAY_MS)
+					return
+				end
+				fail_step("Codex start", message)
+				if opts.focus then
+					focus_workspace(workspace_id)
+				end
+			end,
+			on_success = function()
+				if opts.prompt == nil then
 					finish_start()
-				end,
-			})
-		end,
-	})
+					return
+				end
+				run({ "agent", "prompt", name, opts.prompt }, {
+					on_error = function(_, message)
+						fail_step("initial prompt", message)
+						if opts.focus then
+							focus_agent(name)
+						end
+					end,
+					on_success = function()
+						finish_start()
+					end,
+				})
+			end,
+		})
+	end)
 end
 
 local function workspace_context(workspace, checkout)
@@ -239,9 +249,7 @@ local function bootstrap_agent_workspace(workspace, checkout, opts)
 
 	list_root_pane(workspace_id, function(root_pane_id)
 		util.notify("starting Codex in the worktree...")
-		wait_for_shell(root_pane_id, function()
-			start_agent(workspace_id, root_pane_id, cwd, opts)
-		end)
+		start_agent_when_available(workspace_id, root_pane_id, cwd, opts)
 	end)
 end
 
