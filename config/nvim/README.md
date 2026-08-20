@@ -15,7 +15,7 @@ if both `HERDR_ENV` and `TMUX` are present.
 | `<leader>wo` | Pick and open a worktree with a fresh agent when a new workspace is required. |
 | `<leader>wO` | Pick and open a worktree, using `codex resume --last` when Herdr must recreate its workspace. |
 | `<leader>ww` | Browse worktrees (the Workmux worktree dashboard in tmux). |
-| `<leader>wd` | Browse Herdr workspaces or open the Workmux dashboard. |
+| `<leader>wd` | Browse live Herdr agents with pane previews, or open the Workmux dashboard in tmux. |
 | `<leader>wD` | Open Workmux dashboard diff; Herdr reports that no native equivalent exists. |
 | `<leader>ws` | Toggle the Workmux sidebar; in Herdr use its native `prefix+b` sidebar. |
 | `<leader>wn` | Focus the next agent, wrapping at the end. |

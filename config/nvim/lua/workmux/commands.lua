@@ -9,7 +9,7 @@ local keymaps = {
 	{ "n", "<leader>wo", "open", "Worktree: open" },
 	{ "n", "<leader>wO", "open_continue", "Worktree: open and continue agent" },
 	{ "n", "<leader>ww", "dashboard_worktrees", "Worktree: browse worktrees" },
-	{ "n", "<leader>wd", "dashboard", "Worktree: dashboard or workspaces" },
+	{ "n", "<leader>wd", "dashboard", "Worktree: dashboard or Herdr agents" },
 	{ "n", "<leader>wD", "dashboard_diff", "Worktree: dashboard diff" },
 	{ "n", "<leader>ws", "sidebar_toggle", "Worktree: toggle sidebar" },
 	{ "n", "<leader>wn", "sidebar_next", "Worktree: next agent" },

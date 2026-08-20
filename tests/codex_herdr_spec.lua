@@ -105,11 +105,42 @@ tests["chat launch starts visibly then returns to and zooms Neovim"] = function(
 
 	assert_equal(session.herdr_pane_id, "w7:p9", "created pane")
 	assert_equal(calls[1][1], "pane", "split first")
-	assert_equal(calls[2], { "pane", "process-info", "--pane", "w7:p9" }, "wait for shell")
-	assert_equal(calls[3][1], "agent", "agent third")
-	assert_equal(calls[4], { "pane", "focus", "--pane", "w7:p9", "--direction", "left" }, "focus host")
-	assert_equal(calls[5], { "pane", "zoom", "w7:p1", "--on" }, "zoom host")
+	assert_equal(calls[2], {
+		"pane",
+		"report-metadata",
+		"w7:p9",
+		"--source",
+		"nvim:codex-host",
+		"--token",
+		"nvim_host_pane=w7:p1",
+	}, "report Neovim host")
+	assert_equal(calls[3], { "pane", "process-info", "--pane", "w7:p9" }, "wait for shell")
+	assert_equal(calls[4][1], "agent", "agent fourth")
+	assert_equal(calls[5], { "pane", "focus", "--pane", "w7:p9", "--direction", "left" }, "focus host")
+	assert_equal(calls[6], { "pane", "zoom", "w7:p1", "--on" }, "zoom host")
 	assert_equal(ready, true, "ready callback")
+end
+
+tests["host metadata reporting is best effort"] = function()
+	local calls = {}
+	herdr._test.run = function(args, opts)
+		table.insert(calls, vim.deepcopy(args))
+		if opts.on_error then
+			opts.on_error({ code = 1, stderr = "unavailable", stdout = "" }, "unavailable")
+		end
+	end
+	herdr.report_host({ herdr_pane_id = "w7:p9", herdr_host_pane_id = "w7:p1" })
+	herdr._test.run = nil
+
+	assert_equal(calls[1], {
+		"pane",
+		"report-metadata",
+		"w7:p9",
+		"--source",
+		"nvim:codex-host",
+		"--token",
+		"nvim_host_pane=w7:p1",
+	}, "metadata command")
 end
 
 tests["chat launch retries while Herdr still considers the new pane busy"] = function()

@@ -1595,6 +1595,7 @@ local function attach_existing_agent(agent, previous_session)
 	session.herdr_pane_id = agent.pane_id
 	session.herdr_tab_id = agent.tab_id
 	session.herdr_workspace_id = agent.workspace_id
+	herdr.report_host(session)
 	session.launch_status = "detached"
 	initialize_chat_buffer(session)
 	write_herdr_buffer_vars(session)

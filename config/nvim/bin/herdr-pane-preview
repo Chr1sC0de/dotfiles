@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+pane_id="${1:?usage: herdr-pane-preview PANE_ID WIDTH}"
+preview_width="${2:?usage: herdr-pane-preview PANE_ID WIDTH}"
+if [[ ! "${preview_width}" =~ ^[0-9]+$ ]] || ((preview_width < 2)); then
+  printf 'herdr-pane-preview: WIDTH must be an integer greater than one\n' >&2
+  exit 2
+fi
+
+if command -v bat >/dev/null 2>&1; then
+  renderer=(bat --style=plain --paging=never --color=always --wrap=never --language=txt)
+else
+  renderer=(cat)
+fi
+
+herdr pane read "${pane_id}" --source visible --format text --raw \
+  | colrm "${preview_width}" \
+  | "${renderer[@]}"

@@ -90,6 +90,198 @@ local function focus_agent(name)
 	})
 end
 
+local function table_index(items, key)
+	local indexed = {}
+	for _, item in ipairs(items or {}) do
+		if type(item) == "table" and type(item[key]) == "string" then
+			indexed[item[key]] = item
+		end
+	end
+	return indexed
+end
+
+local function metadata_token(agent, name)
+	local tokens = agent.tokens or agent.metadata_tokens
+	if type(tokens) ~= "table" then
+		return nil
+	end
+	if type(tokens[name]) == "string" then
+		return tokens[name]
+	end
+	for _, token in pairs(tokens) do
+		if type(token) == "string" then
+			local key, value = token:match("^([^=]+)=(.*)$")
+			if key == name then
+				return value
+			end
+		elseif type(token) == "table" then
+			local key = token.name or token.key
+			if key == name then
+				return token.value
+			end
+			local encoded = token.token
+			if type(encoded) == "string" then
+				local encoded_key, value = encoded:match("^([^=]+)=(.*)$")
+				if encoded_key == name then
+					return value
+				end
+			end
+		end
+	end
+	return nil
+end
+
+local function pane_rect(layout, pane_id)
+	for _, pane in ipairs((layout and layout.panes) or {}) do
+		if pane.pane_id == pane_id and type(pane.rect) == "table" then
+			return pane.rect
+		end
+	end
+	return nil
+end
+
+local function legacy_host_pane(agent, layouts, panes_by_id)
+	if type(agent.name) ~= "string" or not vim.startswith(agent.name, "nvim-codex-") then
+		return nil
+	end
+	for _, layout in ipairs(layouts or {}) do
+		if layout.tab_id == agent.tab_id then
+			local agent_rect = pane_rect(layout, agent.pane_id)
+			if agent_rect then
+				local best_id, best_overlap, best_edge
+				local agent_top = agent_rect.y or 0
+				local agent_bottom = agent_top + (agent_rect.height or 0)
+				for _, candidate in ipairs(layout.panes or {}) do
+					local rect = candidate.rect
+					local pane = panes_by_id[candidate.pane_id]
+					if candidate.pane_id ~= agent.pane_id and type(rect) == "table" and pane then
+						local right_edge = (rect.x or 0) + (rect.width or 0)
+						local overlap = math.min(agent_bottom, (rect.y or 0) + (rect.height or 0))
+							- math.max(agent_top, rect.y or 0)
+						if
+							right_edge == (agent_rect.x or 0)
+							and overlap > 0
+							and (pane.tab_id == nil or pane.tab_id == agent.tab_id)
+							and (
+								best_overlap == nil
+								or overlap > best_overlap
+								or (overlap == best_overlap and right_edge > best_edge)
+							)
+						then
+							best_id, best_overlap, best_edge = candidate.pane_id, overlap, right_edge
+						end
+					end
+				end
+				return best_id
+			end
+		end
+	end
+	return nil
+end
+
+local function destination_pane(agent, snapshot, panes_by_id)
+	local host_id = metadata_token(agent, "nvim_host_pane")
+	if host_id then
+		local host = panes_by_id[host_id]
+		if host and (host.tab_id == nil or host.tab_id == agent.tab_id) then
+			return host_id, true
+		end
+		return agent.pane_id, false
+	end
+	local inferred = legacy_host_pane(agent, snapshot.layouts, panes_by_id)
+	if inferred then
+		return inferred, true
+	end
+	return agent.pane_id, false
+end
+
+local function build_agent_items(snapshot)
+	local workspaces = table_index(snapshot.workspaces, "workspace_id")
+	local tabs = table_index(snapshot.tabs, "tab_id")
+	local panes = table_index(snapshot.panes, "pane_id")
+	local items = {}
+	for index, agent in ipairs(snapshot.agents or {}) do
+		if type(agent) == "table" and type(agent.pane_id) == "string" then
+			local workspace = workspaces[agent.workspace_id] or {}
+			local tab = tabs[agent.tab_id] or {}
+			local pane = panes[agent.pane_id] or {}
+			local target_pane_id, targets_nvim = destination_pane(agent, snapshot, panes)
+			local name = agent.name or agent.pane_id
+			local title = agent.title or agent.display_agent or name
+			local workspace_label = workspace.label or workspace.title or agent.workspace_id or "workspace"
+			local tab_label = tab.title or tab.label or agent.tab_id or "tab"
+			local cwd = agent.foreground_cwd or agent.cwd or pane.cwd or workspace.cwd or ""
+			local status = agent.agent_status or "unknown"
+			table.insert(items, {
+				idx = index,
+				text = table.concat({ status, workspace_label, tab_label, name, title, cwd }, " "),
+				name = name,
+				title = title,
+				status = status,
+				workspace_label = workspace_label,
+				tab_label = tab_label,
+				agent_cwd = cwd,
+				agent_pane_id = agent.pane_id,
+				target_pane_id = target_pane_id,
+				targets_nvim = targets_nvim,
+			})
+		end
+	end
+	return items
+end
+
+local STATUS_STYLE = {
+	blocked = { "●", "DiagnosticError" },
+	done = { "●", "DiagnosticOk" },
+	idle = { "○", "DiagnosticHint" },
+	working = { "●", "DiagnosticInfo" },
+	unknown = { "?", "Comment" },
+}
+
+local function format_agent(item)
+	local style = STATUS_STYLE[item.status] or STATUS_STYLE.unknown
+	local label = item.name
+	if item.title ~= item.name then
+		label = label .. " — " .. item.title
+	end
+	return {
+		{ style[1] .. " ", style[2] },
+		{ string.format("%-8s", item.status), style[2] },
+		{ item.workspace_label, "Directory" },
+		{ " / ", "Comment" },
+		{ item.tab_label, "Title" },
+		{ "  " .. label },
+		{ item.agent_cwd ~= "" and ("  " .. vim.fn.fnamemodify(item.agent_cwd, ":~")) or "", "Comment" },
+	}
+end
+
+local function preview_agent(ctx)
+	if not ctx.item or not ctx.item.target_pane_id then
+		return
+	end
+	ctx.preview:reset()
+	ctx.preview:minimal()
+	ctx.preview:wo({ wrap = false })
+	ctx.preview:set_title(ctx.item.workspace_label .. " / " .. ctx.item.tab_label .. " / " .. ctx.item.name)
+	require("snacks.picker.preview").cmd({
+		vim.fn.stdpath("config") .. "/bin/herdr-pane-preview",
+		ctx.item.target_pane_id,
+		tostring(math.max(2, vim.api.nvim_win_get_width(ctx.win))),
+	}, ctx, { term = false, ansi = true })
+end
+
+local function focus_agent_item(item)
+	if item.targets_nvim then
+		run({ "pane", "zoom", item.target_pane_id, "--on" }, {
+			on_error = function()
+				focus_agent(item.name or item.agent_pane_id)
+			end,
+		})
+		return
+	end
+	focus_agent(item.name or item.agent_pane_id)
+end
+
 local function parse_workspace_result(result, description)
 	local payload, err = decode_result(result, description)
 	if not payload then
@@ -483,27 +675,35 @@ function M.open(resume)
 end
 
 function M.select_workspace()
-	run({ "workspace", "list" }, {
+	run({ "api", "snapshot" }, {
 		on_error = function(_, message)
-			fail_step("workspace list", message)
+			fail_step("agent snapshot", message)
 		end,
 		on_success = function(result)
-			local payload, err = decode_result(result, "workspace list")
-			local workspaces = payload and payload.workspaces or nil
-			if type(workspaces) ~= "table" then
-				fail_step("workspace list", err or "response did not include workspaces")
+			local payload, err = decode_result(result, "snapshot")
+			local snapshot = payload and payload.snapshot or nil
+			if type(snapshot) ~= "table" then
+				fail_step("agent snapshot", err or "response did not include a snapshot")
 				return
 			end
-			vim.ui.select(workspaces, {
-				prompt = "Herdr workspace",
-				format_item = function(item)
-					return (item.label or item.workspace_id) .. " [" .. (item.agent_status or "unknown") .. "]"
+			local items = build_agent_items(snapshot)
+			if #items == 0 then
+				util.notify("no Herdr agents found", vim.log.levels.WARN)
+				return
+			end
+			local Snacks = _G.Snacks or require("snacks")
+			Snacks.picker.pick({
+				title = "Herdr Agents",
+				items = items,
+				format = format_agent,
+				preview = preview_agent,
+				confirm = function(picker, item)
+					picker:close()
+					if item then
+						focus_agent_item(item)
+					end
 				end,
-			}, function(choice)
-				if choice then
-					focus_workspace(choice.workspace_id)
-				end
-			end)
+			})
 		end,
 	})
 end
@@ -590,5 +790,10 @@ M._test.workspace_label = workspace_label
 M._test.agent_name = agent_name
 M._test.decode_result = decode_result
 M._test.shell_is_ready = shell_is_ready
+M._test.build_agent_items = build_agent_items
+M._test.legacy_host_pane = legacy_host_pane
+M._test.format_agent = format_agent
+M._test.preview_agent = preview_agent
+M._test.focus_agent_item = focus_agent_item
 
 return M

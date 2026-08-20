@@ -440,6 +440,173 @@ tests["agent navigation wraps and latest attention uses state sequence"] = funct
 	herdr._test.run = nil
 end
 
+tests["agent dashboard resolves normal, tagged, legacy, and stale pane targets"] = function()
+	local snapshot = {
+		workspaces = { { workspace_id = "w1", label = "project" } },
+		tabs = { { tab_id = "w1:t1", workspace_id = "w1", title = "editor" } },
+		panes = {
+			{ pane_id = "w1:p1", tab_id = "w1:t1", cwd = "/tmp/project" },
+			{ pane_id = "w1:p2", tab_id = "w1:t1" },
+			{ pane_id = "w1:p3", tab_id = "w1:t1" },
+			{ pane_id = "w1:p4", tab_id = "w1:t1" },
+			{ pane_id = "w1:p5", tab_id = "w1:t1" },
+		},
+		layouts = {
+			{
+				tab_id = "w1:t1",
+				panes = {
+					{ pane_id = "w1:p1", rect = { x = 0, y = 0, width = 60, height = 40 } },
+					{ pane_id = "w1:p3", rect = { x = 60, y = 0, width = 40, height = 40 } },
+					{ pane_id = "w1:p4", rect = { x = 0, y = 40, width = 60, height = 30 } },
+					{ pane_id = "w1:p5", rect = { x = 60, y = 40, width = 40, height = 30 } },
+				},
+			},
+		},
+		agents = {
+			{
+				name = "reviewer",
+				pane_id = "w1:p2",
+				tab_id = "w1:t1",
+				workspace_id = "w1",
+				agent_status = "working",
+				title = "Review changes",
+			},
+			{
+				name = "nvim-codex-tagged",
+				pane_id = "w1:p3",
+				tab_id = "w1:t1",
+				workspace_id = "w1",
+				agent_status = "blocked",
+				tokens = { "nvim_host_pane=w1:p1" },
+			},
+			{
+				name = "nvim-codex-legacy",
+				pane_id = "w1:p5",
+				tab_id = "w1:t1",
+				workspace_id = "w1",
+				agent_status = "idle",
+			},
+			{
+				name = "nvim-codex-stale",
+				pane_id = "w1:p3",
+				tab_id = "w1:t1",
+				workspace_id = "w1",
+				tokens = { nvim_host_pane = "w1:p99" },
+			},
+		},
+	}
+	local items = herdr._test.build_agent_items(snapshot)
+	assert_equal(#items, 4, "item count")
+	assert_equal(items[1].target_pane_id, "w1:p2", "normal agent pane")
+	assert_equal(items[1].targets_nvim, false, "normal target kind")
+	assert_equal(items[2].target_pane_id, "w1:p1", "tagged host pane")
+	assert_equal(items[2].targets_nvim, true, "tagged target kind")
+	assert_equal(items[3].target_pane_id, "w1:p4", "legacy left pane")
+	assert_equal(items[3].targets_nvim, true, "legacy target kind")
+	assert_equal(items[4].target_pane_id, "w1:p3", "stale metadata fallback")
+	assert_equal(items[4].targets_nvim, false, "stale target kind")
+	assert_equal(items[1].workspace_label, "project", "workspace label")
+	assert_equal(items[1].tab_label, "editor", "tab label")
+	assert_equal(items[1].text:find("Review changes", 1, true) ~= nil, true, "searchable title")
+end
+
+tests["agent dashboard previews and focuses the resolved target"] = function()
+	local calls = {}
+	local preview_command
+	local preview_opts
+	local preview_window_opts
+	local old_preview = package.loaded["snacks.picker.preview"]
+	package.loaded["snacks.picker.preview"] = {
+		cmd = function(command, _, opts)
+			preview_command = command
+			preview_opts = opts
+		end,
+	}
+	local preview = {
+		reset = function() end,
+		minimal = function() end,
+		set_title = function() end,
+		wo = function(_, opts)
+			preview_window_opts = opts
+		end,
+	}
+	local preview_win = vim.api.nvim_get_current_win()
+	herdr._test.preview_agent({
+		item = {
+			target_pane_id = "w1:p1",
+			workspace_label = "project",
+			tab_label = "editor",
+			name = "nvim-codex-tagged",
+		},
+		preview = preview,
+		win = preview_win,
+	})
+	package.loaded["snacks.picker.preview"] = old_preview
+	assert_equal(preview_command, {
+		vim.fn.stdpath("config") .. "/bin/herdr-pane-preview",
+		"w1:p1",
+		tostring(vim.api.nvim_win_get_width(preview_win)),
+	}, "preview command")
+	assert_equal(preview_opts, { term = false, ansi = true }, "ANSI preview renderer")
+	assert_equal(preview_window_opts, { wrap = false }, "preview wrapping")
+
+	herdr._test.run = function(args, opts)
+		table.insert(calls, vim.deepcopy(args))
+		if args[1] == "pane" then
+			opts.on_error({ code = 1, stderr = "stale", stdout = "" }, "stale")
+		elseif opts.on_success then
+			opts.on_success(response({}))
+		end
+	end
+	herdr._test.focus_agent_item({
+		name = "nvim-codex-tagged",
+		agent_pane_id = "w1:p2",
+		target_pane_id = "w1:p1",
+		targets_nvim = true,
+	})
+	assert_equal(calls[1], { "pane", "zoom", "w1:p1", "--on" }, "zoom host")
+	assert_equal(calls[2], { "agent", "focus", "nvim-codex-tagged" }, "focus fallback")
+
+	herdr._test.focus_agent_item({
+		name = "reviewer",
+		agent_pane_id = "w1:p2",
+		target_pane_id = "w1:p2",
+		targets_nvim = false,
+	})
+	assert_equal(calls[3], { "agent", "focus", "reviewer" }, "normal focus")
+	herdr._test.run = nil
+end
+
+tests["dashboard loads one snapshot into Snacks"] = function()
+	local picker_opts
+	local old_snacks = _G.Snacks
+	_G.Snacks = { picker = {
+		pick = function(opts)
+			picker_opts = opts
+		end,
+	} }
+	herdr._test.run = function(args, opts)
+		assert_equal(args, { "api", "snapshot" }, "snapshot command")
+		opts.on_success(response({
+			snapshot = {
+				workspaces = { { workspace_id = "w1", label = "project" } },
+				tabs = { { tab_id = "w1:t1", title = "main" } },
+				panes = { { pane_id = "w1:p1", tab_id = "w1:t1" } },
+				layouts = {},
+				agents = {
+					{ name = "reviewer", pane_id = "w1:p1", tab_id = "w1:t1", workspace_id = "w1" },
+				},
+			},
+		}))
+	end
+	herdr.select_workspace()
+	assert_equal(picker_opts.title, "Herdr Agents", "picker title")
+	assert_equal(#picker_opts.items, 1, "picker items")
+	assert_equal(picker_opts.items[1].name, "reviewer", "picker agent")
+	herdr._test.run = nil
+	_G.Snacks = old_snacks
+end
+
 for name, test in pairs(tests) do
 	local ok, err = xpcall(test, debug.traceback)
 	if not ok then

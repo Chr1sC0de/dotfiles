@@ -133,6 +133,23 @@ function M.prepare(session, agent_name)
 	return M.write_route(session)
 end
 
+---Reports which Neovim pane owns a backing Codex agent.
+---This metadata is advisory, so reporting failures never interrupt startup.
+function M.report_host(session)
+	if not session or not session.herdr_pane_id or not session.herdr_host_pane_id then
+		return
+	end
+	run({
+		"pane",
+		"report-metadata",
+		session.herdr_pane_id,
+		"--source",
+		"nvim:codex-host",
+		"--token",
+		"nvim_host_pane=" .. session.herdr_host_pane_id,
+	})
+end
+
 function M.pane_split_args(session)
 	local current_path = vim.env.PATH or ""
 	local wrapper_dir = session.herdr_wrapper_dir or M.lifecycle_wrapper_dir()
@@ -270,6 +287,7 @@ function M.create_backing_agent(session, opts)
 				return
 			end
 			session.herdr_pane_id = pane_id
+			M.report_host(session)
 			start_agent_when_available(session, {
 				on_error = function(start_result, message)
 					M.restore_host_view(session, function()
