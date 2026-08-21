@@ -7,7 +7,7 @@ return {
 		require("conform").setup({
 			formatters_by_ft = {
 				html = { "prettierd", "prettier", stop_after_first = true },
-				python = { "ruff_fix", "ruff_format", "ruff_organize_imports", "black", "injected" },
+				python = { "ruff_fix", "ruff_format", "ruff_organize_imports", "injected" },
 				make = { "bake" },
 				sh = { "shfmt" },
 				bash = { "shfmt" },

@@ -1,42 +1,42 @@
 #!/usr/bin/env bash
 
 dependencies=(
-    "git"
-    "curl"
-    "wget"
-    "ca-certificates"
-    "bat"
-    "ripgrep"
-    "fd-find"
-    "build-essential"
-    "cmake"
-    "python3"
-    "tmux"
-    "sudo"
+	"git"
+	"curl"
+	"wget"
+	"ca-certificates"
+	"bat"
+	"ripgrep"
+	"fd-find"
+	"build-essential"
+	"cmake"
+	"python3"
+	"tmux"
+	"sudo"
 )
 
 if [[ $EUID -ne 0 ]]; then
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${dependencies[@]}"
+	sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${dependencies[@]}"
 else
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${dependencies[@]}"
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${dependencies[@]}"
 fi
 
 if [[ $EUID -ne 0 ]]; then
-    sudo apt-get autoremove -y
+	sudo apt-get autoremove -y
 else
-    apt-get autoremove -y
+	apt-get autoremove -y
 fi
 
 mkdir -p "$HOME/.local/bin"
 
 # create symbolic link fo fdfind
 if type fdfind &>/dev/null; then
-    ln -sf "$(which fdfind)" "$HOME/.local/bin/fd"
+	ln -sf "$(which fdfind)" "$HOME/.local/bin/fd"
 fi
 
 # create symbolic link for bash
 if type batcat &>/dev/null; then
-    ln -sf "$(which batcat)" "$HOME/.local/bin/bat"
+	ln -sf "$(which batcat)" "$HOME/.local/bin/bat"
 fi
 
 # install fzf
