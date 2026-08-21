@@ -5,6 +5,7 @@ return {
 		local iron = require("iron.core")
 		local lowlevel = require("iron.lowlevel")
 		local marks = require("iron.marks")
+		local state = require("iron.state")
 		local view = require("iron.view")
 		local common = require("iron.fts.common")
 		local native = {
@@ -68,7 +69,32 @@ return {
 				return false
 			end
 			iron.send(filetype, data)
+			vim.b.iron_injected_repl_filetype = filetype
 			return true
+		end
+
+		local function injected_filetype_under_cursor()
+			local row = vim.api.nvim_win_get_cursor(0)[1] - 1
+			local line = vim.api.nvim_buf_get_lines(0, row, row + 1, false)[1] or ""
+			return injected_filetype({ row, 0, row, #line })
+		end
+
+		local function repl_filetype()
+			local filetype = injected_filetype_under_cursor() or vim.b.iron_injected_repl_filetype
+			if filetype then
+				local has_repl, repl = pcall(lowlevel.get_repl_def, filetype)
+				if has_repl and repl then
+					return filetype
+				end
+			end
+			return lowlevel.get_buffer_ft(0)
+		end
+
+		local function toggle_repl(open_cmd)
+			if open_cmd then
+				state.repl_open_cmd = open_cmd
+			end
+			iron.repl_for(repl_filetype())
 		end
 
 		local function send_line()
@@ -123,6 +149,11 @@ return {
 			end
 		end
 
+		local repl_open_cmds = {
+			view.split.vertical.rightbelow("%40"),
+			view.split.rightbelow("%25"),
+		}
+
 		iron.setup({
 			config = {
 				-- Whether a repl should be discarded or not
@@ -168,10 +199,7 @@ return {
 				-- toggle_repl_with_cmd_1, ..., toggle_repl_with_cmd_k
 				-- For example,
 				--
-				repl_open_cmd = {
-					view.split.vertical.rightbelow("%40"),
-					view.split.rightbelow("%25"),
-				},
+				repl_open_cmd = repl_open_cmds,
 			},
 			-- Iron doesn't set keymaps by default anymore.
 			-- You can set them here or manually add keymaps to the functions in iron.core
@@ -220,6 +248,13 @@ return {
 		vim.keymap.set("n", "<space>sm", send_mark, { silent = true, desc = "iron_repl_send_mark" })
 		vim.keymap.set("n", "<space>sc", function() iron.run_motion("send_motion") end,
 			{ silent = true, desc = "iron_repl_send_motion" })
+		vim.keymap.set("n", "<space>rr", toggle_repl, { silent = true, desc = "iron_repl_toggle" })
+		vim.keymap.set("n", "<space>rv", function()
+			toggle_repl(repl_open_cmds[1])
+		end, { silent = true, desc = "iron_repl_toggle_vertical" })
+		vim.keymap.set("n", "<space>rs", function()
+			toggle_repl(repl_open_cmds[2])
+		end, { silent = true, desc = "iron_repl_toggle_horizontal" })
 
 		-- iron also has a list of commands, see :h iron-commands for all available commands
 		vim.keymap.set("n", "<space>rf", "<cmd>IronFocus<cr>", { desc = "iron_repl_focus" })
