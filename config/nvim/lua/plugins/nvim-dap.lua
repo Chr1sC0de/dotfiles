@@ -23,7 +23,7 @@ return {
 					elements = {
 						{ id = "console", size = 1 },
 					},
-					size = 0.25,
+					size = 0.40,
 					position = "bottom",
 				},
 			},

@@ -1,0 +1,33 @@
+{
+  "Create a VS Code launch.json": {
+    "prefix": "launch-json",
+    "description": "Create a launch.json scaffold for nvim-dap",
+    "body": [
+      "{",
+      "\t\"\\$schema\": \"https://raw.githubusercontent.com/mfussenegger/dapconfig-schema/master/dapconfig-schema.json\",",
+      "\t\"version\": \"0.2.0\",",
+      "\t\"configurations\": [",
+      "\t\t$0",
+      "\t]",
+      "}"
+    ]
+  },
+  "Debug marimo in edit mode": {
+    "prefix": "marimo-debug-edit",
+    "description": "Add marimo's interactive debugpy configuration",
+    "body": [
+      "{",
+      "\t\"type\": \"debugpy\",",
+      "\t\"request\": \"launch\",",
+      "\t\"name\": \"marimo Debug: edit mode\",",
+      "\t\"program\": \"\\${file}\",",
+      "\t\"console\": \"integratedTerminal\",",
+      "\t\"cwd\": \"\\${workspaceFolder}\",",
+      "\t\"env\": {",
+      "\t\t\"MARIMO_SCRIPT_EDIT\": \"1\"",
+      "\t},",
+      "\t\"justMyCode\": true",
+      "}$0"
+    ]
+  }
+}

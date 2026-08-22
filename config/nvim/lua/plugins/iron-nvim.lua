@@ -40,10 +40,18 @@ return {
 			local inside_region = false
 			for _, region in pairs(language_tree:included_regions()) do
 				for _, included_range in ipairs(region) do
-					if contains_range(
-						included_range[1], included_range[2], included_range[4], included_range[5],
-						range[1], range[2], range[3], range[4]
-					) then
+					if
+						contains_range(
+							included_range[1],
+							included_range[2],
+							included_range[4],
+							included_range[5],
+							range[1],
+							range[2],
+							range[3],
+							range[4]
+						)
+					then
 						inside_region = true
 						break
 					end
@@ -113,7 +121,11 @@ return {
 		local function send_visual()
 			local data = iron.mark_visual()
 			local range = marks.get()
-			if data and range and send_range({ range.from_line, range.from_col, range.to_line, range.to_col + 1 }, data) then
+			if
+				data
+				and range
+				and send_range({ range.from_line, range.from_col, range.to_line, range.to_col + 1 }, data)
+			then
 				return
 			end
 			iron.send(nil, data)
@@ -124,9 +136,10 @@ return {
 			if not range then
 				return
 			end
-			local text = vim.api.nvim_buf_get_text(0, range.from_line, range.from_col, range.to_line, range.to_col + 1, {})
+			local text =
+				vim.api.nvim_buf_get_text(0, range.from_line, range.from_col, range.to_line, range.to_col + 1, {})
 			if not send_range({ range.from_line, range.from_col, range.to_line, range.to_col + 1 }, text) then
-			native.send_mark()
+				native.send_mark()
 			end
 		end
 
@@ -144,14 +157,20 @@ return {
 		local function send_motion(mtype)
 			local data = iron.mark_motion(mtype)
 			local range = marks.get()
-			if not (data and range and send_range({ range.from_line, range.from_col, range.to_line, range.to_col + 1 }, data)) then
+			if
+				not (
+					data
+					and range
+					and send_range({ range.from_line, range.from_col, range.to_line, range.to_col + 1 }, data)
+				)
+			then
 				iron.send(nil, data)
 			end
 		end
 
 		local repl_open_cmds = {
-			view.split.vertical.rightbelow("%40"),
-			view.split.rightbelow("%25"),
+			view.split.vertical.rightbelow("%50"),
+			view.split.rightbelow("%40"),
 		}
 
 		iron.setup({
@@ -246,8 +265,9 @@ return {
 		vim.keymap.set("v", "<space>sc", send_visual, { silent = true, desc = "iron_repl_visual_send" })
 		vim.keymap.set("n", "<space>su", send_until_cursor, { silent = true, desc = "iron_repl_send_until_cursor" })
 		vim.keymap.set("n", "<space>sm", send_mark, { silent = true, desc = "iron_repl_send_mark" })
-		vim.keymap.set("n", "<space>sc", function() iron.run_motion("send_motion") end,
-			{ silent = true, desc = "iron_repl_send_motion" })
+		vim.keymap.set("n", "<space>sc", function()
+			iron.run_motion("send_motion")
+		end, { silent = true, desc = "iron_repl_send_motion" })
 		vim.keymap.set("n", "<space>rr", toggle_repl, { silent = true, desc = "iron_repl_toggle" })
 		vim.keymap.set("n", "<space>rv", function()
 			toggle_repl(repl_open_cmds[1])
