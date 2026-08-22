@@ -9,6 +9,8 @@ return {
 	-- Lazy loading is not recommended because it is very tricky to make it work correctly in all situations.
 	lazy = false,
 	config = function()
+		local detail = false
+
 		-- Declare a global function to retrieve the current directory
 		function _G.get_oil_winbar()
 			local bufnr = vim.api.nvim_win_get_buf(vim.g.statusline_winid)
@@ -88,7 +90,10 @@ return {
 				["<C-s>"] = { "actions.select", opts = { vertical = true } },
 				["<C-h>"] = { "actions.select", opts = { horizontal = true } },
 				["<C-t>"] = { "actions.select", opts = { tab = true } },
-				["<C-p>"] = "actions.preview",
+				["<C-p>"] = {
+					"actions.preview",
+					opts = { vertical = true, split = "belowright" },
+				},
 				["<C-c>"] = { "actions.close", mode = "n" },
 				["<C-l>"] = "actions.refresh",
 				["-"] = { "actions.parent", mode = "n" },
@@ -99,6 +104,17 @@ return {
 				["gx"] = "actions.open_external",
 				["g."] = { "actions.toggle_hidden", mode = "n" },
 				["g\\"] = { "actions.toggle_trash", mode = "n" },
+				["gd"] = {
+					desc = "Toggle file detail view",
+					callback = function()
+						detail = not detail
+						if detail then
+							require("oil").set_columns({ "icon", "permissions", "size", "mtime" })
+						else
+							require("oil").set_columns({ "icon" })
+						end
+					end,
+				},
 			},
 			-- Set to false to disable all of the above keymaps
 			use_default_keymaps = true,
@@ -159,7 +175,7 @@ return {
 				-- optionally override the oil buffers window title with custom function: fun(winid: integer): string
 				get_win_title = nil,
 				-- preview_split: Split direction: "auto", "left", "right", "above", "below".
-				preview_split = "auto",
+				preview_split = "right",
 				-- This is the config that will be passed to nvim_open_win.
 				-- Change values here to customize the layout
 				override = function(conf)
@@ -226,21 +242,5 @@ return {
 			},
 		})
 		vim.keymap.set("n", "-", "<CMD>Oil<CR>", { desc = "Open parent directory" })
-		local detail = false
-		require("oil").setup({
-			keymaps = {
-				["gd"] = {
-					desc = "Toggle file detail view",
-					callback = function()
-						detail = not detail
-						if detail then
-							require("oil").set_columns({ "icon", "permissions", "size", "mtime" })
-						else
-							require("oil").set_columns({ "icon" })
-						end
-					end,
-				},
-			},
-		})
 	end,
 }
