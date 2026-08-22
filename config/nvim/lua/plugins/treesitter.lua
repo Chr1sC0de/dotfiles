@@ -10,6 +10,12 @@ return {
 				branch = "develop",
 			},
 			{
+				"LiadOz/nvim-dap-repl-highlights",
+				config = function()
+					require("nvim-dap-repl-highlights").setup()
+				end,
+			},
+			{
 				"nvim-treesitter/nvim-treesitter-context",
 				opts = {
 					max_lines = 4,
@@ -69,12 +75,7 @@ return {
 				},
 				auto_install = true,
 				ensure_installed = languages,
-			})
-			vim.api.nvim_create_autocmd("FileType", {
-				pattern = languages,
-				callback = function(args)
-					vim.treesitter.start(args.buf)
-				end,
+				nohighlight = { "dap-repl" },
 			})
 		end,
 	},
