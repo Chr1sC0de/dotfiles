@@ -2,6 +2,22 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
 
 local sent_filetype
 local toggled_filetype
+local dap_expression
+local dap_open_calls = 0
+
+local iron_dap = {}
+
+package.loaded["iron.dap"] = iron_dap
+package.loaded.dap = {
+	repl = {
+		execute = function(expression)
+			dap_expression = expression
+		end,
+		open = function()
+			dap_open_calls = dap_open_calls + 1
+		end,
+	},
+}
 
 local iron = {
 	send_line = function() end,
@@ -81,6 +97,11 @@ vim.api.nvim_buf_set_lines(buffer, 0, -1, false, { "print(1)" })
 
 local spec = dofile(vim.fn.getcwd() .. "/config/nvim/lua/plugins/iron-nvim.lua")
 spec.config()
+
+assert(type(iron_dap.send_to_dap) == "function", "Iron's DAP bridge should be configured")
+iron_dap.send_to_dap({ "print(1)\r", "print(2)" })
+assert(dap_expression == "print(1)\nprint(2)", "DAP sends should normalize multiline input")
+assert(dap_open_calls == 0, "sending to DAP should not open a standalone REPL")
 
 local send_line = vim.fn.maparg("<space>sl", "n", false, true).callback
 assert(type(send_line) == "function", "injected send-line mapping should have a Lua callback")

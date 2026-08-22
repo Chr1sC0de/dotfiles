@@ -21,9 +21,10 @@ return {
 			layouts = {
 				{
 					elements = {
-						{ id = "console", size = 1 },
+						{ id = "console", size = 0.5 },
+						{ id = "repl", size = 0.5 },
 					},
-					size = 0.40,
+					size = 0.5,
 					position = "bottom",
 				},
 			},
@@ -38,6 +39,60 @@ return {
 					height = math.floor(vim.o.lines * 0.7),
 					title = title,
 				})
+			end
+		end
+
+		local repl_return_windows = {}
+
+		local function valid_repl_return_window(window, tabpage, repl_buffer)
+			return window
+				and vim.api.nvim_win_is_valid(window)
+				and vim.api.nvim_win_get_tabpage(window) == tabpage
+				and vim.api.nvim_win_get_buf(window) ~= repl_buffer
+		end
+
+		local function repl_return_window(tabpage, repl_buffer)
+			local remembered_window = repl_return_windows[tabpage]
+			if valid_repl_return_window(remembered_window, tabpage, repl_buffer) then
+				return remembered_window
+			end
+
+			local alternate_window = vim.fn.win_getid(vim.fn.winnr("#"))
+			if valid_repl_return_window(alternate_window, tabpage, repl_buffer) then
+				return alternate_window
+			end
+
+			for _, window in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
+				if valid_repl_return_window(window, tabpage, repl_buffer) then
+					return window
+				end
+			end
+		end
+
+		local function toggle_dapui_repl_focus()
+			local tabpage = vim.api.nvim_get_current_tabpage()
+			local repl_buffer = dapui.elements.repl.buffer()
+
+			if vim.api.nvim_get_current_buf() == repl_buffer then
+				local return_window = repl_return_window(tabpage, repl_buffer)
+				if return_window then
+					repl_return_windows[tabpage] = return_window
+					vim.api.nvim_set_current_win(return_window)
+				end
+				return
+			end
+
+			repl_return_windows[tabpage] = vim.api.nvim_get_current_win()
+			local repl_window = vim.fn.bufwinid(repl_buffer)
+
+			if repl_window == -1 then
+				dapui.open()
+				repl_buffer = dapui.elements.repl.buffer()
+				repl_window = vim.fn.bufwinid(repl_buffer)
+			end
+
+			if repl_window ~= -1 then
+				vim.api.nvim_set_current_win(repl_window)
 			end
 		end
 
@@ -73,9 +128,7 @@ return {
 		vim.keymap.set("n", "<Leader>lp", function()
 			dap.set_breakpoint(nil, nil, vim.fn.input("Log point message: "))
 		end, { desc = "dap: set logpoint message" })
-		vim.keymap.set("n", "<Leader>dr", function()
-			dap.repl.toggle()
-		end, { desc = "dap: toggle repl" })
+		vim.keymap.set("n", "<Leader>dr", toggle_dapui_repl_focus, { desc = "dap-ui: toggle repl focus" })
 		vim.keymap.set("n", "<Leader>dt", function()
 			dapui.toggle()
 		end, { desc = "dap-ui: toggle" })

@@ -3,6 +3,7 @@ return {
 	enabled = not vim.g.vscode,
 	config = function()
 		local iron = require("iron.core")
+		local iron_dap = require("iron.dap")
 		local lowlevel = require("iron.lowlevel")
 		local marks = require("iron.marks")
 		local state = require("iron.state")
@@ -172,6 +173,13 @@ return {
 			view.split.vertical.rightbelow("%50"),
 			view.split.rightbelow("%40"),
 		}
+
+		-- Iron opens nvim-dap's standalone REPL after every DAP send. The
+		-- dap-ui REPL uses the same buffer, so execute without changing windows.
+		iron_dap.send_to_dap = function(lines)
+			local text = type(lines) == "table" and table.concat(lines, "\n"):gsub("\r", "") or lines
+			require("dap").repl.execute(text)
+		end
 
 		iron.setup({
 			config = {
