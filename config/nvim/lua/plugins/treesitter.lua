@@ -7,7 +7,6 @@ return {
 		dependencies = {
 			{
 				"romus204/tree-sitter-manager.nvim",
-				branch = "develop",
 			},
 			{
 				"LiadOz/nvim-dap-repl-highlights",
