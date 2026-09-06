@@ -6,11 +6,13 @@ package.path = table.concat({
 	package.path,
 }, ";")
 
+local constants = require("codex.constants")
 local state = require("codex.state")
 local jobs = require("codex.ephemeral.jobs")
 local jobs_panel = require("codex.ephemeral.jobs_panel")
 local spinner = require("codex.ephemeral.spinner")
 local util = require("codex.util")
+local initial_ephemeral_models = vim.deepcopy(state.ephemeral_models)
 
 local function reset_state()
 	state.codex_jobs_line_highlights = {}
@@ -22,8 +24,8 @@ local function reset_state()
 	state.next_ephemeral_diagnostic_id = 1
 	state.next_ephemeral_sign_id = 1
 	state.ephemeral_models = {
-		command = "gpt-5.6-luna",
-		edit = nil,
+		command = "gpt-6-astra",
+		edit = "gpt-6-astra",
 	}
 end
 
@@ -42,6 +44,12 @@ end
 
 local function assert_equal(actual, expected, label)
 	if actual ~= expected then
+		error(string.format("%s: expected %s, got %s", label, vim.inspect(expected), vim.inspect(actual)))
+	end
+end
+
+local function assert_deep_equal(actual, expected, label)
+	if not vim.deep_equal(actual, expected) then
 		error(string.format("%s: expected %s, got %s", label, vim.inspect(expected), vim.inspect(actual)))
 	end
 end
@@ -72,7 +80,24 @@ end
 
 local tests = {}
 
-tests["command jobs use lightweight model and reasoning defaults"] = function()
+tests["model choices match the current Codex lineup"] = function()
+	assert_equal(constants.CODEX_TITLE_MODEL, "gpt-6-astra", "title model")
+	assert_deep_equal(initial_ephemeral_models, {
+		command = "gpt-6-astra",
+		edit = "gpt-6-astra",
+	}, "initial ephemeral models")
+	assert_deep_equal(constants.EPHEMERAL_MODEL_CHOICES, {
+		{ label = "CLI default", model = nil },
+		{ label = "Astra", model = "gpt-6-astra" },
+		{ label = "5.6 Sol", model = "gpt-5.6-sol" },
+		{ label = "5.6 Terra", model = "gpt-5.6-terra" },
+		{ label = "5.6 Luna", model = "gpt-5.6-luna" },
+		{ label = "5.3 Codex Spark", model = "gpt-5.3-codex-spark" },
+		{ label = "Custom...", custom = true },
+	}, "model choices")
+end
+
+tests["command jobs use Astra and retain reasoning defaults"] = function()
 	reset_state()
 
 	local captured_command = nil
@@ -115,7 +140,7 @@ tests["command jobs use lightweight model and reasoning defaults"] = function()
 	spinner.start_diagnostic = old_start_diagnostic
 
 	assert_contains_arg(captured_command, "--model", "model flag")
-	assert_contains_arg(captured_command, "gpt-5.6-luna", "default command model")
+	assert_contains_arg(captured_command, "gpt-6-astra", "default command model")
 	assert_contains_arg(captured_command, 'model_reasoning_effort="low"', "reasoning override")
 	assert_contains_arg(captured_command, "--sandbox", "sandbox flag")
 	assert_contains_arg(captured_command, "read-only", "read-only sandbox")
@@ -123,6 +148,52 @@ tests["command jobs use lightweight model and reasoning defaults"] = function()
 	assert_contains_arg(captured_command, "--output-last-message", "final message output")
 	assert_not_contains_arg(captured_command, "--ephemeral", "persisted session")
 	assert_contains_text(captured_prompt, "Do not modify files.", "command prompt mode")
+end
+
+tests["edit jobs use Astra and retain edit isolation defaults"] = function()
+	reset_state()
+
+	local captured_command = nil
+	local old_executable = vim.fn.executable
+	local old_jobstart = vim.fn.jobstart
+	local old_chansend = vim.fn.chansend
+	local old_chanclose = vim.fn.chanclose
+	local old_notify = util.notify
+	local old_start_spinner = spinner.start_spinner
+	local old_start_diagnostic = spinner.start_diagnostic
+
+	vim.fn.executable = function()
+		return 1
+	end
+	vim.fn.jobstart = function(command)
+		captured_command = command
+		return 124
+	end
+	vim.fn.chansend = function() end
+	vim.fn.chanclose = function() end
+	util.notify = function() end
+	spinner.start_spinner = function()
+		return function() end
+	end
+	spinner.start_diagnostic = function()
+		return function() end
+	end
+
+	jobs.run("edit", make_target(), "fix this")
+
+	vim.fn.executable = old_executable
+	vim.fn.jobstart = old_jobstart
+	vim.fn.chansend = old_chansend
+	vim.fn.chanclose = old_chanclose
+	util.notify = old_notify
+	spinner.start_spinner = old_start_spinner
+	spinner.start_diagnostic = old_start_diagnostic
+
+	assert_contains_arg(captured_command, "--model", "model flag")
+	assert_contains_arg(captured_command, "gpt-6-astra", "default edit model")
+	assert_contains_arg(captured_command, "--sandbox", "sandbox flag")
+	assert_contains_arg(captured_command, "workspace-write", "workspace-write sandbox")
+	assert_not_contains_arg(captured_command, 'model_reasoning_effort="low"', "command reasoning override")
 end
 
 tests["edit jobs refuse modified buffers"] = function()

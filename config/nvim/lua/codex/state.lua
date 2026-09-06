@@ -19,8 +19,8 @@ return {
 	next_ephemeral_sign_id = 1,
 	next_codex_session_id = 1,
 	ephemeral_models = {
-		command = "gpt-5.6-luna",
-		edit = nil,
+		command = "gpt-6-astra",
+		edit = "gpt-6-astra",
 	},
 	setup_done = false,
 }

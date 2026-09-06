@@ -537,7 +537,7 @@ local function generate_branch(task, callback)
 			"--config",
 			'model_reasoning_effort="xhigh"',
 			"-m",
-			"gpt-5.5",
+			"gpt-6-astra",
 			instruction,
 		},
 		{ text = true },
