@@ -35,10 +35,36 @@ tmux Workmux backend also retain their existing launch behavior; they are not
 covered by this integration. Use a Codex chat launched inside the worktree's
 Neovim instance when editing the same checkout together with an agent.
 
+## Pop!_OS / Linux prerequisites
+
+Pop!_OS is the primary acceptance target. Install the distribution's
+`bubblewrap` package alongside Codex, Neovim, and Cargo. Codex 0.153.4 prefers
+system `bwrap`; its bundled helper can fail on hosts with AppArmor user
+namespace restrictions. On affected Ubuntu 24.04 based systems, the packaged
+`bwrap-userns-restrict` AppArmor profile may also need to be loaded. Follow
+[Codex's Linux prerequisites](https://developers.openai.com/codex/sandboxing#prerequisites)
+for the distribution package and profile setup.
+
+From this branch, check the actual Pop!_OS host with:
+
+```sh
+python3 tests/tandem_linux_check.py
+```
+
+This needs Python 3.10+, Codex, and Bubblewrap. It reports the OS/kernel,
+relevant namespace settings, executable versions, and a real sandbox probe.
+The native read must work and the attempted write must be denied. The check
+uses temporary canary files and an isolated Codex configuration, without
+making model requests or changing system security settings. A sandbox startup
+error is a failure. A pass establishes this host prerequisite; it does not
+replace the daemon/editor tests or an interactive Neovim/Herdr smoke test.
+
 ## Reproducible evidence
 
 The `Tandem integration` GitHub Actions workflow runs the existing launcher and
-UI tests, then `tests/tandem_integration.py` on macOS 15. The process test installs the CLI
+UI tests, then `tests/tandem_integration.py` on Ubuntu 22.04 and 24.04. These are
+Linux compatibility checks; they are not a substitute for the user's Pop!_OS
+kernel and desktop configuration. The process test installs the CLI
 using the actual Lazy build callback and loads this repository's Codex setup,
 Tandem spec, and unchanged Conform configuration. It uses real Neovim, the real
 Codex CLI and native sandbox, the real MCP client, and the real daemon. A local
@@ -50,14 +76,15 @@ proposal during human editing, an independent edit to another file, rejection
 of the stale proposal after saving, a fresh edit formatted by Conform, and the
 read-only job's inability to invoke the writer. It also checks argument
 forwarding through the actual direct-chat and Herdr launch paths. The Actions
-summary and `tandem-integration-evidence` artifact contain versions, revisions,
+summary and per-platform `tandem-integration-evidence-*` artifacts contain versions, revisions,
 the tool trace, and results.
 
 The native shell probe must successfully read the test file before its write
-is rejected. An Ubuntu 24.04 runner could not initialize Codex 0.153.4's
-Bubblewrap network sandbox (`failed RTM_NEWADDR`); that run is not accepted as
-evidence of working native read-only execution. The macOS workflow uses the
-same Codex launch settings without changing the sandbox policy.
+is rejected. The initial Ubuntu 24.04 run failed to initialize the Bubblewrap
+network sandbox (`failed RTM_NEWADDR`). Linux CI now installs the documented
+distribution package/profile prerequisites. It retains the same read-only
+policy and does not disable AppArmor or its global user-namespace restriction.
+The previous passing macOS run is supplementary evidence, not Linux acceptance.
 
 This covers the integrated modules in a minimal headless Neovim session. It does
 not load every unrelated Lazy plugin, drive the Herdr native GUI, or establish
