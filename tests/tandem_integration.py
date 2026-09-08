@@ -10,6 +10,7 @@ import http.server
 import json
 import os
 import pathlib
+import platform
 import re
 import shutil
 import signal
@@ -220,6 +221,7 @@ def main():
     conform_revision = json.loads((dotfiles / "config/nvim/lazy-lock.json").read_text())["conform.nvim"]["commit"]
     assert subprocess.check_output(["git", "-C", str(conform), "rev-parse", "HEAD"], text=True).strip() == conform_revision
     report = {"dotfiles_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=dotfiles, text=True).strip(),
+              "platform": platform.platform(),
               "tandem_revision": cli_revision, "plugin_revision": plugin_revision, "conform_revision": conform_revision,
               "model_endpoint": "deterministic local fixture; no live model or credentials", "checks": []}
     def passed(name):

@@ -13,11 +13,14 @@ permissions:
 
 jobs:
   integration:
-    runs-on: ubuntu-24.04
+    runs-on: macos-15
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/checkout@v4
         with:
           repository: Chr1sC0de/tandem.nvim
@@ -32,10 +35,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --retry 3 https://github.com/neovim/neovim/releases/download/v0.12.5/nvim-linux-x86_64.tar.gz -o "$RUNNER_TEMP/nvim.tar.gz"
-          test "$(sha256sum "$RUNNER_TEMP/nvim.tar.gz" | cut -d ' ' -f 1)" = bce0f56eda1f1b1db6eee8f4133d7a38813ea07933837dd1777411ca384c6875
+          test "$(uname -m)" = arm64
+          curl --fail --location --retry 3 https://github.com/neovim/neovim/releases/download/v0.12.5/nvim-macos-arm64.tar.gz -o "$RUNNER_TEMP/nvim.tar.gz"
+          test "$(shasum -a 256 "$RUNNER_TEMP/nvim.tar.gz" | cut -d ' ' -f 1)" = 65fb000099e47ca1b762584c484cc833f40e30851a0ec450d4174e16317c1f9b
           tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/nvim-macos-arm64/bin" >> "$GITHUB_PATH"
           npm install --prefix "$RUNNER_TEMP/codex" --no-audit --no-fund @openai/codex@0.153.4
           echo "$RUNNER_TEMP/codex/node_modules/.bin" >> "$GITHUB_PATH"
           python3 -m venv "$RUNNER_TEMP/ruff"

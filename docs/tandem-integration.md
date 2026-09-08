@@ -38,7 +38,7 @@ Neovim instance when editing the same checkout together with an agent.
 ## Reproducible evidence
 
 The `Tandem integration` GitHub Actions workflow runs the existing launcher and
-UI tests, then `tests/tandem_integration.py`. The process test installs the CLI
+UI tests, then `tests/tandem_integration.py` on macOS 15. The process test installs the CLI
 using the actual Lazy build callback and loads this repository's Codex setup,
 Tandem spec, and unchanged Conform configuration. It uses real Neovim, the real
 Codex CLI and native sandbox, the real MCP client, and the real daemon. A local
@@ -52,6 +52,12 @@ read-only job's inability to invoke the writer. It also checks argument
 forwarding through the actual direct-chat and Herdr launch paths. The Actions
 summary and `tandem-integration-evidence` artifact contain versions, revisions,
 the tool trace, and results.
+
+The native shell probe must successfully read the test file before its write
+is rejected. An Ubuntu 24.04 runner could not initialize Codex 0.153.4's
+Bubblewrap network sandbox (`failed RTM_NEWADDR`); that run is not accepted as
+evidence of working native read-only execution. The macOS workflow uses the
+same Codex launch settings without changing the sandbox policy.
 
 This covers the integrated modules in a minimal headless Neovim session. It does
 not load every unrelated Lazy plugin, drive the Herdr native GUI, or establish
