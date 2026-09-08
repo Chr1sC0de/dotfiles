@@ -3,7 +3,7 @@ local install_root = vim.fn.stdpath("data") .. "/tandem"
 return {
 	"Chr1sC0de/tandem.nvim",
 	-- Updated together after the cross-repository integration suite passes.
-	commit = "6216ca75fb450249b45c29ed21dce28c0aadc04f",
+	commit = "99f740e17a65e7d1a6ed6b528c894613d8f756e3",
 	lazy = false,
 	enabled = not vim.g.vscode,
 	build = function()

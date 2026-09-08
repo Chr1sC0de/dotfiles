@@ -28,6 +28,8 @@ def digest(text):
 def tandem_result(value):
     """Find the MCP server's JSON inside Codex's text/content wrappers."""
     if isinstance(value, str):
+        if "\nOutput:\n" in value:
+            value = value.split("\nOutput:\n", 1)[1]
         try:
             return tandem_result(json.loads(value))
         except (ValueError, TypeError):
@@ -326,6 +328,8 @@ def main():
                 assert config["approval_policy"] == "never"
                 mcp = config["mcp_servers"]["tandem"]
                 assert mcp["command"] == binary and mcp["required"] is True
+                assert set(mcp["tools"]) == set(mcp["enabled_tools"])
+                assert all(tool["approval_mode"] == "approve" for tool in mcp["tools"].values())
                 assert mcp["args"][:4] == ["--root", str(root), "--state-home", env["XDG_STATE_HOME"]]
                 assert ("--read-only" in mcp["args"]) == read_only
                 assert ("tandem_write_file" in mcp["enabled_tools"]) != read_only
@@ -395,6 +399,14 @@ def main():
         finally:
             fixture.human_changed.set()
             if editor and editor.poll() is None:
+                try:
+                    report["jobs"] = expr("(function() local out = {}; for _, job in pairs(require('codex.state').ephemeral_jobs) do "
+                                          "out[#out+1] = {action=job.action,status=job.status,exit_code=job.exit_code,"
+                                          "stderr=job.stderr_lines,answer=job.answer_lines}; end; return out end)()")
+                    if report.get("result") != "passed":
+                        print(json.dumps(report["jobs"], indent=2), file=sys.stderr)
+                except (OSError, ValueError, subprocess.SubprocessError):
+                    pass
                 editor.terminate()
                 editor.communicate(timeout=10)
             if daemon_pid and binary:

@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Chr1sC0de/tandem.nvim
-          ref: 6216ca75fb450249b45c29ed21dce28c0aadc04f
+          ref: 99f740e17a65e7d1a6ed6b528c894613d8f756e3
           path: .ci/tandem.nvim
       - uses: actions/checkout@v4
         with:
