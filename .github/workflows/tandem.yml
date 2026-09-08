@@ -2,7 +2,7 @@ name: Tandem integration
 
 on:
   push:
-    branches: [master, feat/tandem-integration]
+    branches: [master]
     paths: ['config/nvim/**', 'tests/**', '.github/workflows/tandem.yml']
   pull_request:
     paths: ['config/nvim/**', 'tests/**', '.github/workflows/tandem.yml']

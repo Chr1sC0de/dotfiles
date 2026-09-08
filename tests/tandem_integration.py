@@ -102,12 +102,13 @@ class ModelFixture:
                     "content": [{"type": "output_text", "text": "READONLY_DONE"}]}
 
         definitions = tool_definitions(body)
-        if self.counter == 1:
-            self.record("tool_catalogue", tools=body.get("tools", []))
         if not self.native_shell_checked:
+            # Responses Lite models can describe tools in prompt text instead
+            # of a JSON tools array. Probe the actual native handler in that
+            # case; a successful read is required before accepting a denial.
             definition = next(((ns, item) for ns, item in definitions
-                               if item.get("name") in ("exec_command", "shell_command", "shell")), None)
-            assert definition, "native shell tool must be exposed to verify its sandbox: " + str([(ns, item.get('name'), item.get('type')) for ns, item in definitions])
+                               if item.get("name") in ("exec_command", "shell_command", "shell")),
+                              (None, {"name": "exec_command", "type": "function"}))
             if "native-shell" not in outputs and definition:
                 namespace, item = definition
                 name = item["name"]
@@ -132,7 +133,7 @@ class ModelFixture:
         if not self.native_patch_checked:
             definition = next(((ns, item) for ns, item in definitions if item.get("name") == "apply_patch"), None)
             if "native-patch" not in outputs:
-                namespace, item = definition or ("functions", {"type": "custom"})
+                namespace, item = definition or (None, {"type": "custom"})
                 patch = "*** Begin Patch\n*** Add File: native-patch.txt\n+native write must fail\n*** End Patch\n"
                 assert item.get("type") == "custom", item
                 return self.call("native-patch", "apply_patch", patch, namespace=namespace, custom=True)
