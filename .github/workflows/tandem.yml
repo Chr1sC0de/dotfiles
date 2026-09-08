@@ -1,0 +1,79 @@
+name: Tandem integration
+
+on:
+  push:
+    branches: [master, feat/tandem-integration]
+    paths: ['config/nvim/**', 'tests/**', '.github/workflows/tandem.yml']
+  pull_request:
+    paths: ['config/nvim/**', 'tests/**', '.github/workflows/tandem.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+        with:
+          repository: Chr1sC0de/tandem.nvim
+          ref: 6216ca75fb450249b45c29ed21dce28c0aadc04f
+          path: .ci/tandem.nvim
+      - uses: actions/checkout@v4
+        with:
+          repository: stevearc/conform.nvim
+          ref: 016802de402556da54c36bd7359b441266b01cdd
+          path: .ci/conform.nvim
+      - name: Install Neovim, Codex, and Ruff
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 https://github.com/neovim/neovim/releases/download/v0.12.5/nvim-linux-x86_64.tar.gz -o "$RUNNER_TEMP/nvim.tar.gz"
+          test "$(sha256sum "$RUNNER_TEMP/nvim.tar.gz" | cut -d ' ' -f 1)" = bce0f56eda1f1b1db6eee8f4133d7a38813ea07933837dd1777411ca384c6875
+          tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
+          npm install --prefix "$RUNNER_TEMP/codex" --no-audit --no-fund @openai/codex@0.153.4
+          echo "$RUNNER_TEMP/codex/node_modules/.bin" >> "$GITHUB_PATH"
+          python3 -m venv "$RUNNER_TEMP/ruff"
+          "$RUNNER_TEMP/ruff/bin/pip" install ruff==0.12.12
+          echo "$RUNNER_TEMP/ruff/bin" >> "$GITHUB_PATH"
+      - name: Existing launcher and UI regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in tests/*_spec.lua; do
+            nvim --headless -u NONE -l "$test_file"
+          done
+      - name: Real Codex, daemon, buffer, and Conform integration
+        env:
+          TANDEM_NVIM: ${{ github.workspace }}/.ci/tandem.nvim
+          TANDEM_CONFORM: ${{ github.workspace }}/.ci/conform.nvim
+        run: python3 tests/tandem_integration.py
+      - name: Evidence summary
+        if: always()
+        shell: python
+        run: |
+          import json, os, pathlib
+          result = pathlib.Path('artifacts/tandem/results.json')
+          if result.exists():
+              report = json.loads(result.read_text())
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                  summary.write('### Tandem integration: ' + report['result'] + '\n\n')
+                  summary.write('Real Codex executable; deterministic local model fixture. No live model or Herdr GUI session.\n\n')
+                  for name, version in report.get('versions', {}).items():
+                      summary.write('- ' + name + ': `' + version + '`\n')
+                  summary.write('\n')
+                  for check in report['checks']:
+                      summary.write('- PASS: ' + check + '\n')
+                  if report.get('error'):
+                      summary.write('\nFailure: `' + report['error'] + '`\n')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tandem-integration-evidence
+          path: artifacts/tandem/
+          retention-days: 14

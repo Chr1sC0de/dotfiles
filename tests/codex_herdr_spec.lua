@@ -6,6 +6,7 @@ package.path = table.concat({
 	package.path,
 }, ";")
 
+dofile("tests/support/tandem.lua")
 local herdr = require("codex.herdr")
 
 local function assert_equal(actual, expected, label)
@@ -90,7 +91,7 @@ tests["chat launch starts visibly then returns to and zooms Neovim"] = function(
 	local session = {
 		codex_real_bin = "/usr/bin/codex",
 		cwd = "/tmp/project",
-		herdr_agent_name = "nvim-codex-123-1",
+		herdr_agent_name = "nvim-codex-td-123-1",
 		herdr_host_pane_id = "w7:p1",
 		herdr_real_bin = "/usr/bin/herdr",
 		herdr_route_path = "/tmp/route",
@@ -116,6 +117,8 @@ tests["chat launch starts visibly then returns to and zooms Neovim"] = function(
 	}, "report Neovim host")
 	assert_equal(calls[3], { "pane", "process-info", "--pane", "w7:p9" }, "wait for shell")
 	assert_equal(calls[4][1], "agent", "agent fourth")
+	assert_contains(calls[4], "read-only", "native writes remain restricted through Herdr")
+	assert_contains(calls[4], 'approval_policy="never"', "no native-write escalation through Herdr")
 	assert_equal(calls[5], { "pane", "focus", "--pane", "w7:p9", "--direction", "left" }, "focus host")
 	assert_equal(calls[6], { "pane", "zoom", "w7:p1", "--on" }, "zoom host")
 	assert_equal(ready, true, "ready callback")
@@ -183,7 +186,7 @@ tests["chat launch retries while Herdr still considers the new pane busy"] = fun
 	herdr.create_backing_agent({
 		codex_real_bin = "/usr/bin/codex",
 		cwd = "/tmp/project",
-		herdr_agent_name = "nvim-codex-123-busy",
+		herdr_agent_name = "nvim-codex-td-123-busy",
 		herdr_host_pane_id = "w7:p1",
 		herdr_real_bin = "/usr/bin/herdr",
 		herdr_route_path = "/tmp/route-busy",
@@ -205,15 +208,17 @@ tests["chat launch retries while Herdr still considers the new pane busy"] = fun
 end
 
 tests["agent start targets the backing pane"] = function()
+	local protected = package.loaded["tandem"].codex_args({ cwd = "/tmp/project" })
 	local args = herdr.agent_start_args({
+		tandem_args = protected,
 		cwd = "/tmp/project",
-		herdr_agent_name = "nvim-codex-123-2",
+		herdr_agent_name = "nvim-codex-td-123-2",
 		herdr_pane_id = "w7:p9",
 	})
-	assert_equal(args, {
+	assert_equal(args, vim.list_extend({
 		"agent",
 		"start",
-		"nvim-codex-123-2",
+		"nvim-codex-td-123-2",
 		"--kind",
 		"codex",
 		"--pane",
@@ -223,7 +228,7 @@ tests["agent start targets the backing pane"] = function()
 		"--",
 		"--cd",
 		"/tmp/project",
-	}, "agent start args")
+	}, protected), "agent start args")
 end
 
 tests["reattach candidates require Neovim route state"] = function()
@@ -231,16 +236,16 @@ tests["reattach candidates require Neovim route state"] = function()
 	vim.fn.writefile({ "server", "1", "token" }, route_path)
 	local original_route_path = herdr.route_path
 	herdr.route_path = function(name)
-		return name == "nvim-codex-123-2" and route_path or route_path .. ".missing"
+		return name == "nvim-codex-td-123-2" and route_path or route_path .. ".missing"
 	end
 	local candidates = herdr.filter_agents({
-		{ name = "nvim-codex-123-2", agent = "codex", workspace_id = "w7", pane_id = "w7:p9" },
+		{ name = "nvim-codex-td-123-2", agent = "codex", workspace_id = "w7", pane_id = "w7:p9" },
 		{ name = "reviewer", agent = "codex", workspace_id = "w7", pane_id = "w7:p2" },
 	}, {})
 	herdr.route_path = original_route_path
 	vim.fn.delete(route_path)
 	assert_equal(#candidates, 1, "candidate count")
-	assert_equal(candidates[1].name, "nvim-codex-123-2", "candidate name")
+	assert_equal(candidates[1].name, "nvim-codex-td-123-2", "candidate name")
 end
 
 tests["reattach candidates can be limited to the current Herdr tab"] = function()
@@ -251,14 +256,29 @@ tests["reattach candidates can be limited to the current Herdr tab"] = function(
 		return route_path
 	end
 	local candidates = herdr.filter_agents({
-		{ name = "nvim-codex-123-2", agent = "codex", tab_id = "w7:t1" },
-		{ name = "nvim-codex-123-3", agent = "codex", tab_id = "w7:t2" },
+		{ name = "nvim-codex-td-123-2", agent = "codex", tab_id = "w7:t1" },
+		{ name = "nvim-codex-td-123-3", agent = "codex", tab_id = "w7:t2" },
 	}, {}, { tab_id = "w7:t1" })
 	herdr.route_path = original_route_path
 	vim.fn.delete(route_path)
 
 	assert_equal(#candidates, 1, "candidate count")
-	assert_equal(candidates[1].name, "nvim-codex-123-2", "same-tab candidate")
+	assert_equal(candidates[1].name, "nvim-codex-td-123-2", "same-tab candidate")
+end
+
+tests["legacy native-write agents are not silently reattached"] = function()
+	local route_path = vim.fn.tempname()
+	vim.fn.writefile({ "server", "1", "token" }, route_path)
+	local original_route_path = herdr.route_path
+	herdr.route_path = function() return route_path end
+	local candidates = herdr.filter_agents({
+		{ name = "nvim-codex-123-legacy", agent = "codex" },
+		{ name = "nvim-codex-td-123-new", agent = "codex" },
+	}, {})
+	herdr.route_path = original_route_path
+	vim.fn.delete(route_path)
+	assert_equal(#candidates, 1, "only protected launches can reattach")
+	assert_equal(candidates[1].name, "nvim-codex-td-123-new", "protected candidate")
 end
 
 for name, test in pairs(tests) do

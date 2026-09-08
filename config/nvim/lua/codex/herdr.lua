@@ -1,9 +1,12 @@
 local util = require("codex.util")
+local tandem = require("codex.tandem")
 
 local M = {}
 M._test = {}
 
-local AGENT_PREFIX = "nvim-codex-"
+-- Existing agents cannot be retrofitted with a read-only sandbox and MCP tools.
+-- Only discover agents started by this protected launch path.
+local AGENT_PREFIX = "nvim-codex-td-"
 local LIFECYCLE_SUBDIR = "libexec/codex-herdr"
 local ROUTE_SUBDIR = "codex/herdr"
 local SHELL_READY_ATTEMPTS = 40
@@ -234,7 +237,7 @@ local function wait_for_shell(pane_id, opts, attempt)
 end
 
 function M.agent_start_args(session)
-	return {
+	local args = {
 		"agent",
 		"start",
 		session.herdr_agent_name,
@@ -248,6 +251,8 @@ function M.agent_start_args(session)
 		"--cd",
 		session.cwd,
 	}
+	assert(session.tandem_args, "Tandem launch settings are required")
+	return vim.list_extend(args, session.tandem_args)
 end
 
 local function start_agent_when_available(session, opts, attempt)
@@ -276,6 +281,16 @@ end
 
 function M.create_backing_agent(session, opts)
 	opts = opts or {}
+	if not session.tandem_args then
+		local args, err = tandem.args(session.cwd, false)
+		if not args then
+			if opts.on_error then
+				opts.on_error({ code = 1, stderr = err, stdout = "" }, err)
+			end
+			return
+		end
+		session.tandem_args = args
+	end
 	run(M.pane_split_args(session), {
 		on_error = opts.on_error,
 		on_success = function(result)

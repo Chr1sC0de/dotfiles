@@ -3,6 +3,7 @@ local state = require("codex.state")
 local model = require("codex.ephemeral.model")
 local spinner = require("codex.ephemeral.spinner")
 local util = require("codex.util")
+local tandem = require("codex.tandem")
 
 local M = {}
 
@@ -74,7 +75,7 @@ function M.create(action, target, selected_model, instruction, attrs)
 		result_return_bufnr = nil,
 		result_return_tabpage = nil,
 		result_tabpage = nil,
-		sandbox = attrs.sandbox or (action == "edit" and "workspace-write" or "read-only"),
+		sandbox = "read-only",
 		snapshot_path = target.snapshot_path,
 		start_line = target.start_line,
 		started_at = os.time(),
@@ -146,7 +147,10 @@ local function build_ephemeral_prompt(action, instruction, target)
 	local mode_description
 	if action == "edit" then
 		mode_description =
-			"Apply the user's requested edits if appropriate. Keep changes scoped to the supplied context."
+			"Apply the user's requested edits through tandem_read_file and tandem_write_file. "
+			.. "The supplied context may be unsaved: wait for the human to save, then read the saved revision. "
+			.. "On stale_revision reread and regenerate your edit. Never use native patch or shell writes. "
+			.. "Keep changes scoped to the supplied context."
 	else
 		mode_description = "Answer the user's instruction using the supplied context. Do not modify files."
 	end
@@ -171,17 +175,20 @@ local function build_ephemeral_prompt(action, instruction, target)
 end
 
 function M.command_args(job)
+	local protected_args, err = tandem.args(job.cwd, job.action ~= "edit", job.path)
+	if not protected_args then
+		return nil, err
+	end
 	local command = {
 		"codex",
 		"exec",
 		"--json",
-		"--sandbox",
-		job.sandbox,
 		"--cd",
 		job.cwd,
 		"--output-last-message",
 		job.result_message_path,
 	}
+	vim.list_extend(command, protected_args)
 
 	if job.model then
 		table.insert(command, 3, "--model")
@@ -339,9 +346,14 @@ end
 local function run_direct(job, prompt)
 	job.transport = "direct"
 	job.result_message_path = vim.fn.tempname() .. ".message"
+	local command, err = M.command_args(job)
+	if not command then
+		fail_to_start(job, err)
+		return false
+	end
 	local stdout_lines = {}
 	local stderr_lines = {}
-	local job_id = vim.fn.jobstart(M.command_args(job), {
+	local job_id = vim.fn.jobstart(command, {
 		stdin = "pipe",
 		stdout_buffered = true,
 		stderr_buffered = true,
@@ -364,7 +376,7 @@ local function run_direct(job, prompt)
 
 	if job_id <= 0 then
 		fail_to_start(job)
-		return
+		return false
 	end
 
 	M.update(job, {
@@ -373,6 +385,7 @@ local function run_direct(job, prompt)
 	})
 	vim.fn.chansend(job_id, prompt)
 	vim.fn.chanclose(job_id, "stdin")
+	return true
 end
 
 function M.run(action, target, instruction)
@@ -382,10 +395,6 @@ function M.run(action, target, instruction)
 
 	if vim.fn.executable("codex") ~= 1 then
 		util.notify("codex executable was not found on PATH", vim.log.levels.ERROR)
-		return
-	end
-	if action == "edit" and target.modified == "yes" then
-		util.notify("Save the buffer before running ephemeral Codex edits", vim.log.levels.WARN)
 		return
 	end
 
@@ -459,8 +468,7 @@ function M.follow_up(job, instruction)
 	end
 
 	util.notify("Resuming Codex thread from job #" .. job.id .. " as job #" .. next_job.id)
-	run_direct(next_job, instruction)
-	return true
+	return run_direct(next_job, instruction)
 end
 
 function M.prompt_follow_up(job)

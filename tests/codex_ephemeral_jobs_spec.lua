@@ -6,6 +6,7 @@ package.path = table.concat({
 	package.path,
 }, ";")
 
+dofile("tests/support/tandem.lua")
 local constants = require("codex.constants")
 local state = require("codex.state")
 local jobs = require("codex.ephemeral.jobs")
@@ -150,7 +151,7 @@ tests["command jobs use Astra and retain reasoning defaults"] = function()
 	assert_contains_text(captured_prompt, "Do not modify files.", "command prompt mode")
 end
 
-tests["edit jobs use Astra and retain edit isolation defaults"] = function()
+tests["edit jobs use Astra and route writes through Tandem"] = function()
 	reset_state()
 
 	local captured_command = nil
@@ -192,11 +193,12 @@ tests["edit jobs use Astra and retain edit isolation defaults"] = function()
 	assert_contains_arg(captured_command, "--model", "model flag")
 	assert_contains_arg(captured_command, "gpt-6-astra", "default edit model")
 	assert_contains_arg(captured_command, "--sandbox", "sandbox flag")
-	assert_contains_arg(captured_command, "workspace-write", "workspace-write sandbox")
+	assert_contains_arg(captured_command, "read-only", "native writes blocked")
+	assert_contains_arg(captured_command, 'approval_policy="never"', "no native-write escalation")
 	assert_not_contains_arg(captured_command, 'model_reasoning_effort="low"', "command reasoning override")
 end
 
-tests["edit jobs refuse modified buffers"] = function()
+tests["edit jobs can start while the human buffer is modified"] = function()
 	reset_state()
 
 	local jobstarted = false
@@ -204,6 +206,14 @@ tests["edit jobs refuse modified buffers"] = function()
 	local old_executable = vim.fn.executable
 	local old_jobstart = vim.fn.jobstart
 	local old_notify = util.notify
+	local old_chansend = vim.fn.chansend
+	local old_chanclose = vim.fn.chanclose
+	local old_start_spinner = spinner.start_spinner
+	local old_start_diagnostic = spinner.start_diagnostic
+	vim.fn.chansend = function() end
+	vim.fn.chanclose = function() end
+	spinner.start_spinner = function() return function() end end
+	spinner.start_diagnostic = function() return function() end end
 
 	vim.fn.executable = function()
 		return 1
@@ -221,9 +231,23 @@ tests["edit jobs refuse modified buffers"] = function()
 	vim.fn.executable = old_executable
 	vim.fn.jobstart = old_jobstart
 	util.notify = old_notify
+	vim.fn.chansend = old_chansend
+	vim.fn.chanclose = old_chanclose
+	spinner.start_spinner = old_start_spinner
+	spinner.start_diagnostic = old_start_diagnostic
 
-	assert_equal(jobstarted, false, "job started")
-	assert_equal(notifications[1], "Save the buffer before running ephemeral Codex edits", "notification")
+	assert_equal(jobstarted, true, "job started; file operations wait inside Tandem")
+end
+
+tests["an unavailable gateway never falls back to native edits"] = function()
+	reset_state()
+	local old_args = package.loaded["tandem"].codex_args
+	package.loaded["tandem"].codex_args = function() return nil, "offline" end
+	local job = jobs.create("edit", make_target(), nil, "fix it")
+	local command, err = jobs.command_args(job)
+	package.loaded["tandem"].codex_args = old_args
+	assert_equal(command, nil, "no launch command")
+	assert_equal(err, "offline", "gateway error propagated")
 end
 
 tests["direct jobs start independently for parallel execution"] = function()

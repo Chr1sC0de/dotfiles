@@ -2,6 +2,7 @@ local constants = require("codex.constants")
 local herdr = require("codex.herdr")
 local state = require("codex.state")
 local util = require("codex.util")
+local tandem = require("codex.tandem")
 
 --- Utility functions for launching and interacting with Codex terminal chat buffers.
 local M = {}
@@ -1289,7 +1290,8 @@ end
 local function start_direct_chat(session, hook_env)
 	local term_buf = session.bufnr
 	local original_terminal_name = vim.api.nvim_buf_get_name(term_buf)
-	local job_id = vim.fn.jobstart({ "codex", "--cd", session.cwd }, {
+	local command = vim.list_extend({ "codex", "--cd", session.cwd }, session.tandem_args)
+	local job_id = vim.fn.jobstart(command, {
 		env = hook_env,
 		term = true,
 		on_exit = function(exited_job_id, code)
@@ -1443,12 +1445,18 @@ function M.create()
 		util.notify("codex executable was not found on PATH", vim.log.levels.ERROR)
 		return nil
 	end
+	local protected_args, err = tandem.args(vim.fn.getcwd(), false)
+	if not protected_args then
+		util.notify(err, vim.log.levels.ERROR)
+		return nil
+	end
 
 	M.cleanup()
 	M.remember_previous_buffer()
 	vim.cmd("enew")
 
 	local session = new_session(vim.api.nvim_get_current_buf())
+	session.tandem_args = protected_args
 	local hook_env = session_hook_env(session) or {}
 	hook_env.CODEX_THREAD_ID = ""
 
