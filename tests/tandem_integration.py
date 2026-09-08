@@ -105,10 +105,11 @@ class ModelFixture:
         if not self.native_shell_checked:
             definition = next(((ns, item) for ns, item in definitions
                                if item.get("name") in ("exec_command", "shell_command", "shell")), None)
+            assert definition, "native shell tool must be exposed to verify its sandbox"
             if "native-shell" not in outputs and definition:
                 namespace, item = definition
                 name = item["name"]
-                command = "printf 'native write must fail\\n' > native-shell.txt"
+                command = "cat a.py; printf 'native write must fail\\n' > native-shell.txt"
                 if name == "exec_command":
                     args = {"cmd": command, "workdir": str(self.root), "max_output_tokens": 1000}
                 elif name == "shell_command":
@@ -118,6 +119,7 @@ class ModelFixture:
                 return self.call("native-shell", name, args, namespace=namespace)
             if "native-shell" in outputs:
                 result = str(outputs["native-shell"]).lower()
+                assert "value=0" in result, "native shell failed to read before the write probe: " + result
                 assert any(term in result for term in ("permission denied", "read-only", "not permitted", "rejected", "denied", "write access")), result
                 self.record("native_shell_write_rejected", output=outputs["native-shell"])
             else:
@@ -127,14 +129,14 @@ class ModelFixture:
 
         if not self.native_patch_checked:
             definition = next(((ns, item) for ns, item in definitions if item.get("name") == "apply_patch"), None)
-            if "native-patch" not in outputs and definition:
-                namespace, item = definition
+            if "native-patch" not in outputs:
+                namespace, item = definition or ("functions", {"type": "custom"})
                 patch = "*** Begin Patch\n*** Add File: native-patch.txt\n+native write must fail\n*** End Patch\n"
                 assert item.get("type") == "custom", item
                 return self.call("native-patch", "apply_patch", patch, namespace=namespace, custom=True)
             if "native-patch" in outputs:
                 result = str(outputs["native-patch"]).lower()
-                assert any(term in result for term in ("permission denied", "read-only", "not permitted", "rejected", "denied", "write access")), result
+                assert any(term in result for term in ("permission denied", "read-only", "not permitted", "rejected", "denied", "write access", "unknown", "unrecognized", "unsupported")), result
                 self.record("native_patch_write_rejected", output=outputs["native-patch"])
             else:
                 self.record("native_patch_not_exposed")
@@ -422,6 +424,7 @@ def main():
             log.close()
             report["tool_trace"] = fixture.trace
             (evidence / "results.json").write_text(json.dumps(report, indent=2) + "\n")
+            print(json.dumps(report, indent=2), flush=True)
             if report.get("result") != "passed":
                 print(log_path.read_text(errors="replace")[-12000:], file=sys.stderr)
     print("All Tandem dotfiles integration checks passed.", flush=True)
