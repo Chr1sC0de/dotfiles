@@ -219,7 +219,7 @@ def main():
         report["checks"].append(name)
         print("PASS: " + name, flush=True)
 
-    with tempfile.TemporaryDirectory(prefix="td-dot-", dir=os.environ.get("TANDEM_TEST_TMPDIR", "/tmp")) as temporary:
+    with tempfile.TemporaryDirectory(prefix="td-dot-", dir=os.environ.get("TANDEM_TEST_TMPDIR", os.environ.get("RUNNER_TEMP", "/tmp"))) as temporary:
         base = pathlib.Path(temporary)
         root = base / "project"
         root.mkdir()
@@ -332,9 +332,11 @@ def main():
 
             # Use the real direct-chat function, intercepting only the terminal
             # launch so the test does not pretend to drive Codex's interactive UI.
-            direct = expr("(function() local old = vim.fn.jobstart; local captured; vim.fn.jobstart = function(cmd, opts) "
+            direct = expr("(function() local old = vim.fn.jobstart; local notify = vim.notify; local captured; "
+                          "vim.notify = function(msg, level, opts) if msg ~= 'Failed to start Codex chat' then notify(msg, level, opts) end end; "
+                          "vim.fn.jobstart = function(cmd, opts) "
                           "if cmd[1] == 'codex' then captured = cmd; return -1 end; return old(cmd, opts) end; "
-                          "local ok, err = pcall(require('codex.chat').create); vim.fn.jobstart = old; assert(ok, err); return captured end)()")
+                          "local ok, err = pcall(require('codex.chat').create); vim.fn.jobstart = old; vim.notify = notify; assert(ok, err); return captured end)()")
             check_args(direct)
             expr("(function() vim.cmd.edit(" + json.dumps(str(file)) + "); return true end)()")
             herdr = expr("require('codex.herdr').agent_start_args({cwd=" + json.dumps(str(root))

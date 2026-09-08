@@ -27,6 +27,10 @@ Restart existing agents to use the new launch settings. Herdr discovery uses the
 that had native write access. New agents should be launched from the Neovim
 instance attached to the relevant project. Other configured MCP servers,
 trusted hooks, and programs launched separately remain outside Tandem's gate.
+The separate agent-only `WorktreeAddPrompt` / `WorktreeResume` workflows and the
+tmux Workmux backend also retain their existing launch behavior; they are not
+covered by this integration. Use a Codex chat launched inside the worktree's
+Neovim instance when editing the same checkout together with an agent.
 
 ## Reproducible evidence
 
