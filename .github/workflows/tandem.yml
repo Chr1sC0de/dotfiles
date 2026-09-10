@@ -1,5 +1,4 @@
 name: Tandem integration
-
 on:
   push:
     branches: [master]
@@ -7,10 +6,8 @@ on:
   pull_request:
     paths: ['config/nvim/**', 'tests/**', '.github/workflows/tandem.yml']
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   integration:
     name: Linux (${{ matrix.os }})
@@ -68,6 +65,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -B tests/tandem_fixture_instructions_spec.py
           for test_file in tests/*_spec.lua; do
             nvim --headless -u NONE -l "$test_file"
           done

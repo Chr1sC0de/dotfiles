@@ -54,35 +54,16 @@ local function command_diagnostics(kind, start_line, end_line)
 end
 
 function M.send_file()
-	local path, line, filetype, modified = util.buffer_file_context()
+	local target = M.build_file_target({ include_modified_snapshot = true })
+	local label = target.file_path and "file" or "buffer"
 	local prompt_lines = {
-		"Use this file as context for the current Codex chat.",
-		"",
-		"File: " .. path,
-		"Line: " .. line,
-		"Filetype: " .. filetype,
-		"Unsaved changes: " .. modified,
+		"Use this " .. label .. " as context for the current Codex chat.",
 		"",
 	}
+	vim.list_extend(prompt_lines, target.context_lines)
 
-	if modified == "yes" then
-		local snapshot_path = util.write_current_buffer_snapshot()
-		if snapshot_path then
-			vim.list_extend(prompt_lines, {
-				"Unsaved buffer snapshot: " .. snapshot_path,
-				"Read the snapshot file when you need the current unsaved buffer content.",
-			})
-		else
-			table.insert(prompt_lines, "The buffer has unsaved changes, and no snapshot could be written.")
-		end
-	else
-		table.insert(prompt_lines, "Open/read this file as needed before making suggestions.")
-	end
-
-	local prompt = table.concat(prompt_lines, "\n")
-
-	if chat.paste(prompt) then
-		util.notify("Sent file context to Codex: " .. path)
+	if chat.paste(table.concat(prompt_lines, "\n")) then
+		util.notify("Sent " .. label .. " context to Codex: " .. target.path)
 	end
 end
 

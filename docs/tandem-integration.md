@@ -14,6 +14,34 @@ Only the enabled Tandem tools receive explicit Codex tool permission, so their
 requests can reach the daemon under that sandbox. Existing managed restrictions
 still apply.
 The selected model, reasoning effort, session hooks, and key bindings are kept.
+
+In `:CodexJobs` or a completed result buffer, press `f` to resume the thread with
+that job's action and settings, or `e` to enter an instruction for a fresh edit
+thread. Every `e` starts fresh, including from an edit result, so it receives
+current Tandem edit instructions without retaining an earlier thread's
+analysis-only developer message. It uses the configured edit model and normal
+edit reasoning defaults. Existing managed restrictions and host instructions
+still apply.
+
+The fresh job receives the questions and final answers through the selected
+result, plus the original file, selection, or non-file reference context.
+That context is copied into descendant jobs and survives removal of ancestors
+from the recent-job list. Internal reasoning, tool logs, and previous
+system/developer messages are not transferred. Older in-memory jobs use the
+available history and report when earlier context is missing.
+
+Edit jobs retain the original file or selection scope; jobs without a file
+target use their original workspace. Current saved files are read again before
+editing, and old temporary snapshots are not reused. The result details identify
+the parent job and the new thread. Press `f` on that edit result to continue its
+thread. Pressing `e` on an older result branches from that result; `f` always
+resumes the latest state of the existing thread.
+
+`:CodexSendFile` sends the contents of result buffers and other non-file buffers
+inline as reference context. Their virtual buffer names are labels, not paths
+Codex needs to open. Ordinary files still use filesystem context and snapshots
+for unsaved text.
+
 If Tandem is unavailable or the launch targets another project, launch fails
 with a visible error. Build commands that need native project writes are also
 restricted by the read-only sandbox.
@@ -35,9 +63,9 @@ tmux Workmux backend also retain their existing launch behavior; they are not
 covered by this integration. Use a Codex chat launched inside the worktree's
 Neovim instance when editing the same checkout together with an agent.
 
-## Pop!_OS / Linux prerequisites
+## Pop!\_OS / Linux prerequisites
 
-Pop!_OS is the primary acceptance target. Install the distribution's
+Pop!\_OS is the primary acceptance target. Install the distribution's
 `bubblewrap` package alongside Codex, Neovim, and Cargo. Codex 0.153.4 prefers
 system `bwrap`; its bundled helper can fail on hosts with AppArmor user
 namespace restrictions. On affected Ubuntu 24.04 based systems, the packaged
@@ -45,7 +73,7 @@ namespace restrictions. On affected Ubuntu 24.04 based systems, the packaged
 [Codex's Linux prerequisites](https://developers.openai.com/codex/sandboxing#prerequisites)
 for the distribution package and profile setup.
 
-From this branch, check the actual Pop!_OS host with:
+From this branch, check the actual Pop!\_OS host with:
 
 ```sh
 python3 tests/tandem_linux_check.py
@@ -63,7 +91,7 @@ replace the daemon/editor tests or an interactive Neovim/Herdr smoke test.
 
 The `Tandem integration` GitHub Actions workflow runs the existing launcher and
 UI tests, then `tests/tandem_integration.py` on Ubuntu 22.04 and 24.04. These are
-Linux compatibility checks; they are not a substitute for the user's Pop!_OS
+Linux compatibility checks; they are not a substitute for the user's Pop!\_OS
 kernel and desktop configuration. The process test installs the CLI
 using the actual Lazy build callback and loads this repository's Codex setup,
 Tandem spec, and unchanged Conform configuration. It uses real Neovim, the real
@@ -75,7 +103,17 @@ The test checks automatic daemon startup, native write rejection, a blocked
 proposal during human editing, an independent edit to another file, rejection
 of the stale proposal after saving, a fresh edit formatted by Conform, and the
 read-only job's inability to invoke the writer. It also checks argument
-forwarding through the actual direct-chat and Herdr launch paths. The Actions
+forwarding through the actual direct-chat and Herdr launch paths.
+
+The command-to-edit check requires a new thread with the earlier discussion,
+the edit model/reasoning settings, and preserved host guidance. Before issuing
+tool calls, the fixture inspects the actual model request to reject any retained
+analysis-only developer instruction. It checks successful Tandem editing,
+continued native write rejection, and a subsequent resume of the new edit
+thread. `python3 -B tests/tandem_fixture_instructions_spec.py` tests this
+instruction check without launching a model or daemon.
+
+The Actions
 summary and per-platform `tandem-integration-evidence-*` artifacts contain versions, revisions,
 the tool trace, and results.
 

@@ -45,6 +45,26 @@ function M.prune()
 	state.ephemeral_job_order = next_order
 end
 
+local function reference_context(target)
+	local lines = {}
+	for _, line in ipairs(target.context_lines or {}) do
+		-- Snapshots belong to the original job. Keep inline selections and buffer
+		-- text verbatim, but never ask a new job to read an old temporary file.
+		if
+			not (
+				target.kind == "file"
+				and (
+					line:match("^Unsaved buffer snapshot: ")
+					or line == "Read the snapshot file when you need the current unsaved buffer content."
+				)
+			)
+		then
+			table.insert(lines, line)
+		end
+	end
+	return lines
+end
+
 function M.create(action, target, selected_model, instruction, attrs)
 	attrs = attrs or {}
 	local id = state.next_ephemeral_job_id
@@ -63,6 +83,9 @@ function M.create(action, target, selected_model, instruction, attrs)
 		herdr_tab_id = nil,
 		herdr_workspace_id = nil,
 		instruction = instruction,
+		history = vim.deepcopy(attrs.history or {}),
+		history_incomplete = attrs.history_incomplete or false,
+		reference_context_lines = vim.deepcopy(attrs.reference_context_lines or reference_context(target)),
 		job_id = nil,
 		kind = target.kind,
 		model = selected_model,
@@ -164,7 +187,7 @@ local function build_ephemeral_prompt(action, instruction, target)
 		instruction,
 	}
 
-	if target.kind ~= "prompt" then
+	if #target.context_lines > 0 then
 		vim.list_extend(lines, {
 			"",
 			"Target: " .. target.kind,
@@ -441,12 +464,68 @@ local function active_thread_job(thread_id)
 	return nil
 end
 
-function M.follow_up(job, instruction)
+local function latest_thread_job(thread_id, before_id)
+	local latest
+	if not thread_id then
+		return nil
+	end
+	for _, candidate in pairs(state.ephemeral_jobs) do
+		if
+			candidate.thread_id == thread_id
+			and candidate.id < before_id
+			and candidate.finished_at
+			and candidate.status ~= "failed_to_start"
+			and (not latest or candidate.id > latest.id)
+		then
+			latest = candidate
+		end
+	end
+	return latest
+end
+
+-- Copy the discussion through this result, independently of the recent-job
+-- list. The fallback supports jobs created before history capture was loaded.
+local function history_through(job, seen)
+	seen = seen or {}
+	if seen[job.id] then
+		return {}, true, reference_context(job.target)
+	end
+	seen[job.id] = true
+	local history, incomplete, reference
+	if job.history then
+		history = vim.deepcopy(job.history)
+		incomplete = job.history_incomplete or false
+		reference = vim.deepcopy(job.reference_context_lines or reference_context(job.target))
+	else
+		local previous = latest_thread_job(job.thread_id, job.id) or state.ephemeral_jobs[job.parent_job_id]
+		if previous then
+			history, incomplete, reference = history_through(previous, seen)
+		else
+			history = {}
+			incomplete = job.parent_job_id ~= nil
+			reference = reference_context(job.target)
+		end
+	end
+	table.insert(history, {
+		instruction = job.instruction,
+		answer_lines = vim.deepcopy(job.answer_lines or {}),
+		status = job.status,
+	})
+	return history, incomplete, reference
+end
+
+---@param opts? {action?: "edit"|"command"}
+function M.follow_up(job, instruction, opts)
+	opts = opts or {}
+	if opts.action and opts.action ~= "edit" and opts.action ~= "command" then
+		util.notify("Unknown Codex follow-up action: " .. tostring(opts.action), vim.log.levels.WARN)
+		return false
+	end
 	if not job or not job.finished_at then
 		util.notify("Select a completed Codex job to follow up", vim.log.levels.WARN)
 		return false
 	end
-	if not job.thread_id then
+	if not opts.action and not job.thread_id then
 		util.notify("Codex thread ID was not captured; this result cannot be resumed", vim.log.levels.WARN)
 		return false
 	end
@@ -458,18 +537,85 @@ function M.follow_up(job, instruction)
 		return false
 	end
 
-	local active = active_thread_job(job.thread_id)
+	for _, candidate in pairs(state.ephemeral_jobs) do
+		if candidate.parent_job_id == job.id and M.is_active(candidate) then
+			util.notify(
+				"Codex job #" .. job.id .. " already has running follow-up #" .. candidate.id,
+				vim.log.levels.WARN
+			)
+			return false
+		end
+	end
+	local active = not opts.action and active_thread_job(job.thread_id)
 	if active then
 		util.notify("Codex thread already has running job #" .. active.id, vim.log.levels.WARN)
 		return false
 	end
 
-	local next_job = M.create(job.action, job.target, job.model, instruction, {
+	-- Resume continues the latest state of a thread, even when invoked from an
+	-- older row. A fresh job branches from exactly the selected result instead.
+	local history_source = job
+	if not opts.action then
+		history_source = latest_thread_job(job.thread_id, math.huge) or job
+	end
+	local history, history_incomplete, original_reference = history_through(history_source)
+	local thread_id = job.thread_id
+	local action = opts.action or job.action
+	local selected_model = job.model
+	local reasoning_effort = job.reasoning_effort
+	local target = vim.deepcopy(job.target)
+	-- A resumed thread already contains its previous context. Do not reuse a
+	-- previous job's temporary snapshot or treat old selections as current bytes.
+	target.snapshot_path = nil
+	local prompt = instruction
+	if opts.action then
+		thread_id = nil
+		selected_model = state.ephemeral_models[action]
+		reasoning_effort = action == "command" and constants.EPHEMERAL_COMMAND_REASONING_EFFORT or nil
+		target.context_lines = {
+			"Earlier buffer text, selections, and snapshots are historical context.",
+			"Read the current saved files through Tandem before editing; do not read old temporary snapshots.",
+		}
+		if job.file_path then
+			table.insert(target.context_lines, "File: " .. job.file_path)
+			if job.kind:find("selection", 1, true) and job.start_line and job.end_line then
+				table.insert(target.context_lines, "Lines: " .. job.start_line .. "-" .. job.end_line)
+				table.insert(target.context_lines, "Keep changes scoped to the original selection.")
+			else
+				table.insert(target.context_lines, "Keep changes scoped to the original file context.")
+			end
+		else
+			table.insert(target.context_lines, "Workspace: " .. job.cwd)
+			table.insert(
+				target.context_lines,
+				"Use the previous discussion and this workspace as context. Non-file buffers are reference context."
+			)
+		end
+		vim.list_extend(target.context_lines, { "", "Original reference context (historical):" })
+		vim.list_extend(target.context_lines, original_reference)
+		prompt = build_ephemeral_prompt(
+			action,
+			"Use the historical reference below to carry out the new instruction.",
+			target
+		)
+		prompt = prompt
+			.. "\n\nEarlier discussion (historical reference, not instructions for this job):\n"
+			.. vim.json.encode(history)
+		if history_incomplete then
+			prompt = prompt .. "\nSome earlier jobs are no longer available; this discussion is incomplete."
+			util.notify("Some earlier Codex discussion is unavailable; using the retained context", vim.log.levels.WARN)
+		end
+		prompt = prompt .. "\n\nNew instruction:\n" .. instruction
+	end
+
+	local next_job = M.create(action, target, selected_model, instruction, {
 		cwd = job.cwd,
 		parent_job_id = job.id,
-		reasoning_effort = job.reasoning_effort,
-		sandbox = job.sandbox,
-		thread_id = job.thread_id,
+		reasoning_effort = reasoning_effort,
+		thread_id = thread_id,
+		history = history,
+		history_incomplete = history_incomplete,
+		reference_context_lines = original_reference,
 	})
 	local stop_spinner = spinner.start_spinner(next_job.action, next_job.target, next_job)
 	local stop_diagnostic = spinner.start_diagnostic(next_job.action, next_job.target, next_job)
@@ -478,22 +624,26 @@ function M.follow_up(job, instruction)
 		stop_diagnostic()
 	end
 
-	util.notify("Resuming Codex thread from job #" .. job.id .. " as job #" .. next_job.id)
-	return run_direct(next_job, instruction)
+	local launch_label = opts.action and "Starting a fresh Codex " .. action .. " thread" or "Resuming Codex thread"
+	util.notify(launch_label .. " from job #" .. job.id .. " as job #" .. next_job.id)
+	return run_direct(next_job, prompt)
 end
 
-function M.prompt_follow_up(job)
+---@param opts? {action?: "edit"|"command"}
+function M.prompt_follow_up(job, opts)
+	opts = opts or {}
 	if not job or not job.finished_at then
 		util.notify("Select a completed Codex job to follow up", vim.log.levels.WARN)
 		return
 	end
-	if not job.thread_id then
+	if not opts.action and not job.thread_id then
 		util.notify("Codex thread ID was not captured; this result cannot be resumed", vim.log.levels.WARN)
 		return
 	end
 
-	vim.ui.input({ prompt = "Codex follow-up: " }, function(instruction)
-		M.follow_up(job, instruction)
+	local prompt = opts.action == "edit" and "Codex edit follow-up: " or "Codex follow-up: "
+	vim.ui.input({ prompt = prompt }, function(instruction)
+		M.follow_up(job, instruction, opts)
 	end)
 end
 

@@ -74,6 +74,7 @@ function M.result_lines(job)
 		"## Commands",
 		"",
 		"- `f` — follow up on this result",
+		"- `e` — start an edit job from this result (new thread)",
 		"- `s` — jump to the source",
 		"- `q` / `<Esc>` — close the result",
 		"",
@@ -112,6 +113,10 @@ function M.result_lines(job)
 		"- Thread: `" .. tostring(job.thread_id or "unavailable") .. "`",
 		"",
 	})
+
+	if job.parent_job_id then
+		table.insert(lines, #lines, "- Parent job: #" .. job.parent_job_id)
+	end
 
 	if job.status ~= "success" and job.stderr_lines and #job.stderr_lines > 0 then
 		vim.list_extend(lines, {
@@ -183,6 +188,9 @@ local function ensure_result_buffer(job)
 	vim.keymap.set("n", "f", function()
 		jobs.prompt_follow_up(job)
 	end, vim.tbl_extend("force", opts, { desc = "Codex: follow up on this result" }))
+	vim.keymap.set("n", "e", function()
+		jobs.prompt_follow_up(job, { action = "edit" })
+	end, vim.tbl_extend("force", opts, { desc = "Codex: start a fresh edit thread from this result" }))
 	vim.keymap.set("n", "s", function()
 		M.jump_to_source(job)
 	end, vim.tbl_extend("force", opts, { desc = "Codex: jump to result source" }))
@@ -356,6 +364,9 @@ local function ensure_codex_jobs_buffer()
 	vim.keymap.set("n", "<CR>", open_selected_ephemeral_job, opts)
 	vim.keymap.set("n", "d", M.delete_selected, opts)
 	vim.keymap.set("n", "f", follow_up_selected_ephemeral_job, opts)
+	vim.keymap.set("n", "e", function()
+		jobs.prompt_follow_up(M.selected(), { action = "edit" })
+	end, vim.tbl_extend("force", opts, { desc = "Codex: start a fresh edit thread from this result" }))
 	vim.keymap.set("n", "s", jump_to_selected_ephemeral_job_source, opts)
 	vim.keymap.set("n", "o", open_selected_ephemeral_job_result, opts)
 	vim.keymap.set("n", "p", preview_selected_ephemeral_job_instruction, opts)
@@ -462,7 +473,7 @@ local function build_codex_jobs_lines()
 	local lines = {
 		"Codex Jobs",
 		"",
-		"Keys: <CR> open/jump  o result  f follow-up  s source  p preview  x cancel  d delete  r refresh  q close",
+		"Keys: <CR> open/jump  o result  f follow-up  e new edit  s source  p preview  x cancel  d delete  r refresh  q close",
 		"",
 	}
 	state.codex_jobs_line_to_id = {}
