@@ -14,6 +14,56 @@ return {
 		end
 	end,
 	config = function()
+		local repositories = {}
+		local function refresh()
+			require("lualine").refresh({ place = { "statusline" } })
+		end
+
+		local function repo_name()
+			local cwd = vim.fn.getcwd()
+			if repositories[cwd] then
+				return repositories[cwd].name
+			end
+
+			local entry = { name = "", pending = true }
+			repositories[cwd] = entry
+			local ok = pcall(
+				vim.system,
+				{ "git", "worktree", "list", "--porcelain", "-z" },
+				{ cwd = cwd },
+				function(result)
+					vim.schedule(function()
+						entry.pending = false
+						if result.code == 0 then
+							-- Git lists the main worktree first, even from a linked worktree.
+							local root = (result.stdout or ""):match("^worktree (.-)%z")
+							if root then
+								entry.name = vim.fs.basename(root):gsub("%c", " "):gsub("%%", "%%%%")
+							end
+						end
+						refresh()
+					end)
+				end
+			)
+			if not ok then
+				entry.pending = false
+			end
+			return entry.name
+		end
+
+		vim.api.nvim_create_autocmd({ "DirChanged", "FocusGained" }, {
+			group = vim.api.nvim_create_augroup("LualineRepositoryName", { clear = true }),
+			callback = function()
+				for cwd, entry in pairs(repositories) do
+					-- Keep in-flight queries so redraws cannot start duplicate processes.
+					if not entry.pending then
+						repositories[cwd] = nil
+					end
+				end
+				refresh()
+			end,
+		})
+
 		require("lualine").setup({
 			options = {
 				icons_enabled = true,
@@ -32,7 +82,7 @@ return {
 			},
 			sections = {
 				lualine_a = { "mode" },
-				lualine_b = { "branch", "diff", "diagnostics" },
+				lualine_b = { repo_name, "branch", "diff", "diagnostics" },
 				lualine_c = { { "filename", path = 1, file_status = true } },
 				lualine_x = { "encoding", "fileformat", "filetype" },
 				lualine_y = { "progress" },
