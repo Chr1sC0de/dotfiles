@@ -31,13 +31,21 @@ function M.selected()
 end
 
 function M.jump_to_source(job)
-	if not job or job.path == "" or job.path == "[No Name]" then
-		util.notify("This Codex job has no source file", vim.log.levels.WARN)
+	if not job or job.kind == "prompt" then
+		util.notify("This Codex job has no source", vim.log.levels.WARN)
+		return
+	end
+	if not job.file_path and not util.is_valid_buffer(job.source_buf) then
+		util.notify("The Codex source buffer is unavailable", vim.log.levels.WARN)
 		return
 	end
 
 	M.close()
-	vim.cmd("edit " .. vim.fn.fnameescape(job.path))
+	if job.file_path then
+		vim.cmd("edit " .. vim.fn.fnameescape(job.file_path))
+	else
+		vim.api.nvim_set_current_buf(job.source_buf)
+	end
 	pcall(vim.api.nvim_win_set_cursor, 0, { math.max(job.start_line or 1, 1), 0 })
 end
 
@@ -130,11 +138,7 @@ local function close_result(job)
 			return
 		end
 		job.result_tabpage = nil
-		if
-			return_tabpage
-			and return_tabpage ~= current_tabpage
-			and vim.api.nvim_tabpage_is_valid(return_tabpage)
-		then
+		if return_tabpage and return_tabpage ~= current_tabpage and vim.api.nvim_tabpage_is_valid(return_tabpage) then
 			vim.api.nvim_set_current_tabpage(return_tabpage)
 		end
 		return

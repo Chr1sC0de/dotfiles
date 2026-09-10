@@ -50,6 +50,28 @@ function M.codex_nvim_hook_path()
 	return M.join_path(vim.fn.stdpath("config"), "bin/codex-nvim-hook")
 end
 
+-- Capture filesystem identity independently of the label shown in prompts and panels.
+function M.buffer_source()
+	local bufnr = vim.api.nvim_get_current_buf()
+	local name = vim.api.nvim_buf_get_name(bufnr)
+	local is_file = name ~= ""
+		and vim.bo[bufnr].buftype == ""
+		and not name:match("^%a[%w+.-]*://")
+		and vim.fn.isdirectory(name) == 0
+	return {
+		source_buf = bufnr,
+		file_path = is_file and vim.fn.fnamemodify(name, ":p") or nil,
+		path = is_file and M.repo_relative_path(name) or (name ~= "" and name or "[No Name]"),
+	}
+end
+
+function M.buffer_reference_lines(start_line, end_line)
+	return {
+		"Non-file buffer text (read-only reference context):",
+		table.concat(vim.api.nvim_buf_get_lines(0, (start_line or 1) - 1, end_line or -1, false), "\n"),
+	}
+end
+
 function M.buffer_file_context()
 	local path = M.repo_relative_path(vim.api.nvim_buf_get_name(0))
 	local line = vim.api.nvim_win_get_cursor(0)[1]

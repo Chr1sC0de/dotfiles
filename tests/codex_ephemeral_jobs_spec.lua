@@ -34,6 +34,8 @@ local function make_target(attrs)
 	return vim.tbl_extend("force", {
 		kind = "file",
 		path = "sample.lua",
+		file_path = vim.fn.getcwd() .. "/sample.lua",
+		source_buf = vim.api.nvim_get_current_buf(),
 		start_line = 1,
 		end_line = 1,
 		modified = "no",
@@ -212,8 +214,12 @@ tests["edit jobs can start while the human buffer is modified"] = function()
 	local old_start_diagnostic = spinner.start_diagnostic
 	vim.fn.chansend = function() end
 	vim.fn.chanclose = function() end
-	spinner.start_spinner = function() return function() end end
-	spinner.start_diagnostic = function() return function() end end
+	spinner.start_spinner = function()
+		return function() end
+	end
+	spinner.start_diagnostic = function()
+		return function() end
+	end
 
 	vim.fn.executable = function()
 		return 1
@@ -242,7 +248,9 @@ end
 tests["an unavailable gateway never falls back to native edits"] = function()
 	reset_state()
 	local old_args = package.loaded["tandem"].codex_args
-	package.loaded["tandem"].codex_args = function() return nil, "offline" end
+	package.loaded["tandem"].codex_args = function()
+		return nil, "offline"
+	end
 	local job = jobs.create("edit", make_target(), nil, "fix it")
 	local command, err = jobs.command_args(job)
 	package.loaded["tandem"].codex_args = old_args

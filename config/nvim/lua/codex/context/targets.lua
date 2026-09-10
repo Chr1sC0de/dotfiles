@@ -16,9 +16,11 @@ end
 
 function M.build_file(opts)
 	opts = opts or {}
-	local path, line, filetype, modified = util.buffer_file_context()
+	local _, line, filetype, modified = util.buffer_file_context()
+	local source = util.buffer_source()
+	local path = source.path
 	local context_lines = {
-		"File: " .. path,
+		(source.file_path and "File: " or "Buffer: ") .. path,
 		"Line: " .. line,
 		"Filetype: " .. filetype,
 		"Unsaved changes: " .. modified,
@@ -26,7 +28,9 @@ function M.build_file(opts)
 	}
 	local snapshot_path = nil
 
-	if modified == "yes" and opts.include_modified_snapshot then
+	if not source.file_path then
+		vim.list_extend(context_lines, util.buffer_reference_lines())
+	elseif modified == "yes" and opts.include_modified_snapshot then
 		snapshot_path = util.write_current_buffer_snapshot()
 		if snapshot_path then
 			vim.list_extend(context_lines, {
@@ -41,8 +45,10 @@ function M.build_file(opts)
 	end
 
 	return {
-		kind = "file",
+		kind = source.file_path and "file" or "buffer",
 		path = path,
+		file_path = source.file_path,
+		source_buf = source.source_buf,
 		line = line,
 		start_line = line,
 		end_line = line,
@@ -56,7 +62,9 @@ function M.build_file(opts)
 end
 
 function M.build_selection(opts)
-	local path, _, filetype, modified = util.buffer_file_context()
+	local _, _, filetype, modified = util.buffer_file_context()
+	local source = util.buffer_source()
+	local path = source.path
 	local selected_text, start_line, end_line = selection.get_text(opts)
 
 	if selected_text == "" then
@@ -67,6 +75,8 @@ function M.build_selection(opts)
 	return {
 		kind = "selection",
 		path = path,
+		file_path = source.file_path,
+		source_buf = source.source_buf,
 		start_line = start_line,
 		end_line = end_line,
 		filetype = filetype,
@@ -74,11 +84,13 @@ function M.build_selection(opts)
 		spinner_buf = vim.api.nvim_get_current_buf(),
 		spinner_line = start_line,
 		context_lines = {
-			"File: " .. path,
+			(source.file_path and "File: " or "Buffer: ") .. path,
 			"Lines: " .. start_line .. "-" .. end_line,
 			"Filetype: " .. filetype,
 			"Unsaved changes: " .. modified,
 			"",
+			source.file_path and "Selected file text:"
+				or "Selected non-file buffer text (read-only reference context):",
 			"```" .. filetype,
 			selected_text,
 			"```",

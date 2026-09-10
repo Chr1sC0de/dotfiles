@@ -68,6 +68,8 @@ function M.create(action, target, selected_model, instruction, attrs)
 		model = selected_model,
 		parent_job_id = attrs.parent_job_id,
 		path = target.path,
+		file_path = target.file_path,
+		source_buf = target.source_buf,
 		prompt_path = nil,
 		reasoning_effort = attrs.reasoning_effort,
 		result_bufnr = nil,
@@ -146,8 +148,7 @@ end
 local function build_ephemeral_prompt(action, instruction, target)
 	local mode_description
 	if action == "edit" then
-		mode_description =
-			"Apply the user's requested edits through tandem_read_file and tandem_write_file. "
+		mode_description = "Apply the user's requested edits through tandem_read_file and tandem_write_file. "
 			.. "The supplied context may be unsaved: wait for the human to save, then read the saved revision. "
 			.. "On stale_revision reread and regenerate your edit. Never use native patch or shell writes. "
 			.. "Keep changes scoped to the supplied context."
@@ -175,7 +176,7 @@ local function build_ephemeral_prompt(action, instruction, target)
 end
 
 function M.command_args(job)
-	local protected_args, err = tandem.args(job.cwd, job.action ~= "edit", job.path)
+	local protected_args, err = tandem.args(job.cwd, job.action ~= "edit", job.file_path)
 	if not protected_args then
 		return nil, err
 	end
@@ -389,6 +390,16 @@ local function run_direct(job, prompt)
 end
 
 function M.run(action, target, instruction)
+	if not target then
+		return
+	end
+	if action == "edit" and not target.file_path then
+		util.notify(
+			"Codex edits require a file buffer; this source is read-only reference context",
+			vim.log.levels.WARN
+		)
+		return
+	end
 	if instruction == nil or instruction:match("^%s*$") then
 		return
 	end
@@ -509,6 +520,14 @@ end
 
 function M.prompt_and_run(action, target, input_prompt)
 	if not target then
+		return
+	end
+
+	if action == "edit" and not target.file_path then
+		util.notify(
+			"Codex edits require a file buffer; this source is read-only reference context",
+			vim.log.levels.WARN
+		)
 		return
 	end
 

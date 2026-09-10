@@ -139,10 +139,12 @@ end
 
 local function build_context_lines(kind, diagnostics, start_line, end_line)
 	local bufnr = vim.api.nvim_get_current_buf()
-	local path, cursor_line, filetype, modified = util.buffer_file_context()
+	local _, cursor_line, filetype, modified = util.buffer_file_context()
+	local source = util.buffer_source()
+	local path = source.path
 	local prompt_lines = {
 		"Diagnostic scope: " .. M.scope_label(kind, start_line, end_line),
-		"File: " .. path,
+		(source.file_path and "File: " or "Buffer: ") .. path,
 		"Line: " .. cursor_line,
 		"Filetype: " .. filetype,
 		"Unsaved changes: " .. modified,
@@ -172,6 +174,10 @@ local function build_context_lines(kind, diagnostics, start_line, end_line)
 		table.insert(prompt_lines, "   Source line: " .. diagnostic_source_line(bufnr, diagnostic))
 	end
 
+	if not source.file_path then
+		vim.list_extend(prompt_lines, util.buffer_reference_lines(start_line, end_line))
+	end
+
 	return prompt_lines
 end
 
@@ -199,13 +205,17 @@ function M.build_target(kind, start_line, end_line)
 		return
 	end
 
-	local path, cursor_line, filetype, modified = util.buffer_file_context()
+	local _, cursor_line, filetype, modified = util.buffer_file_context()
+	local source = util.buffer_source()
+	local path = source.path
 	local target_start_line = start_line or 1
 	local target_end_line = end_line or vim.api.nvim_buf_line_count(bufnr)
 
 	return {
 		kind = "diagnostics",
 		path = path,
+		file_path = source.file_path,
+		source_buf = source.source_buf,
 		start_line = target_start_line,
 		end_line = target_end_line,
 		filetype = filetype,
