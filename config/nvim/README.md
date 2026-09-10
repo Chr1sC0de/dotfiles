@@ -41,11 +41,19 @@ responses directly and leaves the Sessionizer plugin independent.
 This config includes a local Codex chat bridge under `lua/codex/` and a hook
 receiver at `bin/codex-nvim-hook`.
 
-Commits use an explicit two-step workflow. Run `:CodexPrepareCommit` to stage
-all current changes and generate a Conventional Commit message in the
-background. When the ready notification appears, run `:CodexCommit` to commit
-that exact staged snapshot. Work added after preparation may remain unstaged;
-changing the staged snapshot requires preparing again.
+Run `:CodexCommit` to stage all saved changes, generate a Conventional Commit
+message, and commit automatically in the background with normal Git hooks.
+You can keep editing: unsaved buffers are left alone, and edits saved after
+staging remain unstaged for your next commit. Progress and completion appear
+as notifications without opening a popup or taking focus.
+
+For the manual workflow, run `:CodexPrepareCommit` to stage changes and prepare
+a message without committing. If a prepared message exists, `:CodexCommit`
+uses that message and staged snapshot without restaging or regenerating.
+Changing the staged snapshot aborts the operation and discards the prepared
+message; it never automatically restages within that invocation. If a commit
+fails and its staged snapshot still matches, the message is retained so
+`:CodexCommit` can retry. Otherwise, prepare again or run `:CodexCommit` afresh.
 
 Run `:CodexReviewCommit` before committing to open an optional review popup.
 Press `a` or `<Enter>` to accept and commit, `e` to edit the subject, `f` to

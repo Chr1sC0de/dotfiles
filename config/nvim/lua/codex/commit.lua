@@ -266,7 +266,7 @@ local function verify_prepared_snapshot(prepared, callback)
 	end)
 end
 
-function M.prepare()
+local function prepare(on_ready)
 	if state.codex_commit_active then
 		util.notify("A Codex commit operation is already in progress", vim.log.levels.WARN)
 		return
@@ -313,6 +313,9 @@ function M.prepare()
 						abort("no changes to prepare")
 						return
 					end
+					if on_ready then
+						util.notify("Codex commit: generating a message")
+					end
 					local prompt = generation_prompt(snapshot.context)
 					run_process(
 						{ "codex", "exec", "--ephemeral", "--sandbox", "read-only", "--cd", root, "-" },
@@ -348,6 +351,10 @@ function M.prepare()
 										message = message,
 										fingerprint = snapshot.fingerprint,
 									}
+									if on_ready then
+										on_ready(state.codex_prepared_commit)
+										return
+									end
 									finish()
 									util.notify(
 										"Codex commit ready: "
@@ -362,6 +369,10 @@ function M.prepare()
 			end)
 		end)
 	end)
+end
+
+function M.prepare()
+	prepare()
 end
 
 function M.inspect(callback)
@@ -487,22 +498,8 @@ function M.reject()
 	return true
 end
 
-function M.commit()
-	if state.codex_commit_active then
-		util.notify("Codex commit preparation is still in progress", vim.log.levels.WARN)
-		return
-	end
-	local prepared = state.codex_prepared_commit
-	if not prepared then
-		util.notify("No prepared commit; run :CodexPrepareCommit first", vim.log.levels.WARN)
-		return
-	end
-	if vim.fn.executable("git") ~= 1 then
-		notify_failure("git executable was not found")
-		return
-	end
-
-	state.codex_commit_active = true
+-- The caller owns the active operation, including preparation in the automatic flow.
+local function commit_prepared(prepared)
 	check_special_state(prepared.root, function(ok, reason)
 		if not ok then
 			invalidate_prepared("Cannot commit in the current Git state: " .. tostring(reason))
@@ -568,6 +565,21 @@ function M.commit()
 			end)
 		end)
 	end)
+end
+
+function M.commit()
+	local prepared = start_prepared_operation()
+	if prepared then
+		commit_prepared(prepared)
+	end
+end
+
+function M.run()
+	if state.codex_prepared_commit then
+		M.commit()
+	else
+		prepare(commit_prepared)
+	end
 end
 
 M._test = {

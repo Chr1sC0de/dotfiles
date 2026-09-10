@@ -1,4 +1,5 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
+vim.o.swapfile = false
 
 local commit = require("codex.commit")
 local review = require("codex.commit_review")
@@ -54,7 +55,8 @@ local function collect_staged(root)
 end
 
 local root = vim.fn.tempname()
-vim.fn.mkdir(root, "p")
+assert(root ~= "", "a writable temporary directory is required for Git integration tests")
+assert(vim.fn.mkdir(root, "p") == 1, "failed to create temporary Git repository")
 run_git(root, { "init", "--quiet" })
 vim.fn.writefile({ "prepared" }, root .. "/example.txt")
 run_git(root, { "add", "-A" })
@@ -75,7 +77,16 @@ assert(restaged.fingerprint ~= prepared.fingerprint, "staging new work should in
 
 run_git(root, { "config", "user.email", "codex-test@example.com" })
 run_git(root, { "config", "user.name", "Codex Test" })
-local bin_dir = root .. "/bin"
+run_git(root, { "config", "commit.gpgsign", "false" })
+run_git(root, { "config", "core.hooksPath", root .. "/.git/hooks" })
+local previous_executable = vim.fn.executable
+vim.fn.executable = function(name)
+	if name == "cz" then
+		return 0
+	end
+	return previous_executable(name)
+end
+local bin_dir = root .. "/.git/bin"
 vim.fn.mkdir(bin_dir, "p")
 local fake_codex = bin_dir .. "/codex"
 vim.fn.writefile({ "#!/bin/sh", "printf '%s\\n' 'test: prepare commit workflow'" }, fake_codex)
@@ -275,6 +286,220 @@ assert(
 	not vim.api.nvim_win_is_valid(state.codex_commit_review_win or -1),
 	"stale prepared message should not open review popup"
 )
+
+-- Exercise the automatic entrypoint with real Git and controlled asynchronous generation.
+local notices = {}
+local util = require("codex.util")
+local previous_notify = util.notify
+util.notify = function(message)
+	notices[#notices + 1] = message
+end
+local previous_jobstart = vim.fn.jobstart
+local generation_count, add_count = 0, 0
+vim.fn.jobstart = function(command, opts)
+	if command[1] == "codex" then
+		generation_count = generation_count + 1
+	elseif command[1] == "git" and command[2] == "add" then
+		add_count = add_count + 1
+	end
+	return previous_jobstart(command, opts)
+end
+
+local function wait_finished()
+	assert(
+		vim.wait(5000, function()
+			return not state.codex_commit_active
+		end),
+		"commit operation should finish and release its active flag"
+	)
+end
+
+local function git_output(args)
+	local command = { "git", "-C", root }
+	vim.list_extend(command, args)
+	local output = vim.fn.system(command)
+	assert(vim.v.shell_error == 0, output)
+	return output
+end
+
+local function head()
+	return git_output({ "rev-parse", "HEAD" })
+end
+
+local function fake_script(lines)
+	vim.fn.writefile(vim.list_extend({ "#!/bin/sh" }, lines), fake_codex)
+end
+
+local function start_delayed()
+	vim.fn.delete(root .. "/.git/generation-started")
+	vim.fn.delete(root .. "/.git/generation-release")
+	fake_script({
+		"cat >/dev/null",
+		"touch .git/generation-started",
+		"attempt=0",
+		"while [ ! -f .git/generation-release ]; do",
+		"  attempt=$((attempt + 1))",
+		'  [ "$attempt" -lt 500 ] || exit 1',
+		"  sleep 0.01",
+		"done",
+		"printf '%s\\n' 'feat: commit saved snapshot'",
+	})
+	commit.run()
+	assert(state.codex_commit_active, "automatic operation should be active before returning")
+	assert(
+		vim.wait(5000, function()
+			return vim.fn.filereadable(root .. "/.git/generation-started") == 1
+		end),
+		"generation should start asynchronously"
+	)
+end
+
+local function release_generation()
+	vim.fn.writefile({}, root .. "/.git/generation-release")
+	wait_finished()
+end
+
+-- Seed a tracked deletion, then stage additions and modifications from a subdirectory.
+run_git(root, { "add", "-A" })
+run_git(root, { "commit", "-m", "test: seed automatic workflow" })
+vim.fn.delete(root .. "/stale.txt")
+vim.fn.writefile({ "saved snapshot" }, root .. "/example.txt")
+vim.fn.writefile({ "new file" }, root .. "/added.txt")
+vim.fn.writefile({ "saved buffer" }, root .. "/buffer.txt")
+vim.cmd.edit(root .. "/buffer.txt")
+local editing_buf = vim.api.nvim_get_current_buf()
+vim.api.nvim_buf_set_lines(editing_buf, 0, -1, false, { "unsaved buffer" })
+local editing_win = vim.api.nvim_get_current_win()
+vim.fn.mkdir(root .. "/subdir", "p")
+vim.cmd.cd(root .. "/subdir")
+
+local before = head()
+start_delayed()
+local initial_generations, initial_adds = generation_count, add_count
+commit.run()
+assert(generation_count == initial_generations and add_count == initial_adds, "duplicate run must not launch work")
+assert(notices[#notices]:find("already in progress", 1, true), "duplicate should report active operation")
+assert(state.codex_commit_active and head() == before, "generation should still be running")
+vim.fn.writefile({ "saved snapshot", "later saved edit" }, root .. "/example.txt")
+release_generation()
+assert(head() ~= before, "automatic flow should create a commit without confirmation")
+assert(git_output({ "show", "HEAD:example.txt" }) == "saved snapshot\n", "later saves must stay out of commit")
+assert(git_output({ "show", "HEAD:added.txt" }) == "new file\n", "new files should be committed")
+assert(git_output({ "ls-tree", "--name-only", "HEAD", "--", "stale.txt" }) == "", "deletions should be committed")
+assert(git_output({ "show", "HEAD:buffer.txt" }) == "saved buffer\n", "only saved buffer content should be staged")
+assert(vim.bo[editing_buf].modified, "unsaved buffer should remain modified")
+assert(vim.api.nvim_buf_get_lines(editing_buf, 0, -1, false)[1] == "unsaved buffer", "unsaved edits must survive")
+assert(vim.api.nvim_get_current_win() == editing_win, "automatic commit must not change window focus")
+assert(vim.api.nvim_get_current_buf() == editing_buf, "automatic commit must not change buffer focus")
+assert(git_output({ "diff", "--", "example.txt" }):find("later saved edit", 1, true), "later work should stay unstaged")
+assert(state.codex_prepared_commit == nil, "successful commit should clear prepared state")
+assert(
+	generation_count == initial_generations and add_count == initial_adds,
+	"automatic flow must stage and generate once"
+)
+for _, message in ipairs(notices) do
+	assert(not message:find("Codex commit ready:", 1, true), "automatic flow must not ask for another command")
+end
+vim.cmd.cd(root)
+
+-- Explicit staging during generation invalidates the candidate without retrying.
+before = head()
+start_delayed()
+vim.fn.writefile({ "restaged during generation" }, root .. "/added.txt")
+run_git(root, { "add", "-A" })
+local changed = collect_staged(root)
+release_generation()
+assert(head() == before and state.codex_prepared_commit == nil, "changed index must abort automatic commit")
+assert(collect_staged(root).fingerprint == changed.fingerprint, "aborting must preserve staged work")
+
+-- Generation and validation failures must not commit or leave the operation active.
+for _, lines in ipairs({
+	{ "cat >/dev/null", "echo generation-failed >&2", "exit 1" },
+	{ "cat >/dev/null", "printf '%s\\n' 'not a conventional message'" },
+	{ "cat >/dev/null", "printf '%s\\n' 'feat: first line' 'feat: second line'" },
+}) do
+	fake_script(lines)
+	commit.run()
+	wait_finished()
+	assert(head() == before and state.codex_prepared_commit == nil, "failed generation must not commit")
+	assert(collect_staged(root).fingerprint == changed.fingerprint, "failure must preserve staged work")
+end
+
+-- A failed hook retains the message; retry must neither generate nor stage later edits.
+fake_script({ "cat >/dev/null", "printf '%s\\n' 'fix: retry prepared commit'" })
+local hook = root .. "/.git/hooks/pre-commit"
+vim.fn.writefile({ "#!/bin/sh", "echo hook-rejected >&2", "exit 1" }, hook)
+assert((vim.uv or vim.loop).fs_chmod(hook, 493))
+commit.run()
+wait_finished()
+assert(head() == before and state.codex_prepared_commit ~= nil, "hook failure should retain matching candidate")
+assert(state.codex_prepared_commit.message == "fix: retry prepared commit", "retry should preserve generated message")
+initial_generations, initial_adds = generation_count, add_count
+vim.fn.writefile({ "new work after failed hook" }, root .. "/added.txt")
+vim.fn.delete(hook)
+commit.run()
+wait_finished()
+assert(head() ~= before and state.codex_prepared_commit == nil, "retry should create commit")
+assert(generation_count == initial_generations and add_count == initial_adds, "retry must reuse prepared snapshot")
+assert(git_output({ "show", "HEAD:added.txt" }) == "restaged during generation\n", "retry must exclude later work")
+assert(git_output({ "log", "-1", "--pretty=%s" }) == "fix: retry prepared commit\n", "retry should use saved message")
+
+-- Reviewed messages are reused by the automatic command, including manual edits.
+commit.prepare()
+wait_finished()
+assert(state.codex_prepared_commit ~= nil, "manual preparation must still stop before commit")
+commit.update_message("feat: use reviewed subject", function(ok)
+	assert(ok, "reviewed subject should validate")
+end)
+wait_finished()
+initial_generations, initial_adds = generation_count, add_count
+commit.run()
+wait_finished()
+assert(
+	git_output({ "log", "-1", "--pretty=%s" }) == "feat: use reviewed subject\n",
+	"automatic command should reuse edited subject"
+)
+assert(
+	generation_count == initial_generations and add_count == initial_adds,
+	"prepared path must not regenerate or restage"
+)
+
+-- Verify command wiring and empty-worktree handling through the public command.
+local api = require("codex")
+assert(
+	api.commit == commit.run and api.commit_prepared == commit.commit,
+	"public APIs should preserve prepared-only entrypoint"
+)
+api.setup()
+before = head()
+initial_generations, initial_adds = generation_count, add_count
+vim.cmd.CodexCommit()
+wait_finished()
+assert(head() == before and state.codex_prepared_commit == nil, "empty worktree must not create a commit")
+assert(
+	generation_count == initial_generations and add_count == initial_adds + 1,
+	"command should stage but skip empty generation"
+)
+
+-- A stale prepared candidate must not silently fall through into fresh preparation.
+vim.fn.writefile({ "prepared" }, root .. "/added.txt")
+commit.prepare()
+wait_finished()
+vim.fn.writefile({ "stale prepared" }, root .. "/added.txt")
+run_git(root, { "add", "-A" })
+initial_generations, initial_adds = generation_count, add_count
+vim.cmd.CodexCommit()
+wait_finished()
+assert(head() == before and state.codex_prepared_commit == nil, "stale prepared candidate must abort")
+assert(
+	generation_count == initial_generations and add_count == initial_adds,
+	"stale candidate must not restart automatically"
+)
+
+vim.fn.jobstart = previous_jobstart
+vim.fn.executable = previous_executable
+util.notify = previous_notify
+vim.api.nvim_buf_delete(editing_buf, { force = true })
 
 vim.cmd.cd(previous_cwd)
 vim.env.PATH = previous_path

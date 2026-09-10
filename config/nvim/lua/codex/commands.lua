@@ -27,11 +27,7 @@ function M.setup(api)
 		api.resync_chat_command,
 		{ desc = "Resync the Codex chat", nargs = "?" }
 	)
-	vim.api.nvim_create_user_command(
-		"CodexCommand",
-		api.command,
-		{ desc = "Run a context-free Codex command" }
-	)
+	vim.api.nvim_create_user_command("CodexCommand", api.command, { desc = "Run a context-free Codex command" })
 	vim.api.nvim_create_user_command(
 		"CodexCommandFile",
 		api.command_file,
@@ -64,8 +60,8 @@ function M.setup(api)
 	)
 	vim.api.nvim_create_user_command(
 		"CodexCommit",
-		api.commit_prepared,
-		{ desc = "Commit the changes prepared by CodexPrepareCommit" }
+		api.commit,
+		{ desc = "Commit prepared changes or stage all and generate a commit message" }
 	)
 	vim.api.nvim_create_user_command(
 		"CodexReviewCommit",
