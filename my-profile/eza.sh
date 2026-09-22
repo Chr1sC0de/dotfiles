@@ -12,6 +12,7 @@ if type eza &>/dev/null; then
     alias llt='eza -l --total-size --header'
     alias lal='eza -la --loc --header'
     alias lll='eza -l --loc --header'
+    alias llt='eza --tree'
 else
     alias ll='ls -l'
     alias la='ls -la'

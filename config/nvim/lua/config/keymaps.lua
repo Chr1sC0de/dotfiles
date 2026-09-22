@@ -260,3 +260,34 @@ vim.keymap.set("n", "<leader>sc", function()
 	-- Open the buffer in a new split window
 	vim.api.nvim_win_set_buf(0, buf)
 end, { desc = "Open scratch buffer" })
+
+local opts = { noremap = true, silent = false }
+
+local function map(mode, lhs, rhs, desc)
+	vim.keymap.set(mode, lhs, rhs, {
+		buffer = 0,
+		noremap = true,
+		silent = false,
+		desc = desc,
+	})
+end
+
+-- Create a new note after asking for its title.
+map("n", "<leader>zn", "<Cmd>ZkNew { title = vim.fn.input('Title: ') }<CR>", "zk-nvim: Create new note")
+
+-- Open notes.
+map("n", "<leader>zo", "<Cmd>ZkNotes { sort = { 'modified' } }<CR>", "zk-nvim: Open notes")
+
+-- Open notes associated with the selected tags.
+map("n", "<leader>zt", "<Cmd>ZkTags<CR>", "zk-nvim: Browse tags")
+
+-- Search for the notes matching a given query.
+map(
+	"n",
+	"<leader>zf",
+	"<Cmd>ZkNotes { sort = { 'modified' }, match = { vim.fn.input('Search: ') } }<CR>",
+	"zk-nvim: Search notes"
+)
+
+-- Search for the notes matching the current visual selection.
+map("v", "<leader>zf", ":'<,'>ZkMatch<CR>", "zk-nvim: Search selected text")
