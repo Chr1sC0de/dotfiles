@@ -608,6 +608,8 @@ def main():
                         + json.dumps(str(spec_path))
                         + ").opts)",
                         'require("config.codex").setup()',
+                        # Pin the fixture model independently of user defaults.
+                        "require('codex.state').ephemeral_models.edit = 'gpt-6-astra'",
                     ]
                 )
             )

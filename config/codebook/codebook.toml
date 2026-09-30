@@ -1,7 +1,4 @@
-dictionaries = [
-    "en_us",
-    "en_gb",
-]
+dictionaries = ["en_us", "en_gb"]
 words = [
     "Autoregressive",
     "Backtesting",
@@ -10,6 +7,7 @@ words = [
     "KAGGLE",
     "Monash",
     "Stationarity",
+    "Vpc",
     "absolutizing",
     "aemo",
     "aest",
@@ -44,6 +42,8 @@ words = [
     "dwgm",
     "dwm",
     "ecgs",
+    "eip",
+    "eni",
     "etl",
     "fargate",
     "fastapi",
@@ -103,6 +103,7 @@ words = [
     "swapfile",
     "taplo",
     "texthl",
+    "tls",
     "unzipper",
     "vicgas",
     "virtualedit",
@@ -112,11 +113,7 @@ words = [
     "yamllint",
     "zuban",
 ]
-ignore_paths = [
-    "**/LICENSE",
-    "**/lazy-lock.json",
-    "**/nvim.log",
-]
+ignore_paths = ["**/LICENSE", "**/lazy-lock.json", "**/nvim.log"]
 ignore_patterns = [
     '\b[ATCG]+\b',
     '\b\d{3}-\d{2}-\d{4}\b',

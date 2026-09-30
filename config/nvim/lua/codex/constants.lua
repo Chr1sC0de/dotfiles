@@ -37,11 +37,9 @@ M.EPHEMERAL_SPINNER_STYLES = {
 }
 M.EPHEMERAL_MODEL_CHOICES = {
 	{ label = "CLI default", model = nil },
+	{ label = "6.1 Sol", model = "gpt-6.1-sol" },
 	{ label = "Astra", model = "gpt-6-astra" },
-	{ label = "5.6 Sol", model = "gpt-5.6-sol" },
-	{ label = "5.6 Terra", model = "gpt-5.6-terra" },
-	{ label = "5.6 Luna", model = "gpt-5.6-luna" },
-	{ label = "5.3 Codex Spark", model = "gpt-5.3-codex-spark" },
+	{ label = "6 Luna", model = "gpt-6-luna" },
 	{ label = "Custom...", custom = true },
 }
 M.EPHEMERAL_MODEL_TARGETS = {

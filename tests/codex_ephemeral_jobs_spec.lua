@@ -25,8 +25,8 @@ local function reset_state()
 	state.next_ephemeral_diagnostic_id = 1
 	state.next_ephemeral_sign_id = 1
 	state.ephemeral_models = {
-		command = "gpt-6-astra",
-		edit = "gpt-6-astra",
+		command = "gpt-6.1-sol",
+		edit = "gpt-6.1-sol",
 	}
 end
 
@@ -86,21 +86,19 @@ local tests = {}
 tests["model choices match the current Codex lineup"] = function()
 	assert_equal(constants.CODEX_TITLE_MODEL, "gpt-6-astra", "title model")
 	assert_deep_equal(initial_ephemeral_models, {
-		command = "gpt-6-astra",
-		edit = "gpt-6-astra",
+		command = "gpt-6.1-sol",
+		edit = "gpt-6.1-sol",
 	}, "initial ephemeral models")
 	assert_deep_equal(constants.EPHEMERAL_MODEL_CHOICES, {
 		{ label = "CLI default", model = nil },
+		{ label = "6.1 Sol", model = "gpt-6.1-sol" },
 		{ label = "Astra", model = "gpt-6-astra" },
-		{ label = "5.6 Sol", model = "gpt-5.6-sol" },
-		{ label = "5.6 Terra", model = "gpt-5.6-terra" },
-		{ label = "5.6 Luna", model = "gpt-5.6-luna" },
-		{ label = "5.3 Codex Spark", model = "gpt-5.3-codex-spark" },
+		{ label = "6 Luna", model = "gpt-6-luna" },
 		{ label = "Custom...", custom = true },
 	}, "model choices")
 end
 
-tests["command jobs use Astra and retain reasoning defaults"] = function()
+tests["command jobs use Sol and retain reasoning defaults"] = function()
 	reset_state()
 
 	local captured_command = nil
@@ -143,7 +141,7 @@ tests["command jobs use Astra and retain reasoning defaults"] = function()
 	spinner.start_diagnostic = old_start_diagnostic
 
 	assert_contains_arg(captured_command, "--model", "model flag")
-	assert_contains_arg(captured_command, "gpt-6-astra", "default command model")
+	assert_contains_arg(captured_command, "gpt-6.1-sol", "default command model")
 	assert_contains_arg(captured_command, 'model_reasoning_effort="low"', "reasoning override")
 	assert_contains_arg(captured_command, "--sandbox", "sandbox flag")
 	assert_contains_arg(captured_command, "read-only", "read-only sandbox")
@@ -153,7 +151,7 @@ tests["command jobs use Astra and retain reasoning defaults"] = function()
 	assert_contains_text(captured_prompt, "Do not modify files.", "command prompt mode")
 end
 
-tests["edit jobs use Astra and route writes through Tandem"] = function()
+tests["edit jobs use Sol and route writes through Tandem"] = function()
 	reset_state()
 
 	local captured_command = nil
@@ -193,7 +191,7 @@ tests["edit jobs use Astra and route writes through Tandem"] = function()
 	spinner.start_diagnostic = old_start_diagnostic
 
 	assert_contains_arg(captured_command, "--model", "model flag")
-	assert_contains_arg(captured_command, "gpt-6-astra", "default edit model")
+	assert_contains_arg(captured_command, "gpt-6.1-sol", "default edit model")
 	assert_contains_arg(captured_command, "--sandbox", "sandbox flag")
 	assert_contains_arg(captured_command, "read-only", "native writes blocked")
 	assert_contains_arg(captured_command, 'approval_policy="never"', "no native-write escalation")
