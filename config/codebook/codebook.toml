@@ -1,4 +1,7 @@
-dictionaries = ["en_us", "en_gb"]
+dictionaries = [
+    "en_us",
+    "en_gb",
+]
 words = [
     "Autoregressive",
     "Backtesting",
@@ -6,6 +9,7 @@ words = [
     "Heteroscedasticity",
     "KAGGLE",
     "Monash",
+    "Pulumi",
     "Stationarity",
     "Vpc",
     "absolutizing",
@@ -113,7 +117,11 @@ words = [
     "yamllint",
     "zuban",
 ]
-ignore_paths = ["**/LICENSE", "**/lazy-lock.json", "**/nvim.log"]
+ignore_paths = [
+    "**/LICENSE",
+    "**/lazy-lock.json",
+    "**/nvim.log",
+]
 ignore_patterns = [
     '\b[ATCG]+\b',
     '\b\d{3}-\d{2}-\d{4}\b',
