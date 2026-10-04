@@ -59,6 +59,7 @@ words = [
     "hadolint",
     "hererocks",
     "keymaps",
+    "kubernetes",
     "lazyframe",
     "lazypath",
     "lazyrepo",

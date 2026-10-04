@@ -16,7 +16,7 @@ return {
 			"--git",
 			"https://github.com/Chr1sC0de/tandem",
 			"--rev",
-			"1b30de8709a320879efa8e6c498cab6f14508b10",
+			"6fafe49c779cc2ab219ffa55096e4624cb84c9d1",
 			"--root",
 			install_root,
 			"tandem-cli",
