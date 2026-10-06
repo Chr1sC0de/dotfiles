@@ -21,8 +21,7 @@ return {
 			layouts = {
 				{
 					elements = {
-						{ id = "console", size = 0.5 },
-						{ id = "repl", size = 0.5 },
+						{ id = "repl", size = 1 },
 					},
 					size = 0.5,
 					position = "bottom",
@@ -135,6 +134,7 @@ return {
 		vim.keymap.set("n", "<Leader>dS", dapui_float_element("stacks", "Stacks"), { desc = "dap-ui: float stacks" })
 		vim.keymap.set("n", "<Leader>dL", dapui_float_element("scopes", "Locals"), { desc = "dap-ui: float locals" })
 		vim.keymap.set("n", "<Leader>dT", dapui_float_element("stacks", "Threads"), { desc = "dap-ui: float threads" })
+		vim.keymap.set("n", "<Leader>dC", dapui_float_element("console", "Console"), { desc = "dap-ui: float console" })
 		vim.keymap.set(
 			"n",
 			"<Leader>dB",
@@ -150,7 +150,7 @@ return {
 				height = math.floor(vim.o.lines * 0.6),
 			})
 			require("dap").repl.execute("disassemble ")
-		end)
+		end, { desc = "dap-ui: disassemble" })
 
 		vim.keymap.set({ "n", "v" }, "<Leader>dh", function()
 			require("dap.ui.widgets").hover()
