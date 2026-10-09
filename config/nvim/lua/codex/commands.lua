@@ -124,6 +124,7 @@ function M.setup(api)
 		{ desc = "Codex: run a command on the current file (no edits)" }
 	)
 	vim.keymap.set("n", "<leader>aq", api.command, { desc = "Codex: ask without editor context" })
+	vim.keymap.set("n", "<leader>aC", api.commit, { desc = "Codex: commit changes" })
 	vim.keymap.set(
 		"x",
 		"<leader>ac",
