@@ -1290,7 +1290,8 @@ end
 local function start_direct_chat(session, hook_env)
 	local term_buf = session.bufnr
 	local original_terminal_name = vim.api.nvim_buf_get_name(term_buf)
-	local command = vim.list_extend({ "codex", "--cd", session.cwd }, session.tandem_args)
+	-- Tandem overrides require an embedded backend.
+	local command = vim.list_extend({ "codex", "--no-daemon", "--cd", session.cwd }, session.tandem_args)
 	local job_id = vim.fn.jobstart(command, {
 		env = hook_env,
 		term = true,

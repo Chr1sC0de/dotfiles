@@ -248,6 +248,8 @@ function M.agent_start_args(session)
 		"--timeout",
 		"60000",
 		"--",
+		-- Tandem overrides require an embedded backend.
+		"--no-daemon",
 		"--cd",
 		session.cwd,
 	}

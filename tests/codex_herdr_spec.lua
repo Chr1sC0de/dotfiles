@@ -215,20 +215,25 @@ tests["agent start targets the backing pane"] = function()
 		herdr_agent_name = "nvim-codex-td-123-2",
 		herdr_pane_id = "w7:p9",
 	})
-	assert_equal(args, vim.list_extend({
-		"agent",
-		"start",
-		"nvim-codex-td-123-2",
-		"--kind",
-		"codex",
-		"--pane",
-		"w7:p9",
-		"--timeout",
-		"60000",
-		"--",
-		"--cd",
-		"/tmp/project",
-	}, protected), "agent start args")
+	assert_equal(
+		args,
+		vim.list_extend({
+			"agent",
+			"start",
+			"nvim-codex-td-123-2",
+			"--kind",
+			"codex",
+			"--pane",
+			"w7:p9",
+			"--timeout",
+			"60000",
+			"--",
+			"--no-daemon",
+			"--cd",
+			"/tmp/project",
+		}, protected),
+		"agent start args"
+	)
 end
 
 tests["reattach candidates require Neovim route state"] = function()
@@ -270,7 +275,9 @@ tests["legacy native-write agents are not silently reattached"] = function()
 	local route_path = vim.fn.tempname()
 	vim.fn.writefile({ "server", "1", "token" }, route_path)
 	local original_route_path = herdr.route_path
-	herdr.route_path = function() return route_path end
+	herdr.route_path = function()
+		return route_path
+	end
 	local candidates = herdr.filter_agents({
 		{ name = "nvim-codex-123-legacy", agent = "codex" },
 		{ name = "nvim-codex-td-123-new", agent = "codex" },
