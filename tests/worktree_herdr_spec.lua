@@ -372,7 +372,14 @@ tests["continue opens a closed checkout with codex resume last"] = function()
 		local command = args[1] .. " " .. args[2]
 		if command == "worktree list" then
 			opts.on_success(response({
-				worktrees = { { branch = "feature", path = "/tmp/repo-feature", is_linked_worktree = true } },
+				worktrees = {
+					{
+						branch = "feature",
+						path = "/tmp/repo-feature",
+						is_linked_worktree = true,
+						open_workspace_id = vim.NIL,
+					},
+				},
 			}))
 		elseif command == "worktree open" then
 			opts.on_success(response({
@@ -404,6 +411,178 @@ tests["continue opens a closed checkout with codex resume last"] = function()
 
 	vim.ui.select = old_select
 	herdr._test.run = nil
+end
+
+local function with_worktree_picker(worktrees, workspaces, check)
+	local calls, rows, notices = {}, {}, {}
+	local old_select, old_notify = vim.ui.select, vim.notify
+	local prompts = require("workmux.prompts")
+	local old_confirm = prompts.confirm_exact
+	local fixture = { workspaces = workspaces }
+	vim.notify = function(message, level)
+		table.insert(notices, { message = message, level = level })
+	end
+	vim.ui.select = function(items, opts, callback)
+		rows = {}
+		for _, item in ipairs(items) do
+			table.insert(rows, opts.format_item(item))
+		end
+		fixture.items = items
+		fixture.rows = rows
+		callback(fixture.select and items[fixture.select] or nil)
+	end
+	prompts.confirm_exact = function(expected, _, callback)
+		fixture.confirmed = expected
+		callback()
+	end
+	herdr._test.run = function(args, opts)
+		table.insert(calls, vim.deepcopy(args))
+		local command = args[1] .. " " .. args[2]
+		if command == "worktree list" then
+			opts.on_success(response({ worktrees = worktrees }))
+		elseif command == "workspace list" then
+			if fixture.lookup_error then
+				opts.on_error({ code = 1 }, fixture.lookup_error)
+			elseif fixture.lookup_response then
+				opts.on_success(fixture.lookup_response)
+			else
+				opts.on_success(response({ workspaces = fixture.workspaces }))
+			end
+		elseif opts.on_success then
+			opts.on_success(response({}))
+		end
+	end
+	local ok, err = xpcall(function()
+		check(fixture, calls, notices)
+	end, debug.traceback)
+	vim.ui.select, vim.notify = old_select, old_notify
+	prompts.confirm_exact = old_confirm
+	herdr._test.run = nil
+	if not ok then
+		error(err)
+	end
+end
+
+tests["worktree picker resolves current workspace names and preserves focus targets"] = function()
+	with_worktree_picker({
+		{
+			label = "feature/login",
+			branch = "feature/login",
+			path = "/tmp/login-checkout",
+			is_linked_worktree = true,
+			open_workspace_id = "w7",
+		},
+		{
+			label = "main",
+			branch = "main",
+			path = "/tmp/project",
+			is_linked_worktree = false,
+			open_workspace_id = "w1",
+		},
+	}, {
+		{ workspace_id = "w1", label = "Project" },
+		{ workspace_id = "w7", label = "Login redesign" },
+	}, function(fixture, calls)
+		herdr.open(false)
+		assert_equal(fixture.rows, {
+			"Login redesign (feature/login) [open]",
+			"Project (main) [main, open]",
+		}, "workspace labels joined by ID")
+		assert_equal(#calls, 2, "one workspace lookup and no action after cancellation")
+		fixture.workspaces[2].label = "Renamed login"
+		fixture.select = 1
+		herdr.open(true)
+		assert_equal(fixture.rows[1], "Renamed login (feature/login) [open]", "fresh workspace name")
+		assert_equal(#calls, 5, "one additional lookup and focus")
+		assert_command(calls, { "workspace", "focus", "w7" }, "original workspace target")
+		assert_no_command(calls, { "worktree", "open" }, "open workspace is reused")
+		assert_equal(fixture.items[1].label, "feature/login", "original worktree label retained")
+	end)
+end
+
+tests["closed worktree picker uses folder names and handles detached checkouts"] = function()
+	with_worktree_picker({
+		{
+			label = "feature/login",
+			branch = "feature/login",
+			path = "/tmp/login-checkout/",
+			is_linked_worktree = true,
+			open_workspace_id = vim.NIL,
+		},
+		{ label = "release", branch = "release", path = "/tmp/release", is_linked_worktree = true },
+		{
+			label = "detached HEAD",
+			branch = vim.NIL,
+			path = "/tmp/detached",
+			is_linked_worktree = true,
+			open_workspace_id = vim.NIL,
+		},
+	}, {}, function(fixture, calls)
+		herdr.open(false)
+		assert_equal(fixture.rows, {
+			"login-checkout (feature/login) [closed]",
+			"release [closed]",
+			"detached [closed]",
+		}, "closed and detached labels")
+		assert_no_command(calls, { "workspace", "list" }, "closed checkouts need no workspace lookup")
+	end)
+end
+
+tests["worktree picker falls back when workspace records are absent or lookup fails"] = function()
+	with_worktree_picker({
+		{
+			label = "feature/login",
+			branch = "feature/login",
+			path = "/tmp/login-checkout",
+			is_linked_worktree = true,
+			open_workspace_id = "w7",
+		},
+		{
+			label = "release",
+			branch = "release",
+			path = "/tmp/release",
+			is_linked_worktree = true,
+			open_workspace_id = "w8",
+		},
+	}, { { workspace_id = "w8", label = "" } }, function(fixture, _, notices)
+		local expected = { "login-checkout (feature/login) [open]", "release [open]" }
+		herdr.open(false)
+		assert_equal(fixture.rows, expected, "missing and empty workspace labels")
+		assert_equal(#notices, 0, "missing records need no warning")
+		fixture.lookup_error = "socket unavailable"
+		herdr.open(false)
+		assert_equal(fixture.rows, expected, "failed lookup fallback")
+		assert_equal(#notices, 1, "single lookup warning")
+		assert_equal(notices[1].level, vim.log.levels.WARN, "warning severity")
+		fixture.lookup_error = nil
+		fixture.lookup_response = response({})
+		herdr.open(false)
+		assert_equal(fixture.rows, expected, "malformed lookup fallback")
+		assert_equal(#notices, 2, "single malformed response warning")
+	end)
+end
+
+tests["close and remove selectors retain filters and confirmation identity"] = function()
+	with_worktree_picker({
+		{ branch = "main", path = "/tmp/project", is_linked_worktree = false, open_workspace_id = "w1" },
+		{ branch = "closed", path = "/tmp/closed", is_linked_worktree = true, open_workspace_id = vim.NIL },
+		{
+			label = "feature/login",
+			branch = "feature/login",
+			path = "/tmp/login-checkout",
+			is_linked_worktree = true,
+			open_workspace_id = "w7",
+		},
+	}, { { workspace_id = "w7", label = "Login redesign" } }, function(fixture, calls)
+		fixture.select = 1
+		herdr.close()
+		assert_equal(fixture.rows, { "Login redesign (feature/login) [open]" }, "close selector")
+		assert_command(calls, { "workspace", "close", "w7" }, "close target")
+		herdr.remove()
+		assert_equal(fixture.rows, { "Login redesign (feature/login) [open]" }, "remove selector")
+		assert_equal(fixture.confirmed, "feature/login", "existing branch confirmation")
+		assert_command(calls, { "worktree", "remove", "--workspace", "w7" }, "remove target")
+	end)
 end
 
 tests["agent navigation wraps and latest attention uses state sequence"] = function()

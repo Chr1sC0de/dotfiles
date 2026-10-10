@@ -556,6 +556,13 @@ local function generate_branch(task, callback)
 	)
 end
 
+local function nonempty_string(value)
+	if type(value) == "string" and value:find("%S") then
+		return value
+	end
+	return nil
+end
+
 local function list_worktrees(callback)
 	run({ "worktree", "list", "--cwd", current_cwd() }, {
 		on_error = function(_, message)
@@ -568,13 +575,23 @@ local function list_worktrees(callback)
 				fail_step("worktree list", err or "response did not include worktrees")
 				return
 			end
+			for _, item in ipairs(items) do
+				item.branch = nonempty_string(item.branch)
+				item.open_workspace_id = nonempty_string(item.open_workspace_id)
+			end
 			callback(items, payload.source)
 		end,
 	})
 end
 
-local function worktree_item_label(item)
-	local label = item.label or item.branch or item.path or "unknown"
+local function worktree_item_label(item, workspaces)
+	local workspace = workspaces[item.open_workspace_id] or {}
+	local path = nonempty_string(item.path)
+	local folder = path and nonempty_string(vim.fn.fnamemodify(path:gsub("/+$", ""), ":t"))
+	local label = nonempty_string(workspace.label) or folder or path or nonempty_string(item.label) or "unknown"
+	if item.branch and item.branch ~= label then
+		label = label .. " (" .. item.branch .. ")"
+	end
 	local state = {}
 	if item.is_linked_worktree ~= true then
 		table.insert(state, "main")
@@ -590,23 +607,54 @@ end
 local function select_worktree(opts, callback)
 	list_worktrees(function(items)
 		local choices = {}
+		local has_open_workspace = false
 		for _, item in ipairs(items) do
 			if
 				(not opts.linked_only or item.is_linked_worktree == true)
 				and (not opts.open_only or item.open_workspace_id ~= nil)
 			then
 				table.insert(choices, item)
+				has_open_workspace = has_open_workspace or item.open_workspace_id ~= nil
 			end
 		end
 		if #choices == 0 then
 			util.notify(opts.empty_message or "no matching Herdr worktrees", vim.log.levels.WARN)
 			return
 		end
-		vim.ui.select(choices, { prompt = opts.prompt, format_item = worktree_item_label }, function(choice)
-			if choice then
-				callback(choice)
-			end
-		end)
+		local function show(workspaces)
+			vim.ui.select(choices, {
+				prompt = opts.prompt,
+				format_item = function(item)
+					return worktree_item_label(item, workspaces)
+				end,
+			}, function(choice)
+				if choice then
+					callback(choice)
+				end
+			end)
+		end
+		if not has_open_workspace then
+			show({})
+			return
+		end
+		local function fallback(message)
+			util.notify("Herdr workspace names unavailable; using folder names: " .. message, vim.log.levels.WARN)
+			show({})
+		end
+		run({ "workspace", "list" }, {
+			on_error = function(_, message)
+				fallback(message)
+			end,
+			on_success = function(result)
+				local payload, err = decode_result(result, "workspace list")
+				local workspaces = payload and payload.workspaces or nil
+				if type(workspaces) ~= "table" then
+					fallback(err or "response did not include workspaces")
+					return
+				end
+				show(table_index(workspaces, "workspace_id"))
+			end,
+		})
 	end)
 end
 
