@@ -22,14 +22,9 @@ end
 return {
 	"Chr1sC0de/tandem.nvim",
 	lazy = false,
-	enabled = not vim.g.vscode,
+	enabled = not vim.g.vscode and (vim.fn.executable("codex") == 1) and (vim.fn.executable("cargo") == 1),
 	build = function()
-		if vim.fn.executable("codex") == 1 then
-			if vim.fn.executable("cargo") ~= 1 then
-				error("Tandem requires Cargo. Install Rust, then run :Lazy build tandem.nvim")
-			end
-			install_tandem()
-		end
+		install_tandem()
 	end,
 	opts = { command = install_root .. "/bin/tandem" },
 }
