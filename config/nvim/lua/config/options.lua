@@ -79,15 +79,6 @@ vim.filetype.add({
 		[".*gitconfig"] = "gitconfig",
 		[".*tmux.conf"] = "tmux",
 		[".*/%.vscode/.*%.json"] = "jsonc",
-		[".*"] = {
-			---@diagnostic disable-next-line: unused-local
-			function(path, bufnr)
-				local first_line = vim.api.nvim_buf_get_lines(bufnr, 0, 1, false)[1]
-				if first_line and first_line:match("^#!.*bash") then
-					return "bash"
-				end
-			end,
-		},
 		[".*%.container"] = "ini",
 		[".*%.pod"] = "ini",
 		[".*%.volume"] = "ini",
@@ -95,6 +86,52 @@ vim.filetype.add({
 		[".sqruff"] = "ini",
 		[".sqlfluff"] = "ini",
 	},
+})
+
+-- Detect extensionless Bash and Python scripts when opened or saved.
+vim.api.nvim_create_autocmd({ "BufReadPost", "BufWritePost" }, {
+	group = vim.api.nvim_create_augroup("ExtensionlessScriptFiletype", { clear = true }),
+	desc = "Detect extensionless Bash and Python scripts from their shebang",
+	callback = function(event)
+		local name = vim.api.nvim_buf_get_name(event.buf)
+		if vim.bo[event.buf].buftype ~= "" or name == "" or vim.fn.fnamemodify(name, ":e") ~= "" then
+			return
+		end
+
+		local first_line = vim.api.nvim_buf_get_lines(event.buf, 0, 1, false)[1] or ""
+
+		local shebang = first_line:match("^#!%s*(.*)")
+		if not shebang then
+			return
+		end
+
+		local tokens = vim.split(shebang, "%s+", { trimempty = true })
+		local index = 1
+
+		if tokens[index] and vim.fs.basename(tokens[index]) == "env" then
+			index = index + 1
+			if tokens[index] == "-S" then
+				index = index + 1
+			end
+		end
+
+		local interpreter = tokens[index] and vim.fs.basename(tokens[index]) or ""
+		local filetype
+		if interpreter == "bash" then
+			filetype = "bash"
+		elseif
+			interpreter == "python"
+			or interpreter:match("^python%d+$")
+			or interpreter:match("^python%d+%.%d+$")
+			or (interpreter == "uv" and tokens[index + 1] == "run")
+		then
+			filetype = "python"
+		end
+
+		if filetype and vim.bo[event.buf].filetype ~= filetype then
+			vim.bo[event.buf].filetype = filetype
+		end
+	end,
 })
 
 -- create command to route jinja injections
