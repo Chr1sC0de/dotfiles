@@ -22,6 +22,7 @@ return {
 				"rust-analyzer",
 				"neocmakelsp",
 				"clangd",
+				"just",
 				-- "markdown-oxide",
 				"ts_query_ls",
 				-- debuggers

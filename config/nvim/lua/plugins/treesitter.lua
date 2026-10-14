@@ -41,6 +41,7 @@ return {
 				"json",
 				"yaml",
 				"tmux",
+				"just",
 				"dap_repl",
 				"dockerfile",
 				"toml",
