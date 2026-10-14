@@ -3,7 +3,11 @@ require("core.lazy")
 if not vim.g.vscode then
 	require("core.lsp")
 	require("config.autocmds")
-	require("config.codex").setup()
+
+	-- only load in codex if it exists
+	if vim.fn.executable("codex") == 1 then
+		require("config.codex").setup()
+	end
 end
 
 require("config.options")

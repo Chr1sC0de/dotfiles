@@ -1,6 +1,7 @@
 return {
 	"zk-org/zk-nvim",
 	name = "zk",
+	enabled = vim.g.vscode and vim.fn.executable("zk") == 1,
 	opts = {
 		picker = "snacks_picker",
 		lsp = {
