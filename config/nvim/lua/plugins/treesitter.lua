@@ -1,3 +1,30 @@
+local LANGUAGES = {
+	"lua",
+	"latex",
+	"regex",
+	"rust",
+	"go",
+	"c",
+	"r",
+	"bash",
+	"python",
+	"markdown",
+	"json",
+	"yaml",
+	"tmux",
+	"just",
+	"dap_repl",
+	"dockerfile",
+	"toml",
+	"query",
+	"sql",
+	"duckdbsql",
+	"jinja",
+	"jinja_inline",
+	"caddy",
+	"mermaid",
+	"just",
+}
 ---@module "lazy"
 ---@type LazySpec
 return {
@@ -25,34 +52,16 @@ return {
 		},
 		lazy = false,
 		branch = "main",
-		build = ":TSUpdate",
+		build = function(plugin)
+			-- Load the config explicitly: Lazy does not load plugins for function build hooks.
+			require("lazy.core.loader").load(plugin, { task = "build" })
+			-- Avoid TSUpdate/TSUpdateSync collisions with the other Treesitter plugins.
+			local util = require("tree-sitter-manager.util")
+			local installer = require("tree-sitter-manager.installer")
+			local installed = vim.iter(LANGUAGES):filter(util.is_installed):totable()
+			installer.update(installed)
+		end,
 		config = function()
-			local languages = {
-				"lua",
-				"latex",
-				"regex",
-				"rust",
-				"go",
-				"c",
-				"r",
-				"bash",
-				"python",
-				"markdown",
-				"json",
-				"yaml",
-				"tmux",
-				"just",
-				"dap_repl",
-				"dockerfile",
-				"toml",
-				"query",
-				"sql",
-				"duckdbsql",
-				"jinja",
-				"jinja_inline",
-				"caddy",
-				"mermaid",
-			}
 			-- require("nvim-treesitter").install()
 			vim.filetype.add({
 				extension = { duckdbsql = "duckdbsql" },
@@ -75,7 +84,7 @@ return {
 					},
 				},
 				auto_install = true,
-				ensure_installed = languages,
+				ensure_installed = LANGUAGES,
 				nohighlight = { "dap-repl" },
 			})
 		end,

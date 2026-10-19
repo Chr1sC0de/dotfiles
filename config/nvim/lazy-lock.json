@@ -25,7 +25,7 @@
   "lazygit.nvim": { "branch": "main", "commit": "9ffc6103926718f7070fb4017694543cd7dc9718" },
   "lualine.nvim": { "branch": "master", "commit": "221ce6b2d999187044529f49da6554a92f740a96" },
   "luvit-meta": { "branch": "main", "commit": "7edcd52ac6f2acc2f83f0cc27ac989a142408fbf" },
-  "markdown-plus.nvim": { "branch": "main", "commit": "f9331d0ad9a38fefc4200fe2c332d6fbfc793015" },
+  "markdown-plus.nvim": { "branch": "main", "commit": "5105198809448c6953c65c1076ce3570021a6752" },
   "markdown-preview.nvim": { "branch": "master", "commit": "a923f5fc5ba36a3b17e289dc35dc17f66d0548ee" },
   "mason-lspconfig.nvim": { "branch": "main", "commit": "00b5473cca4db5b410ff4bae724e3b6e21f2687f" },
   "mason-nvim-dap.nvim": { "branch": "main", "commit": "9a10e096703966335bd5c46c8c875d5b0690dade" },
@@ -49,7 +49,7 @@
   "nvim-lspconfig": { "branch": "master", "commit": "45a3a444b710511c39abca3b60bb6e23a21e3de5" },
   "nvim-nio": { "branch": "master", "commit": "edcc181a875301dd21840189aa2f2f9ad69fc172" },
   "nvim-surround": { "branch": "main", "commit": "2e93e154de9ff326def6480a4358bfc149d5da2c" },
-  "nvim-treesitter": { "branch": "main", "commit": "d4a9b23a383266bdb0bfb42d565f31e83f27be5e" },
+  "nvim-treesitter": { "branch": "main", "commit": "29212d826054bb2948fa9d3a99eca9bf6a050eb2" },
   "nvim-treesitter-context": { "branch": "master", "commit": "8decd73460d26ef0a0befb745d022dd1fc2c38b8" },
   "nvim-ufo": { "branch": "main", "commit": "ab3eb124062422d276fae49e0dd63b3ad1062cfc" },
   "nvim-web-devicons": { "branch": "master", "commit": "ec309a0eaff6ea967e58c275996155ab5c16938d" },
@@ -76,6 +76,6 @@
   "vim-dadbod": { "branch": "master", "commit": "6d1d41da4873a445c5605f2005ad2c68c99d8770" },
   "vim-dadbod-completion": { "branch": "master", "commit": "a8dac0b3cf6132c80dc9b18bef36d4cf7a9e1fe6" },
   "vim-dadbod-ui": { "branch": "master", "commit": "afd07819d8efcefc3317205b855ad4e3513b0011" },
-  "vimtex": { "branch": "master", "commit": "bd0788f13c23337dae815e21f1f283cb79753ac7" },
+  "vimtex": { "branch": "master", "commit": "79a5fb444147f94a5284b6800030e17eecd18a06" },
   "zk": { "branch": "main", "commit": "2093138f4fabce994cf19403fca89d629f312ac9" }
 }
