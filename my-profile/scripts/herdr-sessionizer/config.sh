@@ -6,16 +6,11 @@ load_search_config() {
 	local config_file="$HOME/.config/herdr-sessionizer/config.toml" config_json
 	SEARCH_ROOTS=() SEARCH_DEPTHS=()
 	if ! config_json=$(
-		python3 - "$config_file" <<'PY'
+		uv run --no-project --no-config --isolated --python '>=3.11' python - "$config_file" <<'PY'
 import json
 import sys
-from pathlib import Path
-
-if sys.version_info < (3, 11):
-    print(f"herdr picker: {sys.argv[1]}: Python 3.11 or newer is required", file=sys.stderr)
-    sys.exit(1)
-
 import tomllib
+from pathlib import Path
 
 
 def read_roots(config_file: Path) -> list[dict[str, str | int]]:

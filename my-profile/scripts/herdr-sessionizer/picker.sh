@@ -11,7 +11,7 @@ HERE=$(cd -P -- "$(dirname -- "$SOURCE")" && pwd)
 # shellcheck source=common.sh
 source "$HERE/common.sh"
 [[ ${1:-} == projects || ${1:-} == worktrees ]] || fail 'Usage: herdr-sessionizer projects|worktrees'
-for dependency in git herdr fzf jq python3; do
+for dependency in git herdr fzf jq uv; do
     command -v "$dependency" >/dev/null || fail "Missing $dependency; run the dotfiles dependency installer and install Herdr."
 done
 TMP=$(mktemp -d)

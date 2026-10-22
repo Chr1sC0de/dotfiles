@@ -42,5 +42,6 @@ includes Herdr configuration, search roots in `~/.config/herdr-sessionizer/confi
 and the `herdr-sessionizer` and `herdr-sessionizer-preview` commands in `~/.local/bin`.
 Existing installations can add the search config with
 `bash utils/symlink-create.sh config/herdr-sessionizer/config.toml`.
-The picker requires Python 3.11+ for TOML parsing. Install Herdr separately.
+The picker requires uv, which selects or downloads Python for TOML parsing.
+Install Herdr separately.
 See [picker setup and usage](my-profile/scripts/herdr-sessionizer/README.md).

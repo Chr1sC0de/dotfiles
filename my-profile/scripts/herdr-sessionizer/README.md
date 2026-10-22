@@ -58,9 +58,13 @@ Popup bindings invoke `herdr-sessionizer`, so `~/.local/bin` must be on Herdr's
 PATH. The dotfiles profile adds it. The picker resolves its own symlink to load
 the shared scripts and invokes the neighboring `preview.sh` directly.
 
-Dependencies: Bash, Git, Herdr, fzf, jq, Python 3.11+ (for the built-in TOML parser),
-and GNU coreutils for installation (`ln -T`). The dotfiles dependency installer
-installs `python3`; on older distributions, ensure it is version 3.11 or newer.
+Dependencies: Bash, Git, Herdr, fzf, jq, uv, and GNU coreutils for installation
+(`ln -T`). The dotfiles dependency installer already installs uv. The picker
+uses `uv run` to select Python 3.11+ for the built-in TOML parser; no manual
+Python installation or version check is needed. The first run may download a
+compatible interpreter, which uv reuses on subsequent runs. Parser execution
+is isolated from the current project and its uv configuration. If uv cannot
+obtain a runtime, its error is shown and the picker stops.
 The picker includes `~/.local/bin` and `~/.fzf/bin` in PATH.
 Optional bat/batcat renders README previews with color;
 otherwise previews use cat or a directory listing.

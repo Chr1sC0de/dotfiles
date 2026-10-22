@@ -96,6 +96,41 @@ contains "$T/fzf-preview1" 'Read me'
 tr '\0' '\n' <"$T/actions" >"$T/args"
 contains "$T/args" "$repo"
 contains "$T/args" create
+# Unrelated project metadata must not affect parsing or create project artifacts.
+mkdir "$T/unrelated"
+printf '[project]\nname = "unrelated"\nversion = "0.0.0"\nrequires-python = ">=999"\n' >"$T/unrelated/pyproject.toml"
+printf '[invalid\n' >"$T/unrelated/uv.toml"
+printf '0.0\n' >"$T/unrelated/.python-version"
+reset
+(cd "$T/unrelated" && run projects)
+contains "$T/menu1" "$repo"
+[[ ! -e $T/unrelated/.venv && ! -e $T/unrelated/uv.lock ]]
+# Missing uv and runtime failures stop before Herdr or fzf runs.
+reset
+if (
+    # Invoked in the picker subprocess.
+    # shellcheck disable=SC2329
+    command() {
+        if [[ $1 == -v && $2 == uv ]]; then return 1; fi
+        builtin command "$@"
+    }
+    export -f command
+    run projects
+) 2>"$T/error"; then exit 1; fi
+contains "$T/error" 'Missing uv'
+[[ ! -e $T/snapshot-count && ! -e $T/count && ! -e $T/actions ]]
+if (
+    # Invoked in the picker subprocess.
+    # shellcheck disable=SC2329
+    uv() {
+        printf 'uv: runtime download failed\n' >&2
+        return 1
+    }
+    export -f uv
+    run projects
+) 2>"$T/error"; then exit 1; fi
+contains "$T/error" 'runtime download failed'
+[[ ! -e $T/snapshot-count && ! -e $T/count && ! -e $T/actions ]]
 # Duplicate labels survive; canonical pane cwd suppresses redundant project rows.
 mkdir "$repo/sub"
 ln -s "$repo" "$T/alias"
@@ -154,7 +189,7 @@ printf 'w1\n' >"$T/choices"
 run projects
 [[ $(wc -l <"$T/menu1") == 2 ]]
 # Depth zero includes a root checkout; shell metacharacters remain literal.
-python3 - "$repo" >"$config_file" <<'PY'
+uv run --no-project --no-config --isolated --python '>=3.11' python - "$repo" >"$config_file" <<'PY'
 import json
 import sys
 print("search_roots = [{path = " + json.dumps(sys.argv[1]) + ", depth = 0}]")
