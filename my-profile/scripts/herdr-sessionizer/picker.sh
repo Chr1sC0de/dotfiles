@@ -60,7 +60,12 @@ choose() {
     while IFS= read -r item; do
         id=$((id + 1))
         printf '%s\n' "$item" >"$TMP/rows/$id.json"
-        jq -r --arg id "$id" '[$id, ("["+.kind+"] "+.label+ (if .kind=="workspace" then " · "+.workspace+" · "+.path else "" end))] | @tsv' <<<"$item" >>"$TMP/menu"
+        jq -r --arg id "$id" '
+            def basename: sub("/+$"; "") | if . == "" then "/" else split("/") | last end;
+            (if .kind == "project" or .kind == "checkout" then .path | basename
+             elif .kind == "workspace" and (.label | startswith("/")) then .label | basename
+             else .label end) as $name |
+            [$id, ("["+.kind+"] "+$name)] | @tsv' <<<"$item" >>"$TMP/menu"
     done
     printf -v preview '%q %q {1}' "$HERE/preview.sh" "$TMP/rows"
     local -a bindings=(--bind 'esc:abort,ctrl-c:abort,ctrl-r:refresh-preview')

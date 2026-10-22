@@ -49,7 +49,11 @@ done
 [[ ${FZF_STATUS:-0} == 0 ]] || exit "$FZF_STATUS"
 choice=$(sed -n "${n}p" "$TEST_ROOT/choices")
 [[ $choice != ctrl-n ]] || { printf 'ctrl-n\n'; exit; }
-grep -F -- "$choice" "$TEST_ROOT/menu$n" | head -n 1
+if [[ $choice == id:* ]]; then
+    awk -F '\t' -v id="${choice#id:}" '$1 == id' "$TEST_ROOT/menu$n"
+else
+    grep -F -- "$choice" "$TEST_ROOT/menu$n" | head -n 1
+fi
 FAKE
 chmod +x "$T/bin/herdr" "$HOME/.local/bin/fzf"
 init() {
@@ -86,13 +90,16 @@ contains() { grep -Fq -- "$2" "$1" || {
     exit 1
 }; }
 reset
-printf '[project] %s\n' "$repo" >"$T/choices"
+printf '[project] %s\n' "${repo##*/}" >"$T/choices"
 run projects
-contains "$T/menu1" "$repo"
-contains "$T/menu1" '/a/b/deep'
+contains "$T/menu1" "[project] ${repo##*/}"
+if grep -Fq "$HOME/projects/" "$T/menu1"; then exit 1; fi
+contains "$T/menu1" '[project] deep'
 if grep -q too-deep "$T/menu1"; then exit 1; fi
 contains "$T/options1" 'right:50%'
 contains "$T/fzf-preview1" 'Read me'
+contains "$T/fzf-preview1" "$repo"
+contains "$T/options1" '--with-nth=2..'
 tr '\0' '\n' <"$T/actions" >"$T/args"
 contains "$T/args" "$repo"
 contains "$T/args" create
@@ -103,7 +110,8 @@ printf '[invalid\n' >"$T/unrelated/uv.toml"
 printf '0.0\n' >"$T/unrelated/.python-version"
 reset
 (cd "$T/unrelated" && run projects)
-contains "$T/menu1" "$repo"
+contains "$T/menu1" "[project] ${repo##*/}"
+if grep -Fq "$HOME/projects/" "$T/menu1"; then exit 1; fi
 [[ ! -e $T/unrelated/.venv && ! -e $T/unrelated/uv.lock ]]
 # Missing uv and runtime failures stop before Herdr or fzf runs.
 reset
@@ -137,16 +145,33 @@ ln -s "$repo" "$T/alias"
 jq -n --arg path "$T/alias/sub" '{result:{snapshot:{workspaces:[{workspace_id:"w1",label:"same",active_tab_id:"t1"},{workspace_id:"w2",label:"same",active_tab_id:"t2"}],layouts:[{tab_id:"t1",focused_pane_id:"p1"},{tab_id:"t2",focused_pane_id:"p2"}],panes:[{workspace_id:"w1",pane_id:"p1",cwd:$path},{workspace_id:"w2",pane_id:"p2",cwd:$path}]}}}' >"$T/open.json"
 reset
 cp "$T/open.json" "$T/state.json"
-printf 'w2\n' >"$T/choices"
+printf 'id:2\n' >"$T/choices"
 run projects
 [[ $(grep -c '\[workspace\] same' "$T/menu1") == 2 ]]
-if grep -F '[project]' "$T/menu1" | grep -Fq "$repo"; then exit 1; fi
+if grep -F '[project]' "$T/menu1" | grep -Fq "${repo##*/}"; then exit 1; fi
 tr '\0' '\n' <"$T/actions" >"$T/args"
 contains "$T/args" w2
+[[ $(cut -f2- "$T/menu1" | grep -cxF '[workspace] same') == 2 ]]
+contains "$T/fzf-preview1" "Path: $repo"
+contains "$T/fzf-preview1" 'Workspace: w1'
+contains "$T/fzf-preview1" $'\033[31mterminal preview'
+reset
+cp "$T/open.json" "$T/state.json"
+printf 'id:1\n' >"$T/choices"
+run projects
+tr '\0' '\n' <"$T/actions" >"$T/args"
+contains "$T/args" w1
+# Absolute workspace labels are shortened.
+reset
+jq --arg label "$repo/" '.result.snapshot.workspaces[0].label=$label' "$T/open.json" >"$T/state.json"
+printf 'id:1\n' >"$T/choices"
+run projects
+contains "$T/menu1" "[workspace] ${repo##*/}"
+if grep -Fq "$HOME/projects/" "$T/menu1"; then exit 1; fi
 # Recheck catches a workspace opened while the picker was visible.
 reset
 cp "$T/open.json" "$T/later.json"
-printf '[project] %s\n' "$repo" >"$T/choices"
+printf '[project] %s\n' "${repo##*/}" >"$T/choices"
 run projects
 tr '\0' '\n' <"$T/actions" >"$T/args"
 contains "$T/args" focus
@@ -157,7 +182,7 @@ for config in missing empty; do
     [[ $config != empty ]] || : >"$config_file"
     reset
     cp "$T/open.json" "$T/state.json"
-    printf 'w1\n' >"$T/choices"
+    printf 'id:1\n' >"$T/choices"
     run projects
     [[ $(wc -l <"$T/menu1") == 2 ]]
 done
@@ -185,7 +210,7 @@ done
 printf 'search_roots = []\n' >"$config_file"
 reset
 cp "$T/open.json" "$T/state.json"
-printf 'w1\n' >"$T/choices"
+printf 'id:1\n' >"$T/choices"
 run projects
 [[ $(wc -l <"$T/menu1") == 2 ]]
 # Depth zero includes a root checkout; shell metacharacters remain literal.
@@ -195,46 +220,69 @@ import sys
 print("search_roots = [{path = " + json.dumps(sys.argv[1]) + ", depth = 0}]")
 PY
 reset
-printf '[project] %s\n' "$repo" >"$T/choices"
+printf '[project] %s\n' "${repo##*/}" >"$T/choices"
 run projects
 [[ $(wc -l <"$T/menu1") == 1 ]]
-contains "$T/menu1" "$repo"
+contains "$T/menu1" "[project] ${repo##*/}"
+if grep -Fq "$HOME/projects/" "$T/menu1"; then exit 1; fi
 mv "$T/config.valid" "$config_file"
 # Preview resolves selected pane in active tab and preserves raw ANSI.
 mkdir "$T/rows"
-printf '{"kind":"workspace","workspace":"w2"}\n' >"$T/rows/1.json"
+cp "$T/open.json" "$T/state.json"
+jq -n --arg path "$repo" '{kind:"workspace",workspace:"w2",label:"same",path:$path}' >"$T/rows/1.json"
 "$HOME/.local/bin/preview-chain" "$T/rows" 1 >"$T/preview"
 contains "$T/preview-calls" 'pane read p2 --source visible --format ansi'
-contains "$T/preview" $'\033[31m'
+contains "$T/preview" $'\033[31mterminal preview\033[0m'
+contains "$T/preview" "Path: $repo"
+contains "$T/preview" 'Workspace: w2'
 FAIL_PANE=1 "$HOME/.local/bin/preview-chain" "$T/rows" 1 >"$T/preview"
 contains "$T/preview" 'no longer available'
 jq -n --arg path "$repo" '{kind:"project",label:"readme",path:$path}' >"$T/rows/1.json"
 "$HOME/.local/bin/preview-chain" "$T/rows" 1 >"$T/preview"
 contains "$T/preview" 'Read me'
 # Local branches without checkouts use create (which reuses the branch).
-git -C "$repo" branch local-branch
-git -C "$repo" update-ref refs/remotes/upstream/remote-branch HEAD
+git -C "$repo" branch feature/local-branch
+git -C "$repo" update-ref refs/remotes/upstream/feature/remote-branch HEAD
 reset
-printf '[project]\n[local] local-branch\n' >"$T/choices"
+printf '[project]\n[local] feature/local-branch\n' >"$T/choices"
 run worktrees
 tr '\0' '\n' <"$T/actions" >"$T/args"
 contains "$T/args" create
-contains "$T/args" local-branch
+contains "$T/args" feature/local-branch
 contains "$T/menu2" 'New branch'
 contains "$T/options2" ctrl-n
 reset
-printf '[project]\n[remote] upstream/remote-branch\n' >"$T/choices"
+printf '[project]\n[remote] upstream/feature/remote-branch\n' >"$T/choices"
 run worktrees
 tr '\0' '\n' <"$T/actions" >"$T/args"
-contains "$T/args" refs/remotes/upstream/remote-branch
+contains "$T/args" refs/remotes/upstream/feature/remote-branch
 # Existing checkout and checked-out local branch reopen via Herdr.
-git -C "$repo" worktree add -q "$T/checkout" local-branch
-for selection in '[checkout]' '[local] local-branch'; do
+git -C "$repo" worktree add -q "$T/checkout" feature/local-branch
+for selection in '[checkout]' '[local] feature/local-branch'; do
     reset
     printf '[project]\n%s\n' "$selection" >"$T/choices"
     run worktrees
     tr '\0' '\n' <"$T/actions" >"$T/args"
     contains "$T/args" open
+    contains "$T/menu2" '[checkout] checkout'
+    if grep -Fq "$T/" "$T/menu2"; then exit 1; fi
+done
+# Identical project basenames retain separate IDs and exact action targets.
+duplicate="$T/scratch/a/very long parent directory/another parent/${repo##*/}"
+init "$duplicate"
+for target in "$repo" "$duplicate"; do
+    reset
+    if [[ $target == "$repo" ]]; then ordinal=1; else ordinal=2; fi
+    FZF_STATUS=1 run projects
+    id=$(awk -F '\t' -v label="[project] ${repo##*/}" -v ordinal="$ordinal" \
+        '$2 == label && ++n == ordinal {print $1}' "$T/menu1")
+    [[ -n $id ]]
+    reset
+    printf 'id:%s\n' "$id" >"$T/choices"
+    run projects
+    [[ $(cut -f2- "$T/menu1" | grep -cxF "[project] ${repo##*/}") == 2 ]]
+    tr '\0' '\n' <"$T/actions" >"$T/args"
+    grep -Fxq -- "$target" "$T/args"
 done
 # Cancellation and failures never mutate workspace state.
 for status in 1 130; do

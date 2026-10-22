@@ -14,6 +14,10 @@ source "$HERE/common.sh"
 item=$(cat -- "$1/$2.json")
 kind=$(jq -r '.kind' <<<"$item")
 if [[ $kind == workspace ]]; then
+    printf '%s\nPath: %s\nWorkspace: %s\n\n' \
+        "$(jq -r '.label // ""' <<<"$item")" \
+        "$(jq -r '.path // ""' <<<"$item")" \
+        "$(jq -r '.workspace' <<<"$item")"
     # Re-resolve the active tab on every refresh, without moving focus.
     if state=$(herdr api snapshot 2>/dev/null); then
         pane=$(jq -r --arg id "$(jq -r '.workspace' <<<"$item")" '

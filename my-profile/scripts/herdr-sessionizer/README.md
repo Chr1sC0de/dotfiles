@@ -5,6 +5,14 @@ Both use native 150 × 45 Herdr popups. Enter opens or focuses a workspace.
 Escape and Ctrl+C cancel. Ctrl+R refreshes the preview. In the worktree menu,
 Ctrl+N (or the New branch row) prompts for a branch name based on HEAD.
 
+Rows show folder basenames for projects and checked-out worktrees, and workspace
+names without appended IDs or paths. Workspace names that are absolute paths
+also show only their basename. Type prefixes and full local/remote branch names
+remain visible. Duplicate names stay as separate rows; use the preview's full
+path and workspace ID to distinguish them. Workspace previews keep terminal
+content and colors beneath these headers. Selection uses hidden row IDs, so
+opening a row still targets its full path or workspace ID.
+
 Edit `~/.config/herdr-sessionizer/config.toml` to change discovery. Installation
 symlinks this file to `config/herdr-sessionizer/config.toml` in the dotfiles repo:
 
