@@ -41,13 +41,12 @@ discover() {
         [[ -d $root ]] || continue
         find "$root" "${limits[@]}" -name .git -print0 -prune >"$TMP/discovery" || fail "Cannot search $root"
         while IFS= read -r -d '' marker; do
-            path=$(checkout "${marker%/.git}") || continue
-            git -C "$path" rev-parse --git-dir >/dev/null 2>&1 || continue
+            path=$(git -C "${marker%/.git}" rev-parse --show-toplevel 2>/dev/null) || continue
             [[ -z ${seen[$path]:-} ]] || continue
             seen[$path]=1
-            jq -cn --arg path "$path" '{kind:"project", path:$path,label:$path}'
+            printf '%s\0' "$path"
         done <"$TMP/discovery"
-    done
+    done | path_rows project
 }
 refresh() {
     snapshot "$TMP/snapshot"
@@ -56,17 +55,18 @@ refresh() {
 choose() {
     local prompt=$1 new=${2:-false} item id=0 preview status
     mkdir -p "$TMP/rows"
-    : >"$TMP/menu"
+    cat >"$TMP/choice-items"
     while IFS= read -r item; do
         id=$((id + 1))
         printf '%s\n' "$item" >"$TMP/rows/$id.json"
-        jq -r --arg id "$id" '
-            def basename: sub("/+$"; "") | if . == "" then "/" else split("/") | last end;
-            (if .kind == "project" or .kind == "checkout" then .path | basename
-             elif .kind == "workspace" and (.label | startswith("/")) then .label | basename
-             else .label end) as $name |
-            [$id, ("["+.kind+"] "+$name)] | @tsv' <<<"$item" >>"$TMP/menu"
-    done
+    done <"$TMP/choice-items"
+    jq -rs '
+        def basename: sub("/+$"; "") | if . == "" then "/" else split("/") | last end;
+        to_entries[] | (.key + 1 | tostring) as $id | .value |
+        (if .kind == "project" or .kind == "checkout" then .path | basename
+         elif .kind == "workspace" and (.label | startswith("/")) then .label | basename
+         else .label end) as $name |
+        [$id, ("["+.kind+"] "+$name)] | @tsv' "$TMP/choice-items" >"$TMP/menu"
     printf -v preview '%q %q {1}' "$HERE/preview.sh" "$TMP/rows"
     local -a bindings=(--bind 'esc:abort,ctrl-c:abort,ctrl-r:refresh-preview')
     [[ $new != true ]] || bindings+=(--expect ctrl-n)
@@ -108,7 +108,8 @@ open_branch() {
     done <"$TMP/latest-checkouts"
     run_herdr worktree create --cwd "$repo" --branch "$branch" --focus
 }
-refresh
+# The repository picker does not need workspace state until a repo is chosen.
+if [[ $1 == projects ]]; then refresh; fi
 discover >"$TMP/projects"
 if [[ $1 == projects ]]; then
     {
@@ -129,28 +130,23 @@ repo=$(jq -r '.path' <<<"$SELECTED")
 key=$(repo_key "$repo") || fail "Cannot read repository: $repo"
 refresh
 : >"$TMP/candidates"
-while IFS= read -r item; do
-    path=$(jq -r '.path' <<<"$item")
+while IFS= read -r -d '' item && IFS= read -r -d '' path; do
     if [[ $(repo_key "$path" || true) == "$key" ]]; then printf '%s\n' "$item" >>"$TMP/candidates"; fi
-done <"$TMP/workspaces"
+done < <(jq -j '(tojson), "\u0000", .path, "\u0000"' "$TMP/workspaces")
 git -C "$repo" worktree list --porcelain -z >"$TMP/checkouts" || fail "Cannot list checkouts in $repo"
 while IFS= read -r -d '' field; do
     [[ $field == 'worktree '* ]] || continue
     path=$(checkout "${field#worktree }")
-    jq -cn --arg path "$path" '{kind:"checkout",path:$path,label:$path}' >>"$TMP/candidates"
-done <"$TMP/checkouts"
+    printf '%s\0' "$path"
+done <"$TMP/checkouts" | path_rows checkout >>"$TMP/candidates"
 git -C "$repo" for-each-ref --format='%(refname) %(symref)' refs/heads refs/remotes >"$TMP/refs" || fail "Cannot list branches in $repo"
-while IFS=' ' read -r ref symbolic; do
-    [[ -z $symbolic ]] || continue
-    if [[ $ref == refs/heads/* ]]; then
-        kind=local
-        label=${ref#refs/heads/}
+jq -Rc --arg path "$repo" '
+    split(" ") | select(.[1] == "") | .[0] as $ref |
+    if $ref | startswith("refs/heads/") then
+        {kind:"local", path:$path, ref:$ref, label:($ref | ltrimstr("refs/heads/"))}
     else
-        kind=remote
-        label=${ref#refs/remotes/}
-    fi
-    jq -cn --arg kind "$kind" --arg path "$repo" --arg ref "$ref" --arg label "$label" '{kind:$kind,path:$path,ref:$ref,label:$label}' >>"$TMP/candidates"
-done <"$TMP/refs"
+        {kind:"remote", path:$path, ref:$ref, label:($ref | ltrimstr("refs/remotes/"))}
+    end' "$TMP/refs" >>"$TMP/candidates"
 jq -cn --arg path "$repo" '{kind:"new",path:$path,label:"New branch (Ctrl+N)"}' >>"$TMP/candidates"
 choose 'Worktrees > ' true <"$TMP/candidates"
 kind=$(jq -r '.kind' <<<"$SELECTED")

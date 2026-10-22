@@ -37,6 +37,7 @@ set -eu
 n=$(cat "$TEST_ROOT/count" 2>/dev/null || echo 0)
 n=$((n+1)); echo "$n" > "$TEST_ROOT/count"
 cat > "$TEST_ROOT/menu$n"
+cat "$TEST_ROOT/snapshot-count" 2>/dev/null > "$TEST_ROOT/snapshots-at-menu$n" || echo 0 > "$TEST_ROOT/snapshots-at-menu$n"
 printf '%s\n' "$@" > "$TEST_ROOT/options$n"
 for option in "$@"; do
     if [[ $option == --preview=* && -s $TEST_ROOT/menu$n ]]; then
@@ -240,9 +241,20 @@ contains "$T/preview" 'no longer available'
 jq -n --arg path "$repo" '{kind:"project",label:"readme",path:$path}' >"$T/rows/1.json"
 "$HOME/.local/bin/preview-chain" "$T/rows" 1 >"$T/preview"
 contains "$T/preview" 'Read me'
+# Repository selection and cancellation do not require a Herdr snapshot.
+reset
+FAIL_SNAPSHOT=1 FZF_STATUS=1 run worktrees
+[[ $(cat "$T/snapshots-at-menu1") == 0 ]]
+[[ ! -f $T/snapshot-count && ! -f $T/actions ]]
+reset
+printf '[project]\n' >"$T/choices"
+if FAIL_SNAPSHOT=1 run worktrees 2>"$T/error"; then exit 1; fi
+contains "$T/error" 'Cannot read Herdr'
+[[ $(cat "$T/count") == 1 && ! -f $T/actions ]]
 # Local branches without checkouts use create (which reuses the branch).
 git -C "$repo" branch feature/local-branch
 git -C "$repo" update-ref refs/remotes/upstream/feature/remote-branch HEAD
+git -C "$repo" symbolic-ref refs/remotes/upstream/HEAD refs/remotes/upstream/feature/remote-branch
 reset
 printf '[project]\n[local] feature/local-branch\n' >"$T/choices"
 run worktrees
@@ -250,7 +262,10 @@ tr '\0' '\n' <"$T/actions" >"$T/args"
 contains "$T/args" create
 contains "$T/args" feature/local-branch
 contains "$T/menu2" 'New branch'
+if grep -Fq '[remote] upstream/HEAD' "$T/menu2"; then exit 1; fi
 contains "$T/options2" ctrl-n
+[[ $(cat "$T/snapshots-at-menu1") == 0 ]]
+[[ $(cat "$T/snapshots-at-menu2") == 1 ]]
 reset
 printf '[project]\n[remote] upstream/feature/remote-branch\n' >"$T/choices"
 run worktrees
@@ -284,6 +299,21 @@ for target in "$repo" "$duplicate"; do
     tr '\0' '\n' <"$T/actions" >"$T/args"
     grep -Fxq -- "$target" "$T/args"
 done
+# Every invocation discovers newly added repositories and drops removed ones.
+fresh="$HOME/projects/fresh discovery"
+init "$fresh"
+reset
+FZF_STATUS=1 run projects
+contains "$T/menu1" '[project] fresh discovery'
+rm -rf -- "$fresh"
+reset
+FZF_STATUS=1 run projects
+if grep -Fq '[project] fresh discovery' "$T/menu1"; then exit 1; fi
+# Invalid Git markers do not become project rows.
+mkdir -p "$HOME/projects/not-a-repository/.git"
+reset
+FZF_STATUS=1 run projects
+if grep -Fq '[project] not-a-repository' "$T/menu1"; then exit 1; fi
 # Cancellation and failures never mutate workspace state.
 for status in 1 130; do
     reset
