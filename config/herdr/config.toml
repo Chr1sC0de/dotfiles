@@ -280,12 +280,16 @@ pane_history = false
 
 [[keys.command]]
 key = "prefix+k"
-type = "plugin_action"
-command = "sessionizer.open"
+type = "popup"
+command = 'herdr-sessionizer projects'
+width = 150
+height = 45
 description = "open project workspace"
 
 [[keys.command]]
 key = "prefix+f"
-type = "plugin_action"
-command = "sessionizer.worktree-open"
+type = "popup"
+command = 'herdr-sessionizer worktrees'
+width = 150
+height = 45
 description = "open worktree workspace"

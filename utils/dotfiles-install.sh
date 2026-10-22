@@ -8,7 +8,7 @@ SYMLINK_CREATE_KWARGS=()
 while [[ "$#" -gt 0 ]]; do
     case $1 in
     -h | --help)
-        echo "Usage: install-dotfiles.sh [OPTIONS]"
+        echo "Usage: utils/dotfiles-install.sh [OPTIONS]"
         echo
         echo "Options:"
         echo "  -h, --help            Show this help"
@@ -22,7 +22,7 @@ while [[ "$#" -gt 0 ]]; do
         exit 0
         ;;
     -k | --kitty)
-        TO_INSTALL+=("config/kitty" "config/herdr")
+        TO_INSTALL+=("config/kitty" "config/herdr/config.toml")
         ;;
     -t | --tmux)
         TO_INSTALL+=("tmux.conf")
@@ -46,6 +46,8 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+STATUS=0
 for INSTALL in "${TO_INSTALL[@]}"; do
-    "$SCRIPT_DIR"/"symlink-create.sh" "$INSTALL" "${SYMLINK_CREATE_KWARGS[@]}"
+    "$SCRIPT_DIR"/"symlink-create.sh" "$INSTALL" "${SYMLINK_CREATE_KWARGS[@]}" || STATUS=1
 done
+exit "$STATUS"

@@ -36,3 +36,11 @@ RUN apt-get update -y \
 
 RUN bash -l -i -c "\. $HOME/.bashrc && nvim --headless '+Lazy! sync\' +MasonToolsInstallSync +q!";
 ```
+
+Default dotfile installation (`bash utils/dotfiles-install.sh` from this repository)
+includes Herdr configuration, search roots in `~/.config/herdr-sessionizer/config.toml`,
+and the `herdr-sessionizer` and `herdr-sessionizer-preview` commands in `~/.local/bin`.
+Existing installations can add the search config with
+`bash utils/symlink-create.sh config/herdr-sessionizer/config.toml`.
+The picker requires Python 3.11+ for TOML parsing. Install Herdr separately.
+See [picker setup and usage](my-profile/scripts/herdr-sessionizer/README.md).

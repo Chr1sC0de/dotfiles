@@ -2,6 +2,7 @@
 
 dependencies=(
 	"git"
+	"jq"
 	"curl"
 	"wget"
 	"ca-certificates"
