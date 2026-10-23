@@ -3,10 +3,10 @@
 # SEARCH_ROOTS and SEARCH_DEPTHS are consumed by picker.sh.
 # shellcheck disable=SC2034
 load_search_config() {
-	local config_file="$HOME/.config/herdr-sessionizer/config.toml" config_json
-	SEARCH_ROOTS=() SEARCH_DEPTHS=()
-	if ! config_json=$(
-		uv run --no-project --no-config --isolated --python '>=3.11' python - "$config_file" <<'PY'
+    local config_file="$HOME/.config/herdr-sessionizer/config.toml" config_json
+    SEARCH_ROOTS=() SEARCH_DEPTHS=()
+    if ! config_json=$(
+        uv run --no-project --no-config --isolated --python '>=3.11' python - "$config_file" <<'PY'
 import json
 import sys
 import tomllib
@@ -46,11 +46,11 @@ except (OSError, ValueError) as error:
     print(f"herdr picker: {config_file}: {error}", file=sys.stderr)
     sys.exit(1)
 PY
-	); then
-		return 1
-	fi
-	# NUL delimiters preserve whitespace and shell metacharacters in paths.
-	mapfile -d '' -t SEARCH_ROOTS < <(jq -j '.[] | .path, "\u0000"' <<<"$config_json")
-	mapfile -t SEARCH_DEPTHS < <(jq -r '.[].depth' <<<"$config_json")
+    ); then
+        return 1
+    fi
+    # NUL delimiters preserve whitespace and shell metacharacters in paths.
+    mapfile -d '' -t SEARCH_ROOTS < <(jq -j '.[] | .path, "\u0000"' <<<"$config_json")
+    mapfile -t SEARCH_DEPTHS < <(jq -r '.[].depth' <<<"$config_json")
 }
 load_search_config

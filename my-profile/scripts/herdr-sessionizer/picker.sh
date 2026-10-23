@@ -18,12 +18,36 @@ for dependency in "${dependencies[@]}"; do
     command -v "$dependency" >/dev/null || fail "Missing $dependency; run the dotfiles dependency installer and install Herdr."
 done
 TMP=$(mktemp -d)
+REMOVE_WORKSPACE_TO_CLOSE=''
+REMOVE_PROJECT_ROOT=''
+REMOVE_PROJECT_COMMON=''
 cleanup() {
     local status=$?
     rm -rf -- "$TMP"
     if ((status != 0)) && [[ -t 0 && -t 2 ]]; then
         printf '\nPress any key to close.' >&2
         read -rsn1 _ || true
+    fi
+    # Return to the same project before closing the target workspace. Closing can
+    # kill this popup, so branch handling and temporary-file cleanup are already done.
+    if [[ -n $REMOVE_WORKSPACE_TO_CLOSE ]]; then
+        if ! remove_focus_root; then
+            printf 'herdr picker: Checkout removed; cannot return to project root %s. Workspace %s was left open.\n' \
+                "$REMOVE_PROJECT_ROOT" "$REMOVE_WORKSPACE_TO_CLOSE" >&2
+            if [[ -t 0 && -t 2 ]]; then
+                printf '\nPress any key to close.' >&2
+                read -rsn1 _ || true
+            fi
+            exit 1
+        fi
+        if ! herdr workspace close "$REMOVE_WORKSPACE_TO_CLOSE" >/dev/null; then
+            printf 'herdr picker: Checkout removed; cannot close Herdr workspace %s.\n' "$REMOVE_WORKSPACE_TO_CLOSE" >&2
+            if [[ -t 0 && -t 2 ]]; then
+                printf '\nPress any key to close.' >&2
+                read -rsn1 _ || true
+            fi
+            exit 1
+        fi
     fi
 }
 trap cleanup EXIT

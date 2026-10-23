@@ -61,8 +61,31 @@ remove_branch_unchanged() {
 		fail "Checkout removed; branch '$remove_branch' changed and was kept."
 }
 
+# Called by picker.sh's EXIT cleanup after branch handling and temporary-file cleanup.
+remove_focus_root() {
+	local state rows id created common git_dir
+	# The root must still be the primary checkout of the repository we removed from.
+	common=$(repo_key "$REMOVE_PROJECT_ROOT") || return 1
+	git_dir=$(git -C "$REMOVE_PROJECT_ROOT" rev-parse --absolute-git-dir) || return 1
+	[[ $common == "$REMOVE_PROJECT_COMMON" && $git_dir == "$common" ]] || return 1
+	state=$(herdr api snapshot) || return 1
+	jq -e '.result.snapshot | [.workspaces, .layouts, .panes] | all(type == "array")' \
+		<<<"$state" >/dev/null || return 1
+	rows=$(workspaces <(printf '%s\n' "$state")) || return 1
+	id=$(jq -rs --arg path "$REMOVE_PROJECT_ROOT" --arg removed "$REMOVE_WORKSPACE_TO_CLOSE" '
+        [.[] | select(.path == $path and .workspace != $removed)][0].workspace // empty' \
+		<<<"$rows") || return 1
+	if [[ -z $id ]]; then
+		created=$(herdr workspace create --cwd "$REMOVE_PROJECT_ROOT" --no-focus) || return 1
+		id=$(jq -er '.result.workspace.workspace_id |
+            select(type == "string" and length > 0)' <<<"$created") || return 1
+	fi
+	[[ $id != "$REMOVE_WORKSPACE_TO_CLOSE" ]] || return 1
+	herdr workspace focus "$id" >/dev/null
+}
+
 remove_current() {
-	local workspace label git_dir selection status error_code
+	local workspace label git_dir selection status remove_root
 	local remove_workspace_id=${HERDR_ACTIVE_WORKSPACE_ID:-}
 	local remove_membership remove_path remove_common remove_ref remove_commit remove_branch
 	[[ ${HERDR_ENV:-} == 1 && -n $remove_workspace_id ]] ||
@@ -77,6 +100,13 @@ remove_current() {
 	git_dir=$(git -C "$remove_path" rev-parse --absolute-git-dir) ||
 		fail 'Cannot resolve the checkout Git directory.'
 	[[ $git_dir != "$remove_common" ]] || fail 'The primary checkout cannot be removed.'
+	remove_root=$(jq -er '.worktree.repo_root | select(type == "string" and length > 0)' <<<"$workspace") ||
+		fail 'Cannot resolve the project root.'
+	remove_root=$(git -C "$remove_root" rev-parse --show-toplevel) ||
+		fail 'Cannot resolve the project root.'
+	[[ $(repo_key "$remove_root") == "$remove_common" &&
+	$(git -C "$remove_root" rev-parse --absolute-git-dir) == "$remove_common" ]] ||
+		fail 'Project root is not the primary checkout of this repository.'
 	remove_ref=$(git -C "$remove_path" symbolic-ref -q HEAD) || remove_ref=''
 	remove_commit=$(git -C "$remove_path" rev-parse --verify HEAD) ||
 		fail 'Cannot read the checkout commit.'
@@ -102,13 +132,12 @@ remove_current() {
 	*) return 0 ;;
 	esac
 
-	# The popup survives workspace closure. Keep its cwd outside the checkout.
+	# Keep the popup alive until Git cleanup finishes, with its cwd outside the checkout.
 	cd -- "$remove_common" || fail 'Cannot enter the shared Git directory.'
 	remove_revalidate
-	if ! herdr worktree remove --workspace "$remove_workspace_id" >"$TMP/remove-result" 2>"$TMP/remove-error"; then
+	if ! git --git-dir="$remove_common" worktree remove -- "$remove_path" >"$TMP/remove-result" 2>"$TMP/remove-error"; then
 		cat "$TMP/remove-error" >&2
-		error_code=$(jq -r '.error.code // empty' "$TMP/remove-error" 2>/dev/null) || error_code=''
-		[[ $error_code == dirty_worktree_requires_force ]] ||
+		grep -Fq 'modified or untracked files' "$TMP/remove-error" ||
 			fail 'Worktree removal failed; branch deletion was skipped.'
 		git -C "$remove_path" status --short >&2 || true
 		if ! remove_confirm "$remove_path" 'Discard modified and untracked files and force-remove this checkout?'; then
@@ -116,12 +145,19 @@ remove_current() {
 			return 0
 		fi
 		remove_revalidate
-		herdr worktree remove --workspace "$remove_workspace_id" --force >"$TMP/remove-result" ||
+		git --git-dir="$remove_common" worktree remove --force -- "$remove_path" >"$TMP/remove-result" ||
 			fail 'Forced worktree removal failed; branch deletion was skipped.'
 	fi
-	# Do not delete a branch when the server reports success but the checkout remains.
+	# Do not delete a branch or close the workspace if the checkout remains.
 	[[ ! -e $remove_path ]] ||
 		fail 'Checkout still exists after removal; branch deletion was skipped.'
+	# picker.sh closes this workspace in its EXIT cleanup, after branch handling.
+	# shellcheck disable=SC2034
+	REMOVE_WORKSPACE_TO_CLOSE=$remove_workspace_id
+	# shellcheck disable=SC2034
+	REMOVE_PROJECT_ROOT=$remove_root
+	# shellcheck disable=SC2034
+	REMOVE_PROJECT_COMMON=$remove_common
 	printf 'Removed checkout: %s\n' "$remove_path"
 	[[ $selection == 'Delete checkout and local branch' ]] || return 0
 	remove_branch_unchanged

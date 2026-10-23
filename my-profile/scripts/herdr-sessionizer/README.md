@@ -7,13 +7,21 @@ Ctrl+N (or the New branch row) prompts for a branch name based on HEAD.
 
 `Ctrl+Q, D` deletes the current workspace's linked worktree. The popup shows the
 workspace, full checkout path, and branch, with Cancel selected initially.
-Choose checkout only or checkout and local branch. Removal closes that workspace's
-panes. Primary checkouts cannot be removed; detached checkouts offer checkout only.
+Choose checkout only or checkout and local branch. The workspace and its panes
+close after checkout removal and branch handling finish, so the popup stays alive
+for branch deletion and its confirmations. Before closing, the picker returns to
+this repository's primary checkout workspace, opening one at that root if needed.
+It matches checkout paths rather than workspace labels, so other open projects
+cannot become the return destination. If returning to the root fails, the removed
+worktree's workspace stays open with an error. Primary checkouts cannot be removed;
+detached checkouts offer checkout only.
 If modified or untracked files prevent removal, type the full checkout path to
 confirm forced removal. If the local branch is unmerged, type its exact name to
 confirm forced branch deletion. These are separate confirmations. Escape and
 Ctrl+C cancel, and a cancelled branch deletion leaves the already-removed checkout
-removed. Remote branches are unaffected. After changing bindings, run
+removed. Branch errors and retention messages remain visible until acknowledged
+before the workspace closes. Checkout removal failures leave the workspace open.
+Remote branches are unaffected. After changing bindings, run
 `herdr server reload-config` to activate them.
 
 To check out an existing remote branch, run `git fetch origin`, then use
@@ -112,5 +120,9 @@ shellcheck -x -P my-profile/scripts/herdr-sessionizer my-profile/scripts/herdr-s
 ```
 
 Tests use fake Herdr/fzf commands, temporary Git repositories, and a controlling
-terminal for branch prompts. Project and worktree opening were also checked
+terminal for branch prompts. Removal tests also simulate the popup receiving
+SIGHUP when its workspace closes and check that branch handling and temporary-file
+cleanup and selection of the correct project root have already finished. Tests
+cover reusing the root workspace, opening a missing root, duplicate labels, and
+return failures. Project and worktree opening were also checked
 in a separate named Herdr session.

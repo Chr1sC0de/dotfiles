@@ -28,31 +28,46 @@ herdr() {
 			cat "$REMOVE_TEST_ROOT/workspace"
 		fi
 		;;
-	'worktree remove')
-		[[ $3 == --workspace && $4 == w-target ]] || return 1
-		printf '%s\n' "$PWD" >>"$REMOVE_TEST_ROOT/removal-cwds"
-		if [[ ${REMOVE_FAILURE:-0} == 1 ]]; then
-			printf '{"error":{"code":"worktree_remove_failed","message":"test failure"}}\n' >&2
-			return 1
+	'api snapshot')
+		[[ ${SNAPSHOT_FAILURE:-0} != 1 ]] || return 1
+		cat "$REMOVE_TEST_ROOT/snapshot"
+		;;
+	'workspace create')
+		[[ $# == 5 && $3 == --cwd && $4 == "$REMOVE_REPO" && $5 == --no-focus ]] || return 1
+		[[ ${CREATE_FAILURE:-0} != 1 ]] || return 1
+		: >"$REMOVE_TEST_ROOT/created"
+		printf '{"result":{"workspace":{"workspace_id":"w-created"}}}\n'
+		;;
+	'workspace focus')
+		local expected=w-root
+		[[ ! -e $REMOVE_TEST_ROOT/created ]] || expected=w-created
+		[[ $# == 3 && $3 == "$expected" && ! -e $REMOVE_CHECKOUT && ! -e $TMP ]] || return 1
+		[[ ${FOCUS_FAILURE:-0} != 1 ]] || return 1
+		if command git -C "$REMOVE_REPO" show-ref --verify --quiet refs/heads/feature/delete; then
+			printf 'present\n' >"$REMOVE_TEST_ROOT/branch-at-focus"
+		else
+			printf 'absent\n' >"$REMOVE_TEST_ROOT/branch-at-focus"
 		fi
-		[[ ${LEAVE_CHECKOUT:-0} != 1 ]] || {
-			printf '{"result":{}}\n'
-			return
+		printf '%s\n' "$3" >"$REMOVE_TEST_ROOT/focused"
+		printf '{"result":{}}\n'
+		;;
+	'workspace close')
+		[[ $# == 3 && $3 == w-target ]] || return 1
+		[[ ! -e $REMOVE_CHECKOUT && ! -e $TMP && -e $REMOVE_TEST_ROOT/focused ]] || {
+			printf 'Workspace closed before checkout or temporary-file cleanup\n' >&2
+			return 1
 		}
-		local output
-		local -a force=()
-		[[ ${5:-} != --force ]] || force=(--force)
-		if ! output=$(command git -C "$REMOVE_REPO" worktree remove "${force[@]}" "$REMOVE_CHECKOUT" 2>&1); then
-			local code=worktree_remove_failed
-			[[ $output != *'modified or untracked files'* ]] || code=dirty_worktree_requires_force
-			jq -cn --arg code "$code" --arg message "$output" '{error:{code:$code,message:$message}}' >&2
+		if command git -C "$REMOVE_REPO" show-ref --verify --quiet refs/heads/feature/delete; then
+			printf 'present\n' >"$REMOVE_TEST_ROOT/branch-at-close"
+		else
+			printf 'absent\n' >"$REMOVE_TEST_ROOT/branch-at-close"
+		fi
+		if [[ ${CLOSE_FAILURE:-0} == 1 ]]; then
+			printf '{"error":{"code":"workspace_close_failed"}}\n' >&2
 			return 1
 		fi
-		if [[ ${CHANGE_BRANCH_AFTER_REMOVE:-0} == 1 ]]; then
-			command git -C "$REMOVE_REPO" update-ref refs/heads/feature/delete "$REMOVE_OTHER_COMMIT"
-		elif [[ ${CHECKOUT_BRANCH_AFTER_REMOVE:-0} == 1 ]]; then
-			command git -C "$REMOVE_REPO" checkout -q feature/delete
-		fi
+		: >"$REMOVE_TEST_ROOT/closed"
+		[[ ${HANGUP_ON_CLOSE:-0} != 1 ]] || kill -HUP "$BASHPID"
 		printf '{"result":{}}\n'
 		;;
 	*)
@@ -60,6 +75,27 @@ herdr() {
 		return 1
 		;;
 	esac
+}
+# Keep real Git operations, injecting only removal failures and concurrent changes.
+# shellcheck disable=SC2329
+git() {
+	if [[ ${1:-} != --git-dir=* || ${2:-} != worktree || ${3:-} != remove ]]; then
+		command git "$@"
+		return
+	fi
+	printf '%s\0' "$@" >>"$REMOVE_TEST_ROOT/git-actions"
+	printf '%s\n' "$PWD" >>"$REMOVE_TEST_ROOT/removal-cwds"
+	if [[ ${REMOVE_FAILURE:-0} == 1 || (${FORCE_REMOVE_FAILURE:-0} == 1 && ${4:-} == --force) ]]; then
+		printf 'fatal: test removal failure\n' >&2
+		return 1
+	fi
+	[[ ${LEAVE_CHECKOUT:-0} != 1 ]] || return 0
+	command git "$@" || return 1
+	if [[ ${CHANGE_BRANCH_AFTER_REMOVE:-0} == 1 ]]; then
+		command git -C "$REMOVE_REPO" update-ref refs/heads/feature/delete "$REMOVE_OTHER_COMMIT"
+	elif [[ ${CHECKOUT_BRANCH_AFTER_REMOVE:-0} == 1 ]]; then
+		command git -C "$REMOVE_REPO" checkout -q feature/delete
+	fi
 }
 # shellcheck disable=SC2329
 fzf() {
@@ -78,7 +114,7 @@ uv() {
 	printf 'remove-current unexpectedly invoked uv\n' >&2
 	return 99
 }
-export -f herdr fzf uv
+export -f herdr git fzf uv
 
 fixture() {
 	local name=$1
@@ -93,10 +129,18 @@ fixture() {
 	jq -cn --arg path "$REMOVE_CHECKOUT" --arg root "$REMOVE_REPO" \
 		'{result:{workspace:{workspace_id:"w-target",label:"Delete me",worktree:{
         repo_key:"test",repo_root:$root,checkout_path:$path,is_linked_worktree:true}}}}' >"$T/workspace"
-	rm -f -- "$T/actions" "$T/get-count" "$T/removal-cwds" "$T/menu" "$T/options"
+	# An unrelated project and a sibling worktree precede the root, with identical labels.
+	jq -cn --arg root "$REMOVE_REPO" --arg path "$REMOVE_CHECKOUT" '
+        {result:{snapshot:{workspaces:[
+            {workspace_id:"w-other",label:"same",worktree:{checkout_path:"/unrelated/project"}},
+            {workspace_id:"w-sibling",label:"same",worktree:{checkout_path:$path}},
+            {workspace_id:"w-root",label:"same",worktree:{checkout_path:$root}}],
+            layouts:[],panes:[]}}}' >"$T/snapshot"
+	rm -f -- "$T/actions" "$T/get-count" "$T/removal-cwds" "$T/menu" "$T/options" \
+		"$T/git-actions" "$T/closed" "$T/branch-at-close" "$T/branch-at-focus" "$T/focused" "$T/created"
 	export MENU_CHOICE='Delete checkout and local branch'
 	unset GET_FAILURE CHANGED_MEMBERSHIP REMOVE_FAILURE LEAVE_CHECKOUT CHANGE_BRANCH_AFTER_REMOVE \
-		CHECKOUT_BRANCH_AFTER_REMOVE MENU_MUTATION FZF_STATUS REMOVE_OTHER_COMMIT
+		CHECKOUT_BRANCH_AFTER_REMOVE MENU_MUTATION FZF_STATUS REMOVE_OTHER_COMMIT HANGUP_ON_CLOSE CLOSE_FAILURE FORCE_REMOVE_FAILURE SNAPSHOT_FAILURE CREATE_FAILURE FOCUS_FAILURE
 }
 run() {
 	printf '%s' "${1:-}" | bash "$picker" remove-current >"$T/output" 2>"$T/error"
@@ -105,17 +149,80 @@ branch_exists() { git -C "$REMOVE_REPO" show-ref --verify --quiet refs/heads/fea
 no_removal() {
 	[[ -d $REMOVE_CHECKOUT ]]
 	branch_exists
-	! tr '\0' '\n' <"$T/actions" | grep -Fxq remove
+	[[ ! -e $T/closed && ! -e $T/branch-at-close && ! -e $T/focused && ! -e $T/created ]]
+}
+closed() {
+	[[ -e $T/closed && $(cat "$T/branch-at-close") == "${1:-absent}" ]]
+	[[ $(cat "$T/branch-at-focus") == "${1:-absent}" ]]
+	[[ $(cat "$T/focused") == "${2:-w-root}" ]]
+	[[ $(tr '\0' '\n' <"$T/actions" | tail -n 3) == $'workspace\nclose\nw-target' ]]
 }
 contains() { grep -Fq -- "$2" "$1" || {
 	printf 'Missing %s in %s\n' "$2" "$1" >&2
 	exit 1
 }; }
 
+# Workspace closure kills its popup. Git cleanup must already be complete.
+fixture popup-hangup
+status=0
+HANGUP_ON_CLOSE=1 run || status=$?
+[[ $status == 129 ]]
+[[ ! -e $REMOVE_CHECKOUT ]]
+if branch_exists; then
+	printf 'Popup died before the selected local branch was deleted\n' >&2
+	exit 1
+fi
+closed
+
+fixture root-not-open
+jq '.result.snapshot.workspaces |= map(select(.workspace_id != "w-root"))' "$T/snapshot" >"$T/next"
+mv "$T/next" "$T/snapshot"
+run
+[[ ! -e $REMOVE_CHECKOUT && -e $T/created ]]
+if branch_exists; then exit 1; fi
+closed absent w-created
+
+# Ordinary project workspaces without worktree metadata are matched by pane cwd.
+fixture root-pane-cwd
+mkdir -p "$REMOVE_REPO/sub"
+jq --arg cwd "$REMOVE_REPO/sub" '
+    .result.snapshot.workspaces[2] |= (del(.worktree) + {active_tab_id:"root-tab"}) |
+    .result.snapshot.layouts=[{tab_id:"root-tab",focused_pane_id:"root-pane"}] |
+    .result.snapshot.panes=[{pane_id:"root-pane",workspace_id:"w-root",cwd:$cwd}]' "$T/snapshot" >"$T/next"
+mv "$T/next" "$T/snapshot"
+run
+closed
+[[ ! -e $T/created ]]
+
+fixture invalid-root
+jq --arg path "$REMOVE_CHECKOUT" '.result.workspace.worktree.repo_root=$path' "$T/workspace" >"$T/next"
+mv "$T/next" "$T/workspace"
+if run; then exit 1; fi
+no_removal
+contains "$T/error" 'primary checkout'
+
+for failure in snapshot create focus; do
+	fixture "return-$failure-failed"
+	case $failure in
+	snapshot) export SNAPSHOT_FAILURE=1 ;;
+	create)
+		jq '.result.snapshot.workspaces=[]' "$T/snapshot" >"$T/next"
+		mv "$T/next" "$T/snapshot"
+		export CREATE_FAILURE=1
+		;;
+	focus) export FOCUS_FAILURE=1 ;;
+	esac
+	if run; then exit 1; fi
+	[[ ! -e $REMOVE_CHECKOUT && ! -e $T/closed && ! -e $T/focused ]]
+	if branch_exists; then exit 1; fi
+	contains "$T/error" 'cannot return to project root'
+done
+
 fixture checkout-only
 MENU_CHOICE='Delete checkout only' run
 [[ ! -e $REMOVE_CHECKOUT ]]
 branch_exists
+closed present
 contains "$T/options" "$REMOVE_CHECKOUT"
 contains "$T/options" feature/delete
 contains "$T/removal-cwds" "$REMOVE_REPO/.git"
@@ -123,9 +230,12 @@ contains "$T/removal-cwds" "$REMOVE_REPO/.git"
 contains "$T/options" start:first
 
 fixture merged
+git -C "$REMOVE_REPO" update-ref refs/remotes/origin/feature/delete HEAD
 run
 [[ ! -e $REMOVE_CHECKOUT ]]
 if branch_exists; then exit 1; fi
+closed
+git -C "$REMOVE_REPO" show-ref --verify --quiet refs/remotes/origin/feature/delete
 
 fixture cancel
 MENU_CHOICE=Cancel run
@@ -163,6 +273,7 @@ git -C "$REMOVE_CHECKOUT" checkout -q --detach
 MENU_CHOICE='Delete checkout only' run
 [[ ! -e $REMOVE_CHECKOUT ]]
 branch_exists
+closed present
 if grep -Fq 'Delete checkout and local branch' "$T/menu"; then exit 1; fi
 contains "$T/options" 'detached HEAD'
 
@@ -185,12 +296,13 @@ fixture remove-failed
 if REMOVE_FAILURE=1 run; then exit 1; fi
 no_removal
 contains "$T/error" 'branch deletion was skipped'
-if tr '\0' '\n' <"$T/actions" | grep -Fxq -- --force; then exit 1; fi
+if tr '\0' '\n' <"$T/git-actions" | grep -Fxq -- --force; then exit 1; fi
 
 fixture false-success
 if LEAVE_CHECKOUT=1 run; then exit 1; fi
 branch_exists
 contains "$T/error" 'Checkout still exists'
+no_removal
 
 fixture dirty-cancel
 printf 'modified\n' >"$REMOVE_CHECKOUT/tracked"
@@ -198,8 +310,9 @@ printf 'untracked\n' >"$REMOVE_CHECKOUT/new"
 run $'wrong confirmation\n'
 [[ -d $REMOVE_CHECKOUT && -e $REMOVE_CHECKOUT/new ]]
 branch_exists
+no_removal
 contains "$T/output" 'checkout and branch kept'
-if tr '\0' '\n' <"$T/actions" | grep -Fxq -- --force; then exit 1; fi
+if tr '\0' '\n' <"$T/git-actions" | grep -Fxq -- --force; then exit 1; fi
 
 fixture dirty-force
 printf 'modified\n' >"$REMOVE_CHECKOUT/tracked"
@@ -207,20 +320,25 @@ printf 'untracked\n' >"$REMOVE_CHECKOUT/new"
 run "$REMOVE_CHECKOUT"$'\n'
 [[ ! -e $REMOVE_CHECKOUT ]]
 if branch_exists; then exit 1; fi
-tr '\0' '\n' <"$T/actions" | grep -Fxq -- --force
+closed
+tr '\0' '\n' <"$T/git-actions" | grep -Fxq -- --force
 
 fixture unmerged-cancel
 git -C "$REMOVE_CHECKOUT" commit --allow-empty -qm unmerged
 run $'\e'
 [[ ! -e $REMOVE_CHECKOUT ]]
 branch_exists
+closed present
 contains "$T/output" 'kept'
 
 fixture unmerged-force
 git -C "$REMOVE_CHECKOUT" commit --allow-empty -qm unmerged
-run $'feature/delete\n'
+status=0
+HANGUP_ON_CLOSE=1 run $'feature/delete\n' || status=$?
+[[ $status == 129 ]]
 [[ ! -e $REMOVE_CHECKOUT ]]
 if branch_exists; then exit 1; fi
+closed
 
 fixture dirty-unmerged
 git -C "$REMOVE_CHECKOUT" commit --allow-empty -qm unmerged
@@ -228,6 +346,7 @@ printf 'untracked\n' >"$REMOVE_CHECKOUT/new"
 run "$REMOVE_CHECKOUT"$'\nfeature/delete\n'
 [[ ! -e $REMOVE_CHECKOUT ]]
 if branch_exists; then exit 1; fi
+closed
 
 fixture branch-changed
 REMOVE_OTHER_COMMIT=$(printf 'concurrent commit\n' | git -C "$REMOVE_REPO" commit-tree 'HEAD^{tree}' -p HEAD)
@@ -235,13 +354,35 @@ export REMOVE_OTHER_COMMIT
 if CHANGE_BRANCH_AFTER_REMOVE=1 run; then exit 1; fi
 [[ ! -e $REMOVE_CHECKOUT ]]
 branch_exists
+closed present
 contains "$T/error" 'changed and was kept'
 
 fixture branch-in-use
 if CHECKOUT_BRANCH_AFTER_REMOVE=1 run; then exit 1; fi
 [[ ! -e $REMOVE_CHECKOUT ]]
 branch_exists
+closed present
 contains "$T/error" 'deletion failed'
 if grep -Fq 'Force-delete' "$T/error"; then exit 1; fi
+
+fixture locked
+git -C "$REMOVE_REPO" worktree lock "$REMOVE_CHECKOUT"
+if run; then exit 1; fi
+no_removal
+contains "$T/error" 'branch deletion was skipped'
+if tr '\0' '\n' <"$T/git-actions" | grep -Fxq -- --force; then exit 1; fi
+
+fixture forced-remove-failed
+printf 'untracked\n' >"$REMOVE_CHECKOUT/new"
+if FORCE_REMOVE_FAILURE=1 run "$REMOVE_CHECKOUT"$'\n'; then exit 1; fi
+no_removal
+contains "$T/error" 'Forced worktree removal failed'
+
+fixture close-failed
+if CLOSE_FAILURE=1 run; then exit 1; fi
+[[ ! -e $REMOVE_CHECKOUT && ! -e $T/closed ]]
+if branch_exists; then exit 1; fi
+contains "$T/branch-at-close" absent
+contains "$T/error" 'cannot close Herdr workspace w-target'
 
 printf 'Herdr current worktree removal tests passed\n'

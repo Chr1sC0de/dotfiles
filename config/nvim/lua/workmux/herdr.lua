@@ -42,6 +42,19 @@ local function run(args, opts)
 	)
 end
 
+-- Keep Git calls asynchronous and tied to the repository where the picker opened.
+local function run_git(cwd, args, callback)
+	if M._test.git then
+		M._test.git(args, cwd, callback)
+		return
+	end
+	vim.system(
+		vim.list_extend({ "git" }, args),
+		{ cwd = cwd, text = true, env = { GIT_TERMINAL_PROMPT = "0" } },
+		vim.schedule_wrap(callback)
+	)
+end
+
 local function decode_result(result, description)
 	local ok, envelope = pcall(vim.json.decode, result.stdout or "")
 	if not ok or type(envelope) ~= "table" or type(envelope.result) ~= "table" then
@@ -486,24 +499,35 @@ end
 
 local function create_worktree(branch, opts)
 	util.notify("creating Herdr worktree " .. branch .. "...")
-	run({
+	local args = {
 		"worktree",
 		"create",
 		"--cwd",
-		current_cwd(),
+		opts.cwd or current_cwd(),
 		"--branch",
 		branch,
 		"--label",
 		workspace_label(branch),
 		"--no-focus",
-	}, {
+	}
+	if opts.base then
+		vim.list_extend(args, { "--base", opts.base })
+	end
+	run(args, {
 		on_error = function(_, message)
+			if opts.tracking_created then
+				message = message .. ". Tracking branch '" .. branch .. "' was preserved; retry its [local] row."
+			end
 			fail_step("worktree creation", message)
 		end,
 		on_success = function(result)
-			local workspace, checkout, _, err = parse_workspace_result(result, "worktree creation")
+			local workspace, checkout, already_open, err = parse_workspace_result(result, "worktree creation")
 			if not workspace then
 				fail_step("worktree creation", err)
+				return
+			end
+			if already_open and opts.focus then
+				focus_workspace(workspace.workspace_id)
 				return
 			end
 			if opts.editor then
@@ -563,8 +587,8 @@ local function nonempty_string(value)
 	return nil
 end
 
-local function list_worktrees(callback)
-	run({ "worktree", "list", "--cwd", current_cwd() }, {
+local function list_worktrees(callback, cwd)
+	run({ "worktree", "list", "--cwd", cwd or current_cwd() }, {
 		on_error = function(_, message)
 			fail_step("worktree list", message)
 		end,
@@ -584,7 +608,130 @@ local function list_worktrees(callback)
 	})
 end
 
+local function list_branches(cwd, callback)
+	local function failed(result)
+		local message = "Git branch list failed: " .. command_error(result)
+		util.notify(message, vim.log.levels.WARN)
+		callback({}, message)
+	end
+	run_git(cwd, { "remote" }, function(remote_result)
+		if remote_result.code ~= 0 then
+			failed(remote_result)
+			return
+		end
+		local remotes = vim.split(remote_result.stdout or "", "\n", { trimempty = true })
+		-- Remote names can contain slashes; remove the longest actual remote prefix.
+		table.sort(remotes, function(a, b)
+			return #a > #b
+		end)
+		run_git(cwd, {
+			"for-each-ref",
+			"--sort=refname",
+			"--format=%(refname)%09%(symref)%09%(objectname)%09%(upstream)",
+			"refs/heads",
+			"refs/remotes",
+		}, function(result)
+			if result.code ~= 0 then
+				failed(result)
+				return
+			end
+			-- %(upstream) can be empty when a configured remote has disappeared.
+			run_git(
+				cwd,
+				{ "config", "--null", "--name-only", "--get-regexp", "^branch[.].*[.](remote|merge)$" },
+				function(config)
+					if config.code ~= 0 and config.code ~= 1 then
+						failed(config)
+						return
+					end
+					local configured = {}
+					for _, key in ipairs(vim.split(config.stdout or "", "\0", { plain = true, trimempty = true })) do
+						local name = key:match("^branch%.(.*)%.remote$") or key:match("^branch%.(.*)%.merge$")
+						if name then
+							configured[name] = true
+						end
+					end
+					local branches = {}
+					for _, line in ipairs(vim.split(result.stdout or "", "\n", { trimempty = true })) do
+						local ref, symref, oid, upstream = line:match("^([^\t]+)\t([^\t]*)\t([^\t]+)\t([^\t]*)$")
+						if ref and symref == "" then
+							if vim.startswith(ref, "refs/heads/") then
+								local branch = ref:sub(#"refs/heads/" + 1)
+								table.insert(branches, {
+									kind = "local",
+									branch = branch,
+									label = branch,
+									ref = ref,
+									oid = oid,
+									upstream = nonempty_string(upstream),
+									has_upstream_config = configured[branch] == true,
+								})
+							elseif vim.startswith(ref, "refs/remotes/") then
+								local label = ref:sub(#"refs/remotes/" + 1)
+								for _, remote in ipairs(remotes) do
+									if vim.startswith(label, remote .. "/") then
+										table.insert(branches, {
+											kind = "remote",
+											branch = label:sub(#remote + 2),
+											label = label,
+											ref = ref,
+											oid = oid,
+										})
+										break
+									end
+								end
+							end
+						end
+					end
+					callback(branches)
+				end
+			)
+		end)
+	end)
+end
+
+-- Upstream identity takes precedence over coincidentally equal branch tips.
+local function remote_matches(remote, branches)
+	local matches = {}
+	local identical
+	for _, branch in ipairs(branches) do
+		if branch.kind == "local" then
+			if branch.upstream == remote.ref then
+				table.insert(matches, branch)
+			elseif
+				branch.branch == remote.branch
+				and not branch.upstream
+				and not branch.has_upstream_config
+				and branch.oid == remote.oid
+			then
+				identical = branch
+			end
+		end
+	end
+	if #matches == 0 and identical then
+		table.insert(matches, identical)
+	end
+	return matches
+end
+
+local function local_destination(branch, checkouts)
+	local checkout = checkouts[branch.branch]
+	if checkout then
+		return branch.branch .. (checkout.open_workspace_id and " [open]" or " [checkout]")
+	end
+	return branch.branch
+end
+
 local function worktree_item_label(item, workspaces)
+	if item.kind == "fetch" then
+		return "Fetch remotes / refresh"
+	elseif item.kind == "local" or item.kind == "remote" then
+		local label = "[" .. item.kind .. "] " .. item.label
+		if item.match_labels and #item.match_labels > 0 then
+			label = label .. " → " .. table.concat(item.match_labels, ", ")
+		end
+		return label
+	end
 	local workspace = workspaces[item.open_workspace_id] or {}
 	local path = nonempty_string(item.path)
 	local folder = path and nonempty_string(vim.fn.fnamemodify(path:gsub("/+$", ""), ":t"))
@@ -617,11 +764,11 @@ local function select_worktree(opts, callback)
 				has_open_workspace = has_open_workspace or item.open_workspace_id ~= nil
 			end
 		end
-		if #choices == 0 then
+		if #choices == 0 and not opts.branches then
 			util.notify(opts.empty_message or "no matching Herdr worktrees", vim.log.levels.WARN)
 			return
 		end
-		local function show(workspaces)
+		local function select(workspaces)
 			vim.ui.select(choices, {
 				prompt = opts.prompt,
 				format_item = function(item)
@@ -631,6 +778,33 @@ local function select_worktree(opts, callback)
 				if choice then
 					callback(choice)
 				end
+			end)
+		end
+		local function show(workspaces)
+			if not opts.branches then
+				select(workspaces)
+				return
+			end
+			list_branches(opts.cwd, function(branches)
+				local checked_out = {}
+				for _, item in ipairs(items) do
+					if item.branch then
+						checked_out[item.branch] = item
+					end
+				end
+				for _, branch in ipairs(branches) do
+					if branch.kind == "remote" then
+						branch.match_labels = {}
+						for _, match in ipairs(remote_matches(branch, branches)) do
+							table.insert(branch.match_labels, local_destination(match, checked_out))
+						end
+					end
+					if branch.kind == "remote" or not checked_out[branch.branch] then
+						table.insert(choices, branch)
+					end
+				end
+				table.insert(choices, { kind = "fetch" })
+				select(workspaces)
 			end)
 		end
 		if not has_open_workspace then
@@ -655,7 +829,7 @@ local function select_worktree(opts, callback)
 				show(table_index(workspaces, "workspace_id"))
 			end,
 		})
-	end)
+	end, opts.cwd)
 end
 
 local function list_agents(callback)
@@ -696,30 +870,276 @@ function M.add_branch(branch)
 	end)
 end
 
-function M.open(resume)
-	select_worktree({ prompt = resume and "Continue Herdr worktree" or "Open Herdr worktree" }, function(item)
-		if item.open_workspace_id then
-			focus_workspace(item.open_workspace_id)
+local function open_worktree(cwd, item, resume)
+	if item.open_workspace_id then
+		focus_workspace(item.open_workspace_id)
+		return
+	end
+	run({ "worktree", "open", "--cwd", cwd, "--path", item.path, "--no-focus" }, {
+		on_error = function(_, message)
+			fail_step("worktree open", message)
+		end,
+		on_success = function(result)
+			local workspace, checkout, already_open, err = parse_workspace_result(result, "worktree open")
+			if not workspace then
+				fail_step("worktree open", err)
+				return
+			end
+			if already_open then
+				focus_workspace(workspace.workspace_id)
+				return
+			end
+			if resume then
+				bootstrap_agent_workspace(workspace, checkout or item.path, { resume = true, focus = true })
+			else
+				bootstrap_editor_workspace(workspace, checkout or item.path)
+			end
+		end,
+	})
+end
+
+local function branch_exists(cwd, branch, callback)
+	run_git(cwd, { "show-ref", "--verify", "--quiet", "refs/heads/" .. branch }, function(result)
+		if result.code == 0 or result.code == 1 then
+			callback(result.code == 0)
+		else
+			fail_step("branch lookup", command_error(result))
+		end
+	end)
+end
+
+local function open_local_branch(cwd, branch, resume, tracking_created)
+	branch_exists(cwd, branch, function(exists)
+		if not exists then
+			util.notify("local branch '" .. branch .. "' no longer exists; refresh the picker", vim.log.levels.WARN)
 			return
 		end
-		run({ "worktree", "open", "--cwd", current_cwd(), "--path", item.path, "--no-focus" }, {
-			on_error = function(_, message)
-				fail_step("worktree open", message)
-			end,
-			on_success = function(result)
-				local workspace, checkout, already_open, err = parse_workspace_result(result, "worktree open")
-				if not workspace then
-					fail_step("worktree open", err)
+		list_worktrees(function(items)
+			for _, item in ipairs(items) do
+				if item.branch == branch then
+					open_worktree(cwd, item, resume)
 					return
 				end
-				if already_open then
-					focus_workspace(workspace.workspace_id)
-					return
-				end
-				bootstrap_agent_workspace(workspace, checkout or item.path, { resume = resume, focus = true })
-			end,
-		})
+			end
+			create_worktree(branch, {
+				cwd = cwd,
+				base = "refs/heads/" .. branch,
+				resume = resume,
+				editor = not resume,
+				focus = true,
+				tracking_created = tracking_created,
+			})
+		end, cwd)
 	end)
+end
+
+local function report_branch_status(cwd, branch, remote, callback)
+	run_git(cwd, { "rev-list", "--left-right", "--count", branch.ref .. "..." .. remote.ref }, function(result)
+		local ahead, behind = (result.stdout or ""):match("^%s*(%d+)%s+(%d+)%s*$")
+		if result.code ~= 0 or not ahead then
+			local message = result.code ~= 0 and command_error(result) or "invalid ahead/behind counts"
+			util.notify("Git branch comparison failed: " .. message, vim.log.levels.WARN)
+		else
+			ahead, behind = tonumber(ahead), tonumber(behind)
+			local status = "equal"
+			if ahead > 0 and behind > 0 then
+				status = "diverged"
+			elseif ahead > 0 then
+				status = "ahead"
+			elseif behind > 0 then
+				status = "behind"
+			end
+			util.notify(
+				string.format("%s vs %s: %s (%d ahead, %d behind)", branch.branch, remote.label, status, ahead, behind)
+			)
+		end
+		callback()
+	end)
+end
+
+local function selected_remote(branches, ref)
+	local remote = table_index(branches, "ref")[ref]
+	if not remote or remote.kind ~= "remote" then
+		util.notify("selected remote branch no longer exists; refresh the picker", vim.log.levels.ERROR)
+		return nil
+	end
+	return remote
+end
+
+local function open_remote_local(cwd, remote_ref, local_ref, resume, reconcile)
+	-- A chooser may have been open while refs or upstream configuration changed.
+	list_branches(cwd, function(branches, err)
+		if err then
+			return
+		end
+		local remote = selected_remote(branches, remote_ref)
+		if not remote then
+			return
+		end
+		local branch = table_index(branches, "ref")[local_ref]
+		if not branch or branch.kind ~= "local" then
+			util.notify("local branch no longer exists; refresh the picker", vim.log.levels.WARN)
+			return
+		end
+		if reconcile then
+			local still_matches = false
+			for _, match in ipairs(remote_matches(remote, branches)) do
+				still_matches = still_matches or match.ref == local_ref
+			end
+			if not still_matches then
+				util.notify("local branch relationship changed; refresh the picker", vim.log.levels.WARN)
+				return
+			end
+		end
+		local function open()
+			report_branch_status(cwd, branch, remote, function()
+				open_local_branch(cwd, branch.branch, resume)
+			end)
+		end
+		if reconcile and not branch.upstream then
+			run_git(cwd, { "branch", "--set-upstream-to=" .. remote.ref, "--", branch.branch }, function(result)
+				if result.code ~= 0 then
+					fail_step("upstream configuration", command_error(result))
+					return
+				end
+				open()
+			end)
+		else
+			open()
+		end
+	end)
+end
+
+local function open_remote_branch(cwd, item, resume)
+	local create_tracking
+	local function choose_name()
+		prompts.input("New local branch tracking " .. item.label .. ": ", function(branch)
+			-- Validate the literal name rather than expanding checkout shorthands.
+			if branch:sub(1, 1) == "-" then
+				util.notify("invalid branch name: " .. branch, vim.log.levels.ERROR)
+				return
+			end
+			run_git(cwd, { "check-ref-format", "refs/heads/" .. branch }, function(result)
+				if result.code ~= 0 then
+					util.notify("invalid branch name: " .. branch, vim.log.levels.ERROR)
+					return
+				end
+				create_tracking(branch)
+			end)
+		end)
+	end
+	local function collision(branch)
+		vim.ui.select({
+			{ label = "Open existing local branch " .. branch, reuse = true },
+			{ label = "Create under another local name" },
+		}, {
+			prompt = "Local branch '" .. branch .. "' already exists",
+			format_item = function(choice)
+				return choice.label
+			end,
+		}, function(choice)
+			if not choice then
+				return
+			end
+			if choice.reuse then
+				open_remote_local(cwd, item.ref, "refs/heads/" .. branch, resume, false)
+			else
+				choose_name()
+			end
+		end)
+	end
+	create_tracking = function(branch)
+		branch_exists(cwd, branch, function(exists)
+			if exists then
+				collision(branch)
+				return
+			end
+			-- Git creates the branch and its upstream together, and refuses collisions.
+			run_git(cwd, { "branch", "--track", "--", branch, item.ref }, function(result)
+				if result.code == 0 then
+					open_local_branch(cwd, branch, resume, true)
+					return
+				end
+				branch_exists(cwd, branch, function(appeared)
+					if appeared then
+						util.notify(
+							"Git tracking branch creation failed: " .. command_error(result),
+							vim.log.levels.WARN
+						)
+						collision(branch)
+					else
+						fail_step("tracking branch creation", command_error(result))
+					end
+				end)
+			end)
+		end)
+	end
+	list_branches(cwd, function(branches, err)
+		if err then
+			return
+		end
+		local remote = selected_remote(branches, item.ref)
+		if not remote then
+			return
+		end
+		item = remote
+		local matches = remote_matches(remote, branches)
+		if #matches == 0 then
+			create_tracking(item.branch)
+		elseif #matches == 1 then
+			open_remote_local(cwd, remote.ref, matches[1].ref, resume, true)
+		else
+			list_worktrees(function(checkouts)
+				local by_branch = table_index(checkouts, "branch")
+				vim.ui.select(matches, {
+					prompt = "Local branches matching " .. remote.label,
+					format_item = function(branch)
+						return local_destination(branch, by_branch)
+					end,
+				}, function(choice)
+					if choice then
+						open_remote_local(cwd, remote.ref, choice.ref, resume, true)
+					end
+				end)
+			end, cwd)
+		end
+	end)
+end
+
+local function open_picker(cwd, resume)
+	select_worktree({
+		prompt = resume and "Continue Herdr worktree" or "Open Herdr worktree",
+		cwd = cwd,
+		branches = true,
+	}, function(item)
+		if item.kind == "fetch" then
+			util.notify("fetching remotes...")
+			run_git(cwd, { "fetch", "--all" }, function(result)
+				if result.code ~= 0 then
+					util.notify("Git fetch failed: " .. command_error(result), vim.log.levels.WARN)
+				end
+				open_picker(cwd, resume)
+			end)
+		elseif item.kind == "remote" then
+			open_remote_branch(cwd, item, resume)
+		elseif item.kind == "local" then
+			open_local_branch(cwd, item.branch, resume)
+		else
+			list_worktrees(function(items)
+				for _, latest in ipairs(items) do
+					if latest.path == item.path then
+						open_worktree(cwd, latest, resume)
+						return
+					end
+				end
+				util.notify("selected checkout no longer exists; refresh the picker", vim.log.levels.WARN)
+			end, cwd)
+		end
+	end)
+end
+
+function M.open(resume)
+	open_picker(current_cwd(), resume)
 end
 
 function M.select_workspace()

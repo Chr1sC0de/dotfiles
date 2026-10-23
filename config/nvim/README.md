@@ -12,9 +12,9 @@ if both `HERDR_ENV` and `TMUX` are present.
 | --- | --- |
 | `<leader>wa` | Prompt for a contextual task. Herdr generates a branch, starts a single-pane Codex workspace in the background, submits the task, and notifies when it has started; Workmux runs `add -A -p`. Visual mode includes the selection. |
 | `<leader>wA` | Prompt for an explicit branch, create its worktree, and open Neovim in the root pane without starting Codex. |
-| `<leader>wo` | Pick and open a worktree with a fresh agent when a new workspace is required. |
+| `<leader>wo` | Pick and open a worktree; Herdr also offers local/remote branches and opens Neovim when a workspace is required. |
 | `<leader>wO` | Pick and open a worktree, using `codex resume --last` when Herdr must recreate its workspace. |
-| `<leader>ww` | Browse worktrees (the Workmux worktree dashboard in tmux). |
+| `<leader>ww` | Browse worktrees and open Neovim in Herdr; open the Workmux worktree dashboard in tmux. |
 | `<leader>wd` | Browse live Herdr agents with pane previews, or open the Workmux dashboard in tmux. |
 | `<leader>wD` | Open Workmux dashboard diff; Herdr reports that no native equivalent exists. |
 | `<leader>ws` | Toggle the Workmux sidebar; in Herdr use its native `prefix+b` sidebar. |
@@ -24,6 +24,36 @@ if both `HERDR_ENV` and `TMUX` are present.
 | `<leader>wc` | Close an open non-main workspace while preserving its worktree. |
 | `<leader>wm` | Merge through Workmux; Herdr reports that merging remains an explicit Git operation. |
 | `<leader>wr` | Exactly confirm and remove a selected non-main worktree. |
+
+In Herdr, `wo`, `wO`, and `ww` show existing worktrees followed by
+`[local]` branches without checkouts and `[remote]` branches. The picker uses
+cached Git refs immediately. Select **Fetch remotes / refresh** to fetch all
+remotes and reload the list; available refs remain usable if fetching fails.
+
+When a workspace must be created or reopened, `wo` and `ww` start `nvim .`
+in the checkout. Use `wO` to resume Codex instead, or `wa` to submit a Codex
+task. Existing workspaces are simply focused without starting another process.
+
+Remote rows show matching local branches and whether their checkout is open.
+Selecting one reuses a local branch whose upstream is that exact remote ref,
+including differently named branches. A unique match opens directly; multiple
+matches offer a local-branch chooser. This applies equally to `main`, `master`,
+and feature branches. A same-name local branch at the identical commit with no
+upstream gains the selected upstream and is reused.
+
+Opening an existing local branch reports whether it is equal, ahead, behind, or
+diverged from the selected remote, with commit counts. Local commits and working
+files remain unchanged, including in dirty or behind checkouts. Existing
+upstreams are preserved. If a same-name branch has a different upstream, or has
+different commits and no upstream, choose to open it unchanged or supply another
+local name.
+
+When no matching local branch exists, selecting `[remote] origin/feature/foo`
+creates local `feature/foo` at that remote commit and explicitly sets its
+upstream to `origin/feature/foo`. If checkout creation fails after the tracking
+branch was created, retry using its `[local]` row. Opening an existing workspace
+focuses it without starting another process. Tmux/Workmux retains its existing
+picker behavior.
 
 Use `:WorktreePromptContextToggle` to switch `<leader>wa` and
 `:WorktreeAddPrompt` between context-aware prompts and plain prompt text for the
