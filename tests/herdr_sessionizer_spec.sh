@@ -180,7 +180,7 @@ for variable in VIRTUAL_ENV CONDA_PREFIX PYTHONHOME PYTHONPATH \
         export "$variable=$value"
         export PARSER_TEST_VARIABLE=$variable PARSER_TEST_VALUE=$value
         # Invoked in picker and preview subprocesses.
-        # shellcheck disable=SC2329
+        # shellcheck disable=SC2329,SC2317
         herdr() {
             [[ ${!PARSER_TEST_VARIABLE} == "$PARSER_TEST_VALUE" ]] || {
                 printf 'Parser changed Herdr environment: %s\n' "$PARSER_TEST_VARIABLE" >&2
@@ -206,7 +206,7 @@ contains "$T/error" 'Python'
 reset
 if (
     # Invoked in the picker subprocess.
-    # shellcheck disable=SC2329
+    # shellcheck disable=SC2329,SC2317
     command() {
         if [[ $1 == -v && $2 == uv ]]; then return 1; fi
         builtin command "$@"
@@ -218,7 +218,7 @@ contains "$T/error" 'Missing uv'
 [[ ! -e $T/snapshot-count && ! -e $T/count && ! -e $T/actions ]]
 if (
     # Invoked in the picker subprocess.
-    # shellcheck disable=SC2329
+    # shellcheck disable=SC2329,SC2317
     uv() {
         printf 'uv: runtime download failed\n' >&2
         return 1

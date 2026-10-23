@@ -43,5 +43,6 @@ and the `herdr-sessionizer` and `herdr-sessionizer-preview` commands in `~/.loca
 Existing installations can add the search config with
 `bash utils/symlink-create.sh config/herdr-sessionizer/config.toml`.
 The picker requires uv, which selects or downloads Python for TOML parsing.
-Install Herdr separately.
+Install Herdr separately. `Ctrl+Q, D` can merge the current linked worktree into
+the primary checkout, then remove its checkout and local branch; Squash is the default.
 See [picker setup and usage](my-profile/scripts/herdr-sessionizer/README.md).

@@ -81,7 +81,8 @@ herdr() {
 git() {
 	if [[ ${1:-} != --git-dir=* || ${2:-} != worktree || ${3:-} != remove ]]; then
 		command git "$@"
-		return
+		# An explicit status avoids inheriting the original failure inside EXIT traps.
+		return $?
 	fi
 	printf '%s\0' "$@" >>"$REMOVE_TEST_ROOT/git-actions"
 	printf '%s\n' "$PWD" >>"$REMOVE_TEST_ROOT/removal-cwds"
@@ -161,6 +162,8 @@ contains() { grep -Fq -- "$2" "$1" || {
 	printf 'Missing %s in %s\n' "$2" "$1" >&2
 	exit 1
 }; }
+
+if [[ ${BASH_SOURCE[0]} != "$0" ]]; then return 0; fi
 
 # Workspace closure kills its popup. Git cleanup must already be complete.
 fixture popup-hangup

@@ -21,12 +21,16 @@ TMP=$(mktemp -d)
 REMOVE_WORKSPACE_TO_CLOSE=''
 REMOVE_PROJECT_ROOT=''
 REMOVE_PROJECT_COMMON=''
+MERGE_FOCUS_ROOT=''
 cleanup() {
     local status=$?
     rm -rf -- "$TMP"
     if ((status != 0)) && [[ -t 0 && -t 2 ]]; then
         printf '\nPress any key to close.' >&2
         read -rsn1 _ || true
+    fi
+    if [[ -n $MERGE_FOCUS_ROOT ]]; then
+        remove_focus_root || printf 'Cannot focus primary workspace: %s\n' "$REMOVE_PROJECT_ROOT" >&2
     fi
     # Return to the same project before closing the target workspace. Closing can
     # kill this popup, so branch handling and temporary-file cleanup are already done.
@@ -57,6 +61,8 @@ if [[ $1 == remove-current ]]; then
     export LC_ALL=C
     # shellcheck source=remove.sh
     source "$HERE/remove.sh"
+    # shellcheck source=merge.sh
+    source "$HERE/merge.sh"
     remove_current
     exit 0
 fi

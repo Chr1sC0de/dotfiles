@@ -300,4 +300,4 @@ type = "popup"
 command = 'herdr-sessionizer remove-current'
 width = 150
 height = 45
-description = "delete current worktree checkout"
+description = "merge or delete current worktree checkout"

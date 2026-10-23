@@ -5,24 +5,40 @@ Both use native 150 × 45 Herdr popups. Enter opens or focuses a workspace.
 Escape and Ctrl+C cancel. Ctrl+R refreshes the preview. In the worktree menu,
 Ctrl+N (or the New branch row) prompts for a branch name based on HEAD.
 
-`Ctrl+Q, D` deletes the current workspace's linked worktree. The popup shows the
-workspace, full checkout path, and branch, with Cancel selected initially.
-Choose checkout only or checkout and local branch. The workspace and its panes
-close after checkout removal and branch handling finish, so the popup stays alive
-for branch deletion and its confirmations. Before closing, the picker returns to
-this repository's primary checkout workspace, opening one at that root if needed.
-It matches checkout paths rather than workspace labels, so other open projects
-cannot become the return destination. If returning to the root fails, the removed
-worktree's workspace stays open with an error. Primary checkouts cannot be removed;
-detached checkouts offer checkout only.
-If modified or untracked files prevent removal, type the full checkout path to
-confirm forced removal. If the local branch is unmerged, type its exact name to
-confirm forced branch deletion. These are separate confirmations. Escape and
-Ctrl+C cancel, and a cancelled branch deletion leaves the already-removed checkout
-removed. Branch errors and retention messages remain visible until acknowledged
-before the workspace closes. Checkout removal failures leave the workspace open.
-Remote branches are unaffected. After changing bindings, run
-`herdr server reload-config` to activate them.
+`Ctrl+Q, D` offers deletion or **Merge, then delete checkout and local branch**
+for the current linked worktree. Cancel is initially selected. The popup shows
+source and destination branches, both checkout paths, and the workspace closure
+notice. The destination is the branch currently checked out in the primary checkout.
+
+Merge choices are Squash (preselected), Normal (fast-forward when possible),
+Merge commit (`--no-ff`), and Fast-forward only. Explicit flags override Git merge
+mode defaults. Squash offers an editable default message, Generate with Codex,
+and Cancel. Codex drafts a Conventional Commit subject from the committed changes;
+you can edit it before Enter starts the merge. Escape or Ctrl+C cancels selection,
+generation, or message editing. Codex is optional and uses an independent ephemeral,
+read-only invocation with approvals disabled, retaining configured authentication
+and model. Generation failures return to the message chooser.
+
+Merging requires clean, attached source and destination branches with no unfinished
+Git operation. Branches, commits, workspace membership, and worktree registration
+are rechecked after prompts and before cleanup. A locked source is rejected.
+Conflicts or commit-hook failures preserve Git's resulting state and the source
+checkout, branch, and workspace. After acknowledgement, the primary workspace is
+focused or opened for manual resolution. Empty squash results retain the source;
+already incorporated ancestors can be cleaned up without another commit.
+
+Successful merges remove the checkout without forcing, then delete the unchanged
+local branch after verifying incorporation. A squash requires a verified successful
+commit. Cleanup errors keep the merge and remaining source state, with an error
+showing the completed steps. The source workspace closes only after branch handling
+and temporary-file cleanup. Return targets match checkout paths, not labels.
+
+Both deletion-only options remain available. Dirty checkout deletion requires typing
+the full checkout path; unmerged local branch deletion separately requires its exact
+name. Cancelling branch deletion leaves the already-removed checkout removed.
+Primary checkouts cannot be removed; detached checkouts offer checkout only.
+All operations are local: no fetch, push, remote deletion, or automatic commit of
+dirty work. After changing bindings, run `herdr server reload-config`.
 
 To check out an existing remote branch, run `git fetch origin`, then use
 `Ctrl+Q, F`, choose the repository, and select `[remote] origin/branch-name`.
@@ -121,7 +137,8 @@ Validation from the dotfiles root:
 bash tests/symlink_spec.sh
 bash tests/herdr_sessionizer_spec.sh
 bash tests/herdr_worktree_remove_spec.sh
-shellcheck -x -P my-profile/scripts/herdr-sessionizer my-profile/scripts/herdr-sessionizer/*.sh tests/herdr_sessionizer_spec.sh tests/herdr_worktree_remove_spec.sh
+bash tests/herdr_worktree_merge_spec.sh
+shellcheck -x -P my-profile/scripts/herdr-sessionizer my-profile/scripts/herdr-sessionizer/*.sh tests/herdr_sessionizer_spec.sh tests/herdr_worktree_remove_spec.sh tests/herdr_worktree_merge_spec.sh
 ```
 
 Tests use fake Herdr/fzf commands, temporary Git repositories, and a controlling
