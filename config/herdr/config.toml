@@ -293,3 +293,11 @@ command = 'herdr-sessionizer worktrees'
 width = 150
 height = 45
 description = "open worktree workspace"
+
+[[keys.command]]
+key = "prefix+d"
+type = "popup"
+command = 'herdr-sessionizer remove-current'
+width = 150
+height = 45
+description = "delete current worktree checkout"

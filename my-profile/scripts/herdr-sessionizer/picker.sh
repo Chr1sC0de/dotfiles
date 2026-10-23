@@ -10,8 +10,11 @@ done
 HERE=$(cd -P -- "$(dirname -- "$SOURCE")" && pwd)
 # shellcheck source=common.sh
 source "$HERE/common.sh"
-[[ ${1:-} == projects || ${1:-} == worktrees ]] || fail 'Usage: herdr-sessionizer projects|worktrees'
-for dependency in git herdr fzf jq uv; do
+[[ ${1:-} == projects || ${1:-} == worktrees || ${1:-} == remove-current ]] ||
+    fail 'Usage: herdr-sessionizer projects|worktrees|remove-current'
+dependencies=(git herdr fzf jq)
+[[ $1 == remove-current ]] || dependencies+=(uv)
+for dependency in "${dependencies[@]}"; do
     command -v "$dependency" >/dev/null || fail "Missing $dependency; run the dotfiles dependency installer and install Herdr."
 done
 TMP=$(mktemp -d)
@@ -25,6 +28,14 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 0' INT TERM
+if [[ $1 == remove-current ]]; then
+    # Git's unmerged-branch refusal is checked before offering force deletion.
+    export LC_ALL=C
+    # shellcheck source=remove.sh
+    source "$HERE/remove.sh"
+    remove_current
+    exit 0
+fi
 # shellcheck source=config.sh
 source "$HERE/config.sh"
 discover() {

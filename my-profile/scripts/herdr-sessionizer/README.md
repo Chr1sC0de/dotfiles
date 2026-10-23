@@ -5,6 +5,22 @@ Both use native 150 × 45 Herdr popups. Enter opens or focuses a workspace.
 Escape and Ctrl+C cancel. Ctrl+R refreshes the preview. In the worktree menu,
 Ctrl+N (or the New branch row) prompts for a branch name based on HEAD.
 
+`Ctrl+Q, D` deletes the current workspace's linked worktree. The popup shows the
+workspace, full checkout path, and branch, with Cancel selected initially.
+Choose checkout only or checkout and local branch. Removal closes that workspace's
+panes. Primary checkouts cannot be removed; detached checkouts offer checkout only.
+If modified or untracked files prevent removal, type the full checkout path to
+confirm forced removal. If the local branch is unmerged, type its exact name to
+confirm forced branch deletion. These are separate confirmations. Escape and
+Ctrl+C cancel, and a cancelled branch deletion leaves the already-removed checkout
+removed. Remote branches are unaffected. After changing bindings, run
+`herdr server reload-config` to activate them.
+
+To check out an existing remote branch, run `git fetch origin`, then use
+`Ctrl+Q, F`, choose the repository, and select `[remote] origin/branch-name`.
+This creates a local branch and checkout from that remote ref. If the local branch
+already exists, choose its `[local]` row instead.
+
 Rows show folder basenames for projects and checked-out worktrees, and workspace
 names without appended IDs or paths. Workspace names that are absolute paths
 also show only their basename. Type prefixes and full local/remote branch names
@@ -62,6 +78,8 @@ the popup keybindings too, separately run
 Use that exact file target; `config/herdr` is not an accepted target.
 
 Run `herdr-sessionizer projects` or `herdr-sessionizer worktrees` directly.
+`herdr-sessionizer remove-current` requires the active workspace context supplied
+by a Herdr popup and skips discovery, search configuration, and uv.
 Popup bindings invoke `herdr-sessionizer`, so `~/.local/bin` must be on Herdr's
 PATH. The dotfiles profile adds it. The picker resolves its own symlink to load
 the shared scripts and invokes the neighboring `preview.sh` directly.
@@ -89,9 +107,10 @@ Validation from the dotfiles root:
 ```bash
 bash tests/symlink_spec.sh
 bash tests/herdr_sessionizer_spec.sh
-shellcheck -x -P my-profile/scripts/herdr-sessionizer my-profile/scripts/herdr-sessionizer/*.sh tests/herdr_sessionizer_spec.sh
+bash tests/herdr_worktree_remove_spec.sh
+shellcheck -x -P my-profile/scripts/herdr-sessionizer my-profile/scripts/herdr-sessionizer/*.sh tests/herdr_sessionizer_spec.sh tests/herdr_worktree_remove_spec.sh
 ```
 
 Tests use fake Herdr/fzf commands, temporary Git repositories, and a controlling
-terminal for branch prompts. Live popup and worktree behavior was also checked
+terminal for branch prompts. Project and worktree opening were also checked
 in a separate named Herdr session.
