@@ -6,7 +6,14 @@ load_search_config() {
     local config_file="$HOME/.config/herdr-sessionizer/config.toml" config_json
     SEARCH_ROOTS=() SEARCH_DEPTHS=()
     if ! config_json=$(
-        uv run --no-project --no-config --isolated --python '>=3.11' python - "$config_file" <<'PY'
+        # Scope environment cleanup to the parser; Herdr keeps the caller's context.
+        unset VIRTUAL_ENV CONDA_PREFIX PYTHONHOME PYTHONPATH \
+            UV_PYTHON UV_PYTHON_PREFERENCE UV_NO_MANAGED_PYTHON UV_PROJECT \
+            UV_PROJECT_ENVIRONMENT UV_WORKING_DIR UV_CONFIG_FILE UV_ENV_FILE
+        # Avoid repository ancestors during interpreter discovery and local imports.
+        uv run --directory / --no-project --no-config --no-env-file \
+            --isolated --managed-python --python '>=3.11' \
+            python -I - "$config_file" <<'PY'
 import json
 import sys
 import tomllib

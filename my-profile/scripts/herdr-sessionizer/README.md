@@ -94,11 +94,16 @@ the shared scripts and invokes the neighboring `preview.sh` directly.
 
 Dependencies: Bash, Git, Herdr, fzf, jq, uv, and GNU coreutils for installation
 (`ln -T`). The dotfiles dependency installer already installs uv. The picker
-uses `uv run` to select Python 3.11+ for the built-in TOML parser; no manual
-Python installation or version check is needed. The first run may download a
-compatible interpreter, which uv reuses on subsequent runs. Parser execution
-is isolated from the current project and its uv configuration. If uv cannot
-obtain a runtime, its error is shown and the picker stops.
+uses `uv run` with a uv-managed Python 3.11+ for the built-in TOML parser;
+no manual Python installation or version check is needed. The first run may
+download a compatible managed interpreter, which uv reuses on subsequent runs.
+The parser runs from `/` in an isolated environment, ignores inherited Python
+and uv interpreter/project settings, and excludes local modules and user site
+packages from imports. This allows invocation from a Podman-mounted checkout
+whose `.venv` cannot run on the host. Only the parser receives this cleanup;
+Herdr commands and the project shells they open retain the caller's environment.
+If uv cannot obtain a managed runtime, its error is shown and the picker stops
+before querying Herdr or opening fzf.
 The picker includes `~/.local/bin` and `~/.fzf/bin` in PATH.
 Optional bat/batcat renders README previews with color;
 otherwise previews use cat or a directory listing.
@@ -120,7 +125,10 @@ shellcheck -x -P my-profile/scripts/herdr-sessionizer my-profile/scripts/herdr-s
 ```
 
 Tests use fake Herdr/fzf commands, temporary Git repositories, and a controlling
-terminal for branch prompts. Removal tests also simulate the popup receiving
+terminal for branch prompts. Parser tests include a failing mounted `.venv`,
+shadowed standard-library modules, and inherited Python/uv settings. The tests
+reuse uv's managed interpreter directory while replacing HOME for fixtures.
+Removal tests also simulate the popup receiving
 SIGHUP when its workspace closes and check that branch handling and temporary-file
 cleanup and selection of the correct project root have already finished. Tests
 cover reusing the root workspace, opening a missing root, duplicate labels, and

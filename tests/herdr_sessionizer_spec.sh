@@ -3,6 +3,8 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "$0")/.." && pwd)
 T=$(mktemp -d)
 trap 'rm -rf -- "$T"' EXIT
+# Reuse installed managed Python even though the fixture replaces HOME.
+export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$(uv python dir)}"
 export HOME="$T/home" PATH="$T/bin:$PATH"
 mkdir -p "$HOME/.local/bin" "$T/bin" "$T/source space/my-profile/scripts/herdr-sessionizer" "$HOME/projects" "$T/scratch"
 cp "$ROOT"/my-profile/scripts/herdr-sessionizer/*.sh "$T/source space/my-profile/scripts/herdr-sessionizer/"
@@ -114,6 +116,92 @@ reset
 contains "$T/menu1" "[project] ${repo##*/}"
 if grep -Fq "$HOME/projects/" "$T/menu1"; then exit 1; fi
 [[ ! -e $T/unrelated/.venv && ! -e $T/unrelated/uv.lock ]]
+# A mounted checkout may contain an interpreter that cannot run on this host.
+mounted="$T/mounted checkout"
+init "$mounted"
+mkdir -p "$mounted/.venv/bin" "$mounted/nested/directory"
+cat >"$mounted/.venv/pyvenv.cfg" <<'EOF'
+home = /podman-only/bin
+include-system-site-packages = false
+version = 3.11.0
+EOF
+cat >"$mounted/.venv/bin/python" <<'FAKE'
+#!/usr/bin/env bash
+printf 'mounted interpreter was invoked\n' >>"$TEST_ROOT/mounted-interpreter"
+printf 'mounted Python cannot run on this host\n' >&2
+exit 97
+FAKE
+chmod +x "$mounted/.venv/bin/python"
+ln -s python "$mounted/.venv/bin/python3"
+ln -s python "$mounted/.venv/bin/python3.11"
+# Local modules and PYTHONPATH must not replace the parser's standard library.
+for module in json tomllib pathlib sitecustomize; do
+    printf 'raise RuntimeError("imported a project module")\n' >"$mounted/$module.py"
+done
+find "$mounted" -type f -not -path '*/.git/*' -exec sha256sum {} + | sort >"$T/mounted.before"
+for directory in "$mounted" "$mounted/nested/directory"; do
+    for mode in projects worktrees; do
+        reset
+        printf '[project] %s\n[checkout] %s\n' "${repo##*/}" "${repo##*/}" >"$T/choices"
+        (
+            cd "$directory"
+            export VIRTUAL_ENV="$mounted/.venv" CONDA_PREFIX="$mounted/.venv"
+            export PYTHONPATH="$mounted" PATH="$mounted/.venv/bin:$PATH"
+            run "$mode"
+        )
+        contains "$T/menu1" "[project] ${repo##*/}"
+        tr '\0' '\n' <"$T/actions" >"$T/args"
+        grep -Fxq -- "$repo" "$T/args"
+        if [[ $mode == worktrees ]]; then
+            contains "$T/menu2" "[checkout] ${repo##*/}"
+            contains "$T/args" open
+        else
+            contains "$T/args" create
+        fi
+        [[ ! -e $T/mounted-interpreter && ! -e $mounted/uv.lock ]]
+    done
+done
+find "$mounted" -type f -not -path '*/.git/*' -exec sha256sum {} + | sort >"$T/mounted.after"
+cmp "$T/mounted.before" "$T/mounted.after"
+# Ignore inherited parser settings without changing the environment Herdr sees.
+for variable in VIRTUAL_ENV CONDA_PREFIX PYTHONHOME PYTHONPATH \
+    UV_PYTHON UV_PYTHON_PREFERENCE UV_NO_MANAGED_PYTHON UV_PROJECT \
+    UV_PROJECT_ENVIRONMENT UV_WORKING_DIR UV_CONFIG_FILE UV_ENV_FILE; do
+    reset
+    (
+        value="$mounted/.venv"
+        case $variable in
+        PYTHONPATH) value=$mounted ;;
+        UV_PYTHON_PREFERENCE) value=only-system ;;
+        UV_NO_MANAGED_PYTHON) value=1 ;;
+        UV_CONFIG_FILE) value="$T/unrelated/uv.toml" ;;
+        UV_ENV_FILE) value="$T/missing.env" ;;
+        esac
+        export "$variable=$value"
+        export PARSER_TEST_VARIABLE=$variable PARSER_TEST_VALUE=$value
+        # Invoked in picker and preview subprocesses.
+        # shellcheck disable=SC2329
+        herdr() {
+            [[ ${!PARSER_TEST_VARIABLE} == "$PARSER_TEST_VALUE" ]] || {
+                printf 'Parser changed Herdr environment: %s\n' "$PARSER_TEST_VARIABLE" >&2
+                return 1
+            }
+            command herdr "$@"
+        }
+        export -f herdr
+        FZF_STATUS=1 run projects
+        [[ ${!variable} == "$value" ]]
+    )
+    contains "$T/menu1" "[project] ${repo##*/}"
+    [[ -e $T/snapshot-count && -e $T/count && ! -e $T/actions ]]
+done
+# A system Python must not substitute for an unavailable managed runtime.
+mkdir "$T/no-managed-python"
+reset
+if UV_PYTHON_INSTALL_DIR="$T/no-managed-python" UV_PYTHON_DOWNLOADS=never \
+    run projects 2>"$T/error"; then exit 1; fi
+contains "$T/error" 'Python'
+[[ ! -e $T/snapshot-count && ! -e $T/count && ! -e $T/actions ]]
 # Missing uv and runtime failures stop before Herdr or fzf runs.
 reset
 if (
@@ -215,11 +303,8 @@ printf 'id:1\n' >"$T/choices"
 run projects
 [[ $(wc -l <"$T/menu1") == 2 ]]
 # Depth zero includes a root checkout; shell metacharacters remain literal.
-uv run --no-project --no-config --isolated --python '>=3.11' python - "$repo" >"$config_file" <<'PY'
-import json
-import sys
-print("search_roots = [{path = " + json.dumps(sys.argv[1]) + ", depth = 0}]")
-PY
+printf 'search_roots = [{path = %s, depth = 0}]\n' \
+    "$(jq -n --arg path "$repo" '$path')" >"$config_file"
 reset
 printf '[project] %s\n' "${repo##*/}" >"$T/choices"
 run projects
