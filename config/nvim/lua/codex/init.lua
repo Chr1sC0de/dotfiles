@@ -28,12 +28,12 @@ M.send_paragraph = context.send_paragraph
 M.send_file_diagnostics = context.send_file_diagnostics
 M.send_line_diagnostics = context.send_line_diagnostics
 M.send_selection_diagnostics = context.send_selection_diagnostics
-M.command_file_diagnostics = context.command_file_diagnostics
-M.command_line_diagnostics = context.command_line_diagnostics
-M.command_selection_diagnostics = context.command_selection_diagnostics
-M.command_file = context.command_file
-M.command = context.command
-M.command_selection = context.command_selection
+M.query_file_diagnostics = context.query_file_diagnostics
+M.query_line_diagnostics = context.query_line_diagnostics
+M.query_selection_diagnostics = context.query_selection_diagnostics
+M.query_file = context.query_file
+M.query = context.query
+M.query_selection = context.query_selection
 M.edit_file = context.edit_file
 M.edit_selection = context.edit_selection
 M.health = health.report
@@ -87,6 +87,7 @@ function M.resync_chat_command(opts)
 end
 
 function M.setup()
+	model.load()
 	commands.setup(M)
 end
 

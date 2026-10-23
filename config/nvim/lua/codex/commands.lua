@@ -27,31 +27,35 @@ function M.setup(api)
 		api.resync_chat_command,
 		{ desc = "Resync the Codex chat", nargs = "?" }
 	)
-	vim.api.nvim_create_user_command("CodexCommand", api.command, { desc = "Run a context-free Codex command" })
 	vim.api.nvim_create_user_command(
-		"CodexCommandFile",
-		api.command_file,
-		{ desc = "Run a Codex command on the current file" }
+		"CodexQuery",
+		api.query,
+		{ desc = "Ask a read-only question without editor context" }
 	)
 	vim.api.nvim_create_user_command(
-		"CodexCommandFileDiagnostics",
-		api.command_file_diagnostics,
-		{ desc = "Run a Codex command using current file diagnostics" }
+		"CodexQueryFile",
+		api.query_file,
+		{ desc = "Ask a read-only question about the current file" }
 	)
 	vim.api.nvim_create_user_command(
-		"CodexCommandLineDiagnostics",
-		api.command_line_diagnostics,
-		{ desc = "Run a Codex command using current line diagnostics" }
+		"CodexQueryFileDiagnostics",
+		api.query_file_diagnostics,
+		{ desc = "Ask a read-only question using current file diagnostics" }
 	)
 	vim.api.nvim_create_user_command(
-		"CodexCommandSelection",
-		api.command_selection,
-		{ desc = "Run a Codex command on the selected text", range = true }
+		"CodexQueryLineDiagnostics",
+		api.query_line_diagnostics,
+		{ desc = "Ask a read-only question using current line diagnostics" }
 	)
 	vim.api.nvim_create_user_command(
-		"CodexCommandSelectionDiagnostics",
-		api.command_selection_diagnostics,
-		{ desc = "Run a Codex command using selected text and its diagnostics", range = true }
+		"CodexQuerySelection",
+		api.query_selection,
+		{ desc = "Ask a read-only question about the selected text", range = true }
+	)
+	vim.api.nvim_create_user_command(
+		"CodexQuerySelectionDiagnostics",
+		api.query_selection_diagnostics,
+		{ desc = "Ask a read-only question using selected text and its diagnostics", range = true }
 	)
 	vim.api.nvim_create_user_command(
 		"CodexPrepareCommit",
@@ -68,15 +72,19 @@ function M.setup(api)
 		api.review_commit,
 		{ desc = "Review the commit message prepared by CodexPrepareCommit" }
 	)
-	vim.api.nvim_create_user_command("CodexEditFile", api.edit_file, { desc = "Edit the current file with Codex" })
+	vim.api.nvim_create_user_command(
+		"CodexEditFile",
+		api.edit_file,
+		{ desc = "Apply changes to the current file with Codex" }
+	)
 	vim.api.nvim_create_user_command(
 		"CodexEditSelection",
 		api.edit_selection,
-		{ desc = "Edit the selected text with Codex", range = true }
+		{ desc = "Apply changes to the selected text with Codex", range = true }
 	)
 	vim.api.nvim_create_user_command("CodexEphemeralModel", api.select_ephemeral_model, {
 		complete = function()
-			return { "edit", "command" }
+			return { "edit", "query" }
 		end,
 		desc = "Select the ephemeral Codex model",
 		nargs = "?",
@@ -120,19 +128,19 @@ function M.setup(api)
 	vim.keymap.set(
 		"n",
 		"<leader>ac",
-		api.command_file,
-		{ desc = "Codex: run a command on the current file (no edits)" }
+		api.query_file,
+		{ desc = "Codex: ask a read-only question about the current file" }
 	)
-	vim.keymap.set("n", "<leader>aq", api.command, { desc = "Codex: ask without editor context" })
+	vim.keymap.set("n", "<leader>aq", api.query, { desc = "Codex: ask a read-only question without editor context" })
 	vim.keymap.set("n", "<leader>aC", api.commit, { desc = "Codex: commit changes" })
 	vim.keymap.set(
 		"x",
 		"<leader>ac",
-		api.command_selection,
-		{ desc = "Codex: run a command on selected text (no edit)" }
+		api.query_selection,
+		{ desc = "Codex: ask a read-only question about selected text" }
 	)
-	vim.keymap.set("n", "<leader>ae", api.edit_file, { desc = "Codex: edit the current file" })
-	vim.keymap.set("x", "<leader>ae", api.edit_selection, { desc = "Codex: edit selected text" })
+	vim.keymap.set("n", "<leader>ae", api.edit_file, { desc = "Codex: apply changes to the current file" })
+	vim.keymap.set("x", "<leader>ae", api.edit_selection, { desc = "Codex: apply changes to selected text" })
 
 	vim.keymap.set("n", "<leader>ad", api.send_file_diagnostics, { desc = "Codex: send file context and diagnostics" })
 	vim.keymap.set(
@@ -144,14 +152,14 @@ function M.setup(api)
 	vim.keymap.set(
 		"n",
 		"<leader>ar",
-		api.command_file_diagnostics,
-		{ desc = "Codex: run a command with file diagnostics" }
+		api.query_file_diagnostics,
+		{ desc = "Codex: ask a read-only question with file diagnostics" }
 	)
 	vim.keymap.set(
 		"x",
 		"<leader>ar",
-		api.command_selection_diagnostics,
-		{ desc = "Codex: run a command with selection diagnostics" }
+		api.query_selection_diagnostics,
+		{ desc = "Codex: ask a read-only question with selection diagnostics" }
 	)
 
 	vim.keymap.set("n", "<leader>ap", api.send_paragraph, { desc = "Codex: send the current paragraph" })

@@ -38,7 +38,7 @@ util.write_current_buffer_snapshot = function()
 end
 
 -- Reproduce the actual result view -> whole-buffer send path.
-local job = jobs.create("command", {
+local job = jobs.create("query", {
 	kind = "prompt",
 	path = "",
 	context_lines = {},

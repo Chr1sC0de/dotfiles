@@ -8,7 +8,7 @@ M.CODEX_TITLE_MODEL = "gpt-6-astra"
 M.CODEX_TITLE_REASONING_EFFORT = "low"
 M.CODEX_JOBS_BUF_NAME = "codex://jobs"
 M.CODEX_JOBS_HIGHLIGHT_NAMESPACE = vim.api.nvim_create_namespace("codex-jobs")
-M.EPHEMERAL_COMMAND_REASONING_EFFORT = "low"
+M.EPHEMERAL_QUERY_REASONING_EFFORT = "low"
 M.EPHEMERAL_DIAGNOSTIC_NAMESPACE = vim.api.nvim_create_namespace("codex-ephemeral")
 M.EPHEMERAL_SPINNER_NAMESPACE = vim.api.nvim_create_namespace("codex-ephemeral-spinner")
 M.EPHEMERAL_RECENT_JOB_LIMIT = 20
@@ -24,27 +24,20 @@ M.EPHEMERAL_SPINNER_STYLES = {
 			{ name = "CodexEphemeralEditSpinner4", text = "󰏬" },
 		},
 	},
-	command = {
+	query = {
 		highlight = "DiagnosticInfo",
-		verb = "command over",
+		verb = "querying",
 		frames = {
-			{ name = "CodexEphemeralCommandSpinner1", text = "󰚩" },
-			{ name = "CodexEphemeralCommandSpinner2", text = "" },
-			{ name = "CodexEphemeralCommandSpinner3", text = "󰚩" },
-			{ name = "CodexEphemeralCommandSpinner4", text = "" },
+			{ name = "CodexEphemeralQuerySpinner1", text = "󰚩" },
+			{ name = "CodexEphemeralQuerySpinner2", text = "" },
+			{ name = "CodexEphemeralQuerySpinner3", text = "󰚩" },
+			{ name = "CodexEphemeralQuerySpinner4", text = "" },
 		},
 	},
 }
-M.EPHEMERAL_MODEL_CHOICES = {
-	{ label = "CLI default", model = nil },
-	{ label = "6.1 Sol", model = "gpt-6.1-sol" },
-	{ label = "Astra", model = "gpt-6-astra" },
-	{ label = "6 Luna", model = "gpt-6-luna" },
-	{ label = "Custom...", custom = true },
-}
 M.EPHEMERAL_MODEL_TARGETS = {
-	{ label = "Ephemeral edits", action = "edit" },
-	{ label = "Ephemeral commands", action = "command" },
+	{ label = "Edits (file changes)", action = "edit" },
+	{ label = "Queries (read-only)", action = "query" },
 }
 M.VISUAL_BLOCK_MODE = "\022"
 

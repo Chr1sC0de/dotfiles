@@ -432,12 +432,12 @@ function M.run(action, target, instruction)
 		return
 	end
 
-	local selected_model = state.ephemeral_models[action]
+	local selected_model = model.get(action)
 	local prompt = build_ephemeral_prompt(action, instruction, target)
 	local job_record = M.create(action, target, selected_model, instruction)
 	local stop_spinner = spinner.start_spinner(action, target, job_record)
 	local stop_diagnostic = spinner.start_diagnostic(action, target, job_record)
-	job_record.reasoning_effort = action == "command" and constants.EPHEMERAL_COMMAND_REASONING_EFFORT or nil
+	job_record.reasoning_effort = action == "query" and constants.EPHEMERAL_QUERY_REASONING_EFFORT or nil
 	job_record.stop_activity = function()
 		stop_spinner()
 		stop_diagnostic()
@@ -514,10 +514,10 @@ local function history_through(job, seen)
 	return history, incomplete, reference
 end
 
----@param opts? {action?: "edit"|"command"}
+---@param opts? {action?: "edit"|"query"}
 function M.follow_up(job, instruction, opts)
 	opts = opts or {}
-	if opts.action and opts.action ~= "edit" and opts.action ~= "command" then
+	if opts.action and opts.action ~= "edit" and opts.action ~= "query" then
 		util.notify("Unknown Codex follow-up action: " .. tostring(opts.action), vim.log.levels.WARN)
 		return false
 	end
@@ -570,8 +570,8 @@ function M.follow_up(job, instruction, opts)
 	local prompt = instruction
 	if opts.action then
 		thread_id = nil
-		selected_model = state.ephemeral_models[action]
-		reasoning_effort = action == "command" and constants.EPHEMERAL_COMMAND_REASONING_EFFORT or nil
+		selected_model = model.get(action)
+		reasoning_effort = action == "query" and constants.EPHEMERAL_QUERY_REASONING_EFFORT or nil
 		target.context_lines = {
 			"Earlier buffer text, selections, and snapshots are historical context.",
 			"Read the current saved files through Tandem before editing; do not read old temporary snapshots.",
@@ -629,7 +629,7 @@ function M.follow_up(job, instruction, opts)
 	return run_direct(next_job, prompt)
 end
 
----@param opts? {action?: "edit"|"command"}
+---@param opts? {action?: "edit"|"query"}
 function M.prompt_follow_up(job, opts)
 	opts = opts or {}
 	if not job or not job.finished_at then
@@ -681,7 +681,7 @@ function M.prompt_and_run(action, target, input_prompt)
 		return
 	end
 
-	local prompt = input_prompt or (action == "edit" and "Codex edit: " or "Codex command: ")
+	local prompt = input_prompt or (action == "edit" and "Codex edit: " or "Codex query (read-only): ")
 	vim.ui.input({ prompt = prompt }, function(instruction)
 		M.run(action, target, instruction)
 	end)

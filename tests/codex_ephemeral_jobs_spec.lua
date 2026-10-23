@@ -9,6 +9,7 @@ package.path = table.concat({
 dofile("tests/support/tandem.lua")
 local constants = require("codex.constants")
 local state = require("codex.state")
+state.ephemeral_models_loaded = true
 local jobs = require("codex.ephemeral.jobs")
 local jobs_panel = require("codex.ephemeral.jobs_panel")
 local spinner = require("codex.ephemeral.spinner")
@@ -25,7 +26,7 @@ local function reset_state()
 	state.next_ephemeral_diagnostic_id = 1
 	state.next_ephemeral_sign_id = 1
 	state.ephemeral_models = {
-		command = "gpt-6.1-sol",
+		query = "gpt-6.1-sol",
 		edit = "gpt-6.1-sol",
 	}
 end
@@ -83,22 +84,12 @@ end
 
 local tests = {}
 
-tests["model choices match the current Codex lineup"] = function()
-	assert_equal(constants.CODEX_TITLE_MODEL, "gpt-6-astra", "title model")
-	assert_deep_equal(initial_ephemeral_models, {
-		command = "gpt-6.1-sol",
-		edit = "gpt-6.1-sol",
-	}, "initial ephemeral models")
-	assert_deep_equal(constants.EPHEMERAL_MODEL_CHOICES, {
-		{ label = "CLI default", model = nil },
-		{ label = "6.1 Sol", model = "gpt-6.1-sol" },
-		{ label = "Astra", model = "gpt-6-astra" },
-		{ label = "6 Luna", model = "gpt-6-luna" },
-		{ label = "Custom...", custom = true },
-	}, "model choices")
+tests["initial models follow the CLI default"] = function()
+	assert_deep_equal(initial_ephemeral_models, {}, "initial ephemeral models")
+	assert_equal(constants.EPHEMERAL_MODEL_CHOICES, nil, "no maintained model list")
 end
 
-tests["command jobs use Sol and retain reasoning defaults"] = function()
+tests["query jobs use Sol and retain reasoning defaults"] = function()
 	reset_state()
 
 	local captured_command = nil
@@ -130,7 +121,7 @@ tests["command jobs use Sol and retain reasoning defaults"] = function()
 		return function() end
 	end
 
-	jobs.run("command", make_target(), "explain this")
+	jobs.run("query", make_target(), "explain this")
 
 	vim.fn.executable = old_executable
 	vim.fn.jobstart = old_jobstart
@@ -141,14 +132,14 @@ tests["command jobs use Sol and retain reasoning defaults"] = function()
 	spinner.start_diagnostic = old_start_diagnostic
 
 	assert_contains_arg(captured_command, "--model", "model flag")
-	assert_contains_arg(captured_command, "gpt-6.1-sol", "default command model")
+	assert_contains_arg(captured_command, "gpt-6.1-sol", "default query model")
 	assert_contains_arg(captured_command, 'model_reasoning_effort="low"', "reasoning override")
 	assert_contains_arg(captured_command, "--sandbox", "sandbox flag")
 	assert_contains_arg(captured_command, "read-only", "read-only sandbox")
 	assert_contains_arg(captured_command, "--json", "JSON events")
 	assert_contains_arg(captured_command, "--output-last-message", "final message output")
 	assert_not_contains_arg(captured_command, "--ephemeral", "persisted session")
-	assert_contains_text(captured_prompt, "Do not modify files.", "command prompt mode")
+	assert_contains_text(captured_prompt, "Do not modify files.", "query prompt mode")
 end
 
 tests["edit jobs use Sol and route writes through Tandem"] = function()
@@ -195,7 +186,7 @@ tests["edit jobs use Sol and route writes through Tandem"] = function()
 	assert_contains_arg(captured_command, "--sandbox", "sandbox flag")
 	assert_contains_arg(captured_command, "read-only", "native writes blocked")
 	assert_contains_arg(captured_command, 'approval_policy="never"', "no native-write escalation")
-	assert_not_contains_arg(captured_command, 'model_reasoning_effort="low"', "command reasoning override")
+	assert_not_contains_arg(captured_command, 'model_reasoning_effort="low"', "query reasoning override")
 end
 
 tests["edit jobs can start while the human buffer is modified"] = function()
@@ -285,8 +276,8 @@ tests["direct jobs start independently for parallel execution"] = function()
 		return function() end
 	end
 
-	jobs.run("command", make_target(), "explain one")
-	jobs.run("command", make_target(), "explain two")
+	jobs.run("query", make_target(), "explain one")
+	jobs.run("query", make_target(), "explain two")
 
 	vim.fn.executable = old_executable
 	vim.fn.jobstart = old_jobstart
@@ -335,7 +326,7 @@ tests["follow-ups resume the captured thread and inherit job settings"] = functi
 		return function() end
 	end
 
-	local parent = jobs.create("command", make_target(), "gpt-test", "first question", {
+	local parent = jobs.create("query", make_target(), "gpt-test", "first question", {
 		cwd = "/tmp/project",
 		reasoning_effort = "low",
 		sandbox = "read-only",
@@ -365,7 +356,7 @@ end
 tests["result view shows commands, response, details, and failure stderr"] = function()
 	reset_state()
 	local job =
-		jobs.create("command", make_target({ start_line = 2, end_line = 4 }), "gpt-test", "Explain this\ncarefully")
+		jobs.create("query", make_target({ start_line = 2, end_line = 4 }), "gpt-test", "Explain this\ncarefully")
 	job.answer_lines = { "The answer.", "", "- Detail" }
 	job.exit_code = 0
 	job.finished_at = os.time()
@@ -399,7 +390,7 @@ tests["completed results open in reusable dedicated tabs"] = function()
 	local initial_tab_count = #vim.api.nvim_list_tabpages()
 	assert_equal(initial_tab_count, 1, "isolated test tab count")
 
-	local job = jobs.create("command", make_target(), "gpt-test", "Explain this")
+	local job = jobs.create("query", make_target(), "gpt-test", "Explain this")
 	job.answer_lines = { "The answer." }
 	job.exit_code = 0
 	job.finished_at = os.time()
@@ -489,10 +480,10 @@ tests["a thread rejects concurrent follow-ups"] = function()
 		return 1
 	end
 
-	local parent = jobs.create("command", make_target(), "gpt-test", "first", { thread_id = "thread-123" })
+	local parent = jobs.create("query", make_target(), "gpt-test", "first", { thread_id = "thread-123" })
 	parent.finished_at = os.time()
 	parent.status = "success"
-	local active = jobs.create("command", make_target(), "gpt-test", "second", { thread_id = "thread-123" })
+	local active = jobs.create("query", make_target(), "gpt-test", "second", { thread_id = "thread-123" })
 	active.status = "running"
 
 	assert_equal(jobs.follow_up(parent, "third"), false, "concurrent follow-up")

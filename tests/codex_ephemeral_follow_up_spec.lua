@@ -18,6 +18,7 @@ package.loaded["tandem"] = {
 local jobs = require("codex.ephemeral.jobs")
 local panel = require("codex.ephemeral.jobs_panel")
 local state = require("codex.state")
+state.ephemeral_models_loaded = true
 local spinner = require("codex.ephemeral.spinner")
 local notice
 require("codex.util").notify = function(message)
@@ -63,7 +64,7 @@ local function parent(kind)
 			"Read the snapshot file when you need the current unsaved buffer content.",
 		})
 	end
-	local job = jobs.create("command", target, "command-model", "Explain it", {
+	local job = jobs.create("query", target, "query-model", "Explain it", {
 		thread_id = "thread-123",
 		reasoning_effort = "low",
 		cwd = root,
@@ -125,17 +126,17 @@ assert(jobs.follow_up(promoted, "Continue"))
 assert(child().action == "edit" and child().model == promoted.model)
 assert(launch_options.read_only == false and prompt == "Continue")
 
--- CLI-default edit model must not fall back to the command model.
+-- CLI-default edit model must not fall back to the query model.
 local job = parent("file")
 state.ephemeral_models.edit = nil
 assert(jobs.follow_up(job, "Implement", { action = "edit" }))
 assert(child().model == nil)
-assert(not table.concat(command, "\n"):find("command-model", 1, true))
+assert(not table.concat(command, "\n"):find("query-model", 1, true))
 
 -- Ordinary follow-ups continue to inherit settings and send the instruction verbatim.
 job = parent("file")
 assert(jobs.follow_up(job, "Explain more"))
-assert(child().action == "command" and child().model == job.model and child().reasoning_effort == "low")
+assert(child().action == "query" and child().model == job.model and child().reasoning_effort == "low")
 assert(launch_options.read_only == true and prompt == "Explain more")
 
 -- Both UI entrypoints prompt before editing, and f keeps its original meaning.
@@ -188,7 +189,7 @@ for _, view in ipairs({ "result", "panel" }) do
 		end
 	end
 	press(buf, "f")
-	assert(child().action == "command")
+	assert(child().action == "query")
 	if view == "panel" then
 		panel.close()
 	end

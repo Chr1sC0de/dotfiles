@@ -117,7 +117,7 @@ class ModelFixture:
             assert "Analysis-only Tandem session" in active_instructions
         else:
             assert "Analysis-only Tandem session" not in active_instructions, (
-                "edit job retained the command thread's analysis-only developer instruction"
+                "edit job retained the query thread's analysis-only developer instruction"
             )
             assert "tandem_write_file" in active_instructions, (
                 "edit guidance is missing"
@@ -127,7 +127,7 @@ class ModelFixture:
                 "the previous discussion was lost"
             )
             assert body.get("reasoning", {}).get("effort") == "high", (
-                "command reasoning leaked into edit follow-up"
+                "query reasoning leaked into edit follow-up"
             )
             if "TANDEM_CONTINUE_TEST" in json.dumps(inputs):
                 assert "FOLLOWUP_DONE" in json.dumps(inputs), (
@@ -205,7 +205,7 @@ class ModelFixture:
                 and saved["ok"]
                 and saved["revision"] == digest("value = 3\n")
             )
-            self.record("command_resumed_with_edit_settings_and_tandem_writer")
+            self.record("query_resumed_with_edit_settings_and_tandem_writer")
             return {
                 "type": "message",
                 "role": "assistant",
@@ -805,10 +805,10 @@ def main():
             passed("native patch and shell paths cannot write around Tandem")
 
             expr(
-                "(function() require('codex.state').ephemeral_models.command='gpt-5.6-sol'; return true end)()"
+                "(function() require('codex.state').ephemeral_models.query='gpt-5.6-sol'; return true end)()"
             )
             read_job = launch(
-                "command", "TANDEM_READONLY_TEST: demonstrate this job cannot write"
+                "query", "TANDEM_READONLY_TEST: demonstrate this job cannot write"
             )
             until(
                 lambda: (
@@ -852,7 +852,7 @@ def main():
                     )
                     in ("success", "failed", "failed_to_start")
                 ),
-                "command-to-edit follow-up completes",
+                "query-to-edit follow-up completes",
             )
             follow = expr(
                 "require('codex.state').ephemeral_jobs[" + str(follow_job) + "]"

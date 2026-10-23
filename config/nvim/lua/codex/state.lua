@@ -18,9 +18,7 @@ return {
 	next_ephemeral_diagnostic_id = 1,
 	next_ephemeral_sign_id = 1,
 	next_codex_session_id = 1,
-	ephemeral_models = {
-		command = "gpt-6.1-sol",
-		edit = "gpt-6.1-sol",
-	},
+	ephemeral_models = {},
+	ephemeral_models_loaded = false,
 	setup_done = false,
 }

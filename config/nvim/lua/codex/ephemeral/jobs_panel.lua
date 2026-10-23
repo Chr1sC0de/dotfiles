@@ -308,7 +308,7 @@ local function preview_ephemeral_job_instruction(job)
 		height = height,
 		border = "rounded",
 		style = "minimal",
-		title = " Codex Job Command ",
+		title = " Codex Job Instruction ",
 		title_pos = "center",
 	})
 	vim.wo[state.codex_jobs_preview_win].number = false
@@ -504,7 +504,7 @@ local function build_codex_jobs_lines()
 				"Status",
 				"Action",
 				"Target",
-				"Command",
+				"Instruction",
 				"Model",
 				"Location",
 				"Age",

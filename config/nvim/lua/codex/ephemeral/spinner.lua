@@ -5,7 +5,7 @@ local util = require("codex.util")
 local M = {}
 
 local function ephemeral_spinner_style(action)
-	return constants.EPHEMERAL_SPINNER_STYLES[action] or constants.EPHEMERAL_SPINNER_STYLES.command
+	return constants.EPHEMERAL_SPINNER_STYLES[action] or constants.EPHEMERAL_SPINNER_STYLES.query
 end
 
 local function ephemeral_running_label(action, target, job)

@@ -101,7 +101,7 @@ virtual keybinding header, so the attached buffer remains the primary chat UI
 while Herdr retains native agent detection. Outside Herdr, chats continue to
 launch directly in Neovim terminals.
 
-Ephemeral commands and edits always run as independent background `codex exec`
+Queries (read-only questions) and edits (file changes) always run as independent background `codex exec`
 processes managed by Neovim. They can run in parallel without creating Herdr
 workspaces, tabs, or splits. Neovim retains its spinner, diagnostics, lifecycle
 notifications, jobs panel, cancellation controls, and session-only Markdown
@@ -115,6 +115,31 @@ the underlying thread so follow-ups use its native conversation history, but
 Neovim does not restore result buffers or jobs after restarting. If Neovim is
 not running inside Herdr, jobs fall back to direct `codex exec` processes with
 the same result and follow-up behavior.
+
+Use `:CodexQuery` to ask without editor context, `:CodexQueryFile` for the
+current file, and `:CodexQuerySelection` for selected text. Diagnostic queries
+use `:CodexQueryFileDiagnostics`, `:CodexQueryLineDiagnostics`, or
+`:CodexQuerySelectionDiagnostics`. Queries cannot modify files.
+`:CodexEditFile` and `:CodexEditSelection` apply requested file changes.
+The former `:CodexCommand*` names have been replaced; existing keybindings
+still work (`<leader>aq`, `<leader>ac`, `<leader>ar`, and `<leader>ae`).
+
+Choose separate query and edit models with `<leader>am` or
+`:CodexEphemeralModel [query|edit]`. Each opening asks a short-lived Codex
+app-server for its visible model catalog, without starting a conversation.
+Codex controls catalog freshness and may use its own cache. If discovery fails
+or takes longer than ten seconds, the picker uses Codex's local cached catalog
+when available and labels it as cached. It respects `CODEX_HOME`.
+**CLI default**, **Custom…**, and the current selection remain available even
+when discovery fails. An unlisted saved model is retained until you change it.
+
+Selections are saved immediately in
+`stdpath("state")/codex/ephemeral-models.json` and restored across Neovim
+restarts for all projects on this machine. Before selecting a model, jobs follow
+the Codex CLI default; selecting **CLI default** restores that behavior.
+A failed save leaves the selection active for the current session and displays
+a warning. Existing thread follow-ups retain their original job's model;
+starting a fresh edit from a result uses the saved edit preference.
 
 Use `:CodexChatAttach` or `<leader>aA` to reconnect to a surviving agent across
 the current Herdr session. The chat-buffer panel also provides `a` for this

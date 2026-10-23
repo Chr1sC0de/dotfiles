@@ -19,6 +19,7 @@ local diagnostics = require("codex.context.diagnostics")
 local jobs = require("codex.ephemeral.jobs")
 local panel = require("codex.ephemeral.jobs_panel")
 local state = require("codex.state")
+state.ephemeral_models_loaded = true
 local util = require("codex.util")
 local notices = {}
 util.notify = function(message)
@@ -123,13 +124,13 @@ for _, case in ipairs(cases) do
 			if first then
 				assert(not context:find("first reference line", 1, true))
 			end
-			jobs.run("command", diagnostic, "explain diagnostic")
+			jobs.run("query", diagnostic, "explain diagnostic")
 			assert(last_options.path == nil and current_job().status == "running")
 		end
 
 		-- Launch after switching buffers: source identity and text must remain captured.
 		local other = buffer(root .. "/ordinary-new-file.lua", "", "lua")
-		jobs.run("command", target, "explain")
+		jobs.run("query", target, "explain")
 		assert(last_options.path == nil and last_options.read_only == true)
 		assert(last_options.cwd == root)
 		contains(prompt, "first reference line\nselected reference line\nlast reference line")
@@ -144,7 +145,7 @@ for _, case in ipairs(cases) do
 		assert(prompt == "explain more")
 		contains(table.concat(command, "\n"), "resume\nthread-" .. buf)
 
-		jobs.run("command", selected, "explain selection")
+		jobs.run("query", selected, "explain selection")
 		assert(last_options.path == nil)
 		contains(prompt, "selected reference line")
 		assert(not prompt:find("first reference line", 1, true))
@@ -177,7 +178,7 @@ for _, name in ipairs({ root .. "/README.md", root .. "/new-file-not-saved.lua",
 	local buf = buffer(name, "", "lua")
 	local target = targets.build_file()
 	assert(target.file_path == name)
-	jobs.run("command", target, "inspect")
+	jobs.run("query", target, "inspect")
 	assert(last_options.path == name)
 	if name == "/outside-tandem.lua" then
 		assert(current_job().status == "failed_to_start")
@@ -192,7 +193,7 @@ end
 
 connection.connected = false
 local buf = buffer("", "", "text")
-jobs.run("command", targets.build_file(), "offline")
+jobs.run("query", targets.build_file(), "offline")
 assert(current_job().status == "failed_to_start")
 contains(notices[#notices], "not connected")
 vim.api.nvim_buf_delete(buf, { force = true })

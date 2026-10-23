@@ -49,8 +49,12 @@ local function send_diagnostics(kind, start_line, end_line)
 	end
 end
 
-local function command_diagnostics(kind, start_line, end_line)
-	jobs.prompt_and_run("command", diagnostics.build_target(kind, start_line, end_line), "Codex diagnostic question: ")
+local function query_diagnostics(kind, start_line, end_line)
+	jobs.prompt_and_run(
+		"query",
+		diagnostics.build_target(kind, start_line, end_line),
+		"Codex diagnostic query (read-only): "
+	)
 end
 
 function M.send_file()
@@ -120,36 +124,36 @@ function M.send_selection_diagnostics(opts)
 	send_diagnostics("selection", start_line, end_line)
 end
 
-function M.command_file_diagnostics()
-	command_diagnostics("file")
+function M.query_file_diagnostics()
+	query_diagnostics("file")
 end
 
-function M.command_line_diagnostics()
+function M.query_line_diagnostics()
 	local line_number = vim.api.nvim_win_get_cursor(0)[1]
-	command_diagnostics("line", line_number, line_number)
+	query_diagnostics("line", line_number, line_number)
 end
 
-function M.command_selection_diagnostics(opts)
+function M.query_selection_diagnostics(opts)
 	local _, start_line, end_line = selection.get_text(opts)
 
 	if not start_line or not end_line or start_line == 0 or end_line == 0 then
-		util.notify("No highlighted lines to command diagnostics over", vim.log.levels.WARN)
+		util.notify("No highlighted lines to query diagnostics for", vim.log.levels.WARN)
 		return
 	end
 
-	command_diagnostics("selection", start_line, end_line)
+	query_diagnostics("selection", start_line, end_line)
 end
 
-function M.command_file()
-	jobs.prompt_and_run("command", M.build_file_target({ include_modified_snapshot = true }))
+function M.query_file()
+	jobs.prompt_and_run("query", M.build_file_target({ include_modified_snapshot = true }))
 end
 
-function M.command()
-	jobs.prompt_and_run("command", targets.build_prompt())
+function M.query()
+	jobs.prompt_and_run("query", targets.build_prompt())
 end
 
-function M.command_selection(opts)
-	jobs.prompt_and_run("command", M.build_selection_target(opts))
+function M.query_selection(opts)
+	jobs.prompt_and_run("query", M.build_selection_target(opts))
 end
 
 function M.edit_file()
