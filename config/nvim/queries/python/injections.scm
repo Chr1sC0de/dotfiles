@@ -1,5 +1,14 @@
 ; extends
 
+; Recognize Bash scripts independently of the surrounding assignment or call.
+((string
+  (string_start) .
+  (string_content) @injection.content .
+  (string_end))
+  (#match? @injection.content "^[ \t\r\n]*#![ \t]*(/bin/bash|/usr/bin/bash|/usr/bin/env[ \t]+bash)([ \t\r\n]|$)")
+  (#set! injection.language "bash")
+  (#set! injection.include-children))
+
 (assignment
   left: (identifier) @identifier
   right: (string
