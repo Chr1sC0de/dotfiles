@@ -63,6 +63,36 @@ tmux Workmux backend also retain their existing launch behavior; they are not
 covered by this integration. Use a Codex chat launched inside the worktree's
 Neovim instance when editing the same checkout together with an agent.
 
+## Agent attachments and navigation
+
+`<leader>aA`, `:CodexChatAttach`, and `:AgentDashboard` open the attachment
+dashboard for all Herdr agents across projects. `Enter` attaches a Codex agent
+or opens its existing local attachment; `d` detaches without stopping the agent;
+`o` jumps to its Herdr terminal; `r` refreshes; `q` closes. Other agent types
+support navigation only. The dashboard refreshes every two seconds while open.
+`<leader>ab` continues to show local Codex chat sessions.
+
+The **Here** column reports a live terminal attachment to this Neovim process.
+**Tandem: Configured** means the managed launch recorded Tandem settings; it
+does not assert a live per-agent MCP connection. Legacy launches and external
+agents without matching launch records show **Unknown**. The header separately
+reports this editor's Tandem connection and project. The current Tandem API
+does not provide per-agent connection identity.
+
+External Codex agents can be attached without restarting them. This preserves
+their existing configuration and makes them the current context-send target;
+it does not add Tandem or Neovim hooks. Their hook status is **Unavailable**.
+Deleting an external agent's local chat buffer only detaches it. Managed chat
+deletion retains its existing stop behavior; use dashboard `d` to leave the
+managed agent running. Automatic context-target discovery still selects only
+managed agents.
+
+`<leader>wd` previews the agent's actual terminal, then switches to its current
+workspace, tab, and agent pane and zooms that pane. Neovim host metadata and
+neighboring editor panes do not change this destination. In tmux, `wd` retains
+the Workmux dashboard. `<leader>wa` still creates a worktree from a task prompt,
+including file metadata in normal mode or selected text in visual mode.
+
 ## Pop!\_OS / Linux prerequisites
 
 Pop!\_OS is the primary acceptance target. Install the distribution's

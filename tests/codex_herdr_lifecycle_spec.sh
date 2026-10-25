@@ -30,6 +30,7 @@ run_case() {
 	local args_file="${test_dir}/args"
 	local calls_file="${test_dir}/calls"
 	: >"${route_file}"
+	: >"${route_file}.launch.json"
 	: >"${calls_file}"
 
 	set +e
@@ -47,6 +48,7 @@ run_case() {
 
 	[ "${actual_status}" -eq "${expected_status}" ]
 	[ ! -e "${route_file}" ]
+	[ ! -e "${route_file}.launch.json" ]
 	[ "$(wc -l <"${calls_file}")" -eq 1 ]
 	grep -Fx -- "pane close w1:p9" "${calls_file}" >/dev/null
 	grep -Fx -- "--cd" "${args_file}" >/dev/null

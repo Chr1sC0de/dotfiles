@@ -194,6 +194,9 @@ local function register_existing_buffer(bufnr)
 		hook_started_with_env = vim.b[bufnr].codex_hook_started_with_env == true,
 		hook_token = vim.b[bufnr].codex_hook_token,
 		launch_mode = vim.b[bufnr].codex_launch_mode or "direct",
+		external_attachment = vim.b[bufnr].codex_external_attachment == true,
+		tandem_configured = vim.b[bufnr].codex_tandem_configured == true,
+		tandem_root = vim.b[bufnr].codex_tandem_root,
 		launch_status = vim.b[bufnr].codex_launch_status,
 		herdr_agent_name = vim.b[bufnr].codex_herdr_agent_name,
 		herdr_host_pane_id = vim.b[bufnr].codex_herdr_host_pane_id,
@@ -878,6 +881,9 @@ function M.ipc_status_label(session)
 	if not session then
 		return "NOIPC"
 	end
+	if session.external_attachment then
+		return "UNAVAIL"
+	end
 	if not session.hook_started_with_env then
 		return "RESTART"
 	end
@@ -1204,6 +1210,9 @@ local function initialize_chat_buffer(session)
 	vim.b[buf].codex_session_id = session.id
 	vim.b[buf].codex_cwd = session.cwd
 	vim.b[buf].codex_started_at = session.started_at
+	vim.b[buf].codex_external_attachment = session.external_attachment == true
+	vim.b[buf].codex_tandem_configured = session.tandem_configured == true
+	vim.b[buf].codex_tandem_root = session.tandem_root
 	vim.b[buf].codex_launch_mode = session.launch_mode
 	vim.b[buf].codex_launch_status = session.launch_status
 	vim.b[buf].codex_herdr_agent_name = session.herdr_agent_name
@@ -1224,6 +1233,9 @@ local function write_herdr_buffer_vars(session)
 	if not session or not util.is_valid_buffer(session.bufnr) then
 		return
 	end
+	vim.b[session.bufnr].codex_external_attachment = session.external_attachment == true
+	vim.b[session.bufnr].codex_tandem_configured = session.tandem_configured == true
+	vim.b[session.bufnr].codex_tandem_root = session.tandem_root
 	vim.b[session.bufnr].codex_launch_mode = session.launch_mode
 	vim.b[session.bufnr].codex_launch_status = session.launch_status
 	vim.b[session.bufnr].codex_herdr_agent_name = session.herdr_agent_name
@@ -1337,7 +1349,7 @@ handle_herdr_attachment_exit = function(session, exited_job_id, code)
 		end
 		herdr.agent_exists(current.herdr_agent_name, function(exists)
 			local latest = state.codex_sessions[current.bufnr]
-			if not latest then
+			if not latest or latest ~= current or latest.job_id ~= nil then
 				return
 			end
 			if exists then
@@ -1358,8 +1370,10 @@ handle_herdr_attachment_exit = function(session, exited_job_id, code)
 			finish_chat_exit(latest, code)
 			-- The lifecycle shim normally closes the backing pane. This quiet retry
 			-- covers shim startup failures and is harmless when it is already gone.
-			herdr.close_pane(latest)
-			herdr.remove_route(latest)
+			if not latest.external_attachment then
+				herdr.close_pane(latest)
+				herdr.remove_route(latest)
+			end
 			remove_session(latest.bufnr, { delete_buffer = true })
 			if was_active then
 				sync_active_state(newest_live_session())
@@ -1458,6 +1472,10 @@ function M.create()
 
 	local session = new_session(vim.api.nvim_get_current_buf())
 	session.tandem_args = protected_args
+	session.tandem_configured = true
+	local tandem_ok, tandem_plugin = pcall(require, "tandem")
+	local tandem_status = tandem_ok and tandem_plugin.status and tandem_plugin.status() or {}
+	session.tandem_root = tandem_status.root or session.cwd
 	local hook_env = session_hook_env(session) or {}
 	hook_env.CODEX_THREAD_ID = ""
 
@@ -1481,6 +1499,29 @@ function M.create()
 	return session
 end
 
+---Disconnect only the terminal client; the backing agent remains alive.
+function M.detach(bufnr)
+	local session = session_for_buffer(bufnr)
+	if not session or session.launch_mode ~= "herdr" then
+		return false
+	end
+	if session.launch_status == "starting" then
+		util.notify("Wait for agent startup before detaching", vim.log.levels.WARN)
+		return false
+	end
+	local was_active = state.codex_active_buf == session.bufnr
+	if session.job_id then
+		state.codex_deleted_jobs[session.job_id] = true
+		pcall(vim.fn.jobstop, session.job_id)
+	end
+	remove_session(session.bufnr, { delete_buffer = true })
+	if was_active then
+		sync_active_state(newest_live_session())
+	end
+	refresh_chat_panel()
+	return true
+end
+
 ---@param bufnr integer
 ---@return boolean
 function M.delete_buffer(bufnr)
@@ -1490,6 +1531,9 @@ function M.delete_buffer(bufnr)
 		return false
 	end
 
+	if session.external_attachment then
+		return M.detach(bufnr)
+	end
 	local was_active = state.codex_active_buf == session.bufnr
 	if session.launch_mode == "herdr" then
 		if session.launch_status == "closing" then
@@ -1577,7 +1621,7 @@ function M.resync(bufnr)
 	return true
 end
 
-local function attach_existing_agent(agent, previous_session)
+local function attach_existing_agent(agent, previous_session, external)
 	M.remember_previous_buffer()
 	vim.cmd("enew")
 	local session = new_session(vim.api.nvim_get_current_buf(), agent.foreground_cwd or agent.cwd or vim.fn.getcwd())
@@ -1591,20 +1635,31 @@ local function attach_existing_agent(agent, previous_session)
 	session.task_status = status_map[agent.agent_status] or "IDLE"
 	session.title = agent.title or agent.display_agent
 
-	if not session_hook_env(session) then
-		delete_session_buffer(session.bufnr)
-		util.notify("Failed to start Codex hook IPC", vim.log.levels.ERROR)
-		return nil
-	end
-	if not herdr.prepare(session, agent.name) then
-		delete_session_buffer(session.bufnr)
-		util.notify("Failed to update Codex Herdr routing state", vim.log.levels.ERROR)
-		return nil
+	session.external_attachment = external == true
+	local metadata = herdr.launch_metadata(agent)
+	session.tandem_configured = metadata ~= nil
+	session.tandem_root = metadata and metadata.tandem_root
+	if external then
+		session.launch_mode = "herdr"
+		session.herdr_agent_name = agent.name or agent.pane_id
+	else
+		if not session_hook_env(session) then
+			delete_session_buffer(session.bufnr)
+			util.notify("Failed to start Codex hook IPC", vim.log.levels.ERROR)
+			return nil
+		end
+		if not herdr.prepare(session, agent.name) then
+			delete_session_buffer(session.bufnr)
+			util.notify("Failed to update Codex Herdr routing state", vim.log.levels.ERROR)
+			return nil
+		end
 	end
 	session.herdr_pane_id = agent.pane_id
 	session.herdr_tab_id = agent.tab_id
 	session.herdr_workspace_id = agent.workspace_id
-	herdr.report_host(session)
+	if not external then
+		herdr.report_host(session)
+	end
 	session.launch_status = "detached"
 	initialize_chat_buffer(session)
 	write_herdr_buffer_vars(session)
@@ -1621,48 +1676,47 @@ local function attach_existing_agent(agent, previous_session)
 	return session
 end
 
----Selects a surviving Neovim-created Herdr Codex agent and attaches it.
-function M.attach_existing()
+local attaching = {}
+
+---Explicitly attach a live Codex agent, including externally launched agents.
+function M.attach_agent(target, callback)
 	ensure_session_state()
-	if not herdr.available() then
-		util.notify("Herdr is not available in this Neovim session", vim.log.levels.WARN)
+	if attaching[target] then
 		return
 	end
-
-	local represented = {}
-	local local_sessions = {}
-	for _, session in pairs(state.codex_sessions or {}) do
-		if session.herdr_agent_name then
-			local_sessions[session.herdr_agent_name] = session
-			if session.launch_status ~= "detached" and session.launch_status ~= "exited" then
-				represented[session.herdr_agent_name] = true
+	attaching[target] = true
+	herdr.get_agent(target, function(agent, err)
+		attaching[target] = nil
+		if not agent or agent.agent ~= "codex" then
+			util.notify(err or "Only Codex agents support Neovim attachment", vim.log.levels.WARN)
+			if callback then
+				callback(nil)
+			end
+			return
+		end
+		local previous
+		for _, session in pairs(state.codex_sessions) do
+			if session.herdr_agent_name == (agent.name or agent.pane_id) and session.herdr_pane_id == agent.pane_id then
+				if session_is_running(session) then
+					M.focus(session.bufnr)
+					if callback then
+						callback(session)
+					end
+					return
+				end
+				previous = session
 			end
 		end
-	end
+		local managed = #herdr.filter_agents({ agent }) > 0
+		local session = attach_existing_agent(agent, previous, not managed)
+		if callback then
+			callback(session)
+		end
+	end)
+end
 
-	herdr.list_agents({
-		on_error = function(_, message)
-			util.notify("Failed to list Herdr agents: " .. tostring(message), vim.log.levels.ERROR)
-		end,
-		on_success = function(agents)
-			local candidates = herdr.filter_agents(agents, represented)
-			if #candidates == 0 then
-				util.notify("No detached Neovim Codex agents in Herdr")
-				return
-			end
-			vim.ui.select(candidates, {
-				prompt = "Attach Codex agent",
-				format_item = function(agent)
-					local cwd = vim.fn.fnamemodify(agent.foreground_cwd or agent.cwd or "", ":~")
-					return string.format("%s  [%s]  %s", agent.name, agent.agent_status or "unknown", cwd)
-				end,
-			}, function(choice)
-				if choice then
-					attach_existing_agent(choice, local_sessions[choice.name])
-				end
-			end)
-		end,
-	})
+function M.attach_existing()
+	require("codex.agent_dashboard").open()
 end
 
 function M.launch_status_label(session)

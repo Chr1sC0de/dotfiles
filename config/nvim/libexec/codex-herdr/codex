@@ -16,7 +16,7 @@ cleanup() {
 	cleanup_done=1
 
 	if [ -n "${route_file}" ]; then
-		rm -f -- "${route_file}"
+		rm -f -- "${route_file}" "${route_file}.launch.json"
 	fi
 	if [ -n "${pane_id}" ]; then
 		"${herdr_bin}" pane close "${pane_id}" >/dev/null 2>&1 || true

@@ -25,7 +25,7 @@ local function run(args, opts)
 
 	vim.system(
 		vim.list_extend({ "herdr" }, args),
-		{ text = true },
+		{ text = true, timeout = opts.timeout },
 		vim.schedule_wrap(function(result)
 			if result.code == 0 then
 				if opts.on_success then
@@ -56,7 +56,7 @@ local function run_git(cwd, args, callback)
 end
 
 local function decode_result(result, description)
-	local ok, envelope = pcall(vim.json.decode, result.stdout or "")
+	local ok, envelope = pcall(vim.json.decode, result.stdout or "", { luanil = { object = true } })
 	if not ok or type(envelope) ~= "table" or type(envelope.result) ~= "table" then
 		return nil, "invalid Herdr " .. description .. " response"
 	end
@@ -113,101 +113,6 @@ local function table_index(items, key)
 	return indexed
 end
 
-local function metadata_token(agent, name)
-	local tokens = agent.tokens or agent.metadata_tokens
-	if type(tokens) ~= "table" then
-		return nil
-	end
-	if type(tokens[name]) == "string" then
-		return tokens[name]
-	end
-	for _, token in pairs(tokens) do
-		if type(token) == "string" then
-			local key, value = token:match("^([^=]+)=(.*)$")
-			if key == name then
-				return value
-			end
-		elseif type(token) == "table" then
-			local key = token.name or token.key
-			if key == name then
-				return token.value
-			end
-			local encoded = token.token
-			if type(encoded) == "string" then
-				local encoded_key, value = encoded:match("^([^=]+)=(.*)$")
-				if encoded_key == name then
-					return value
-				end
-			end
-		end
-	end
-	return nil
-end
-
-local function pane_rect(layout, pane_id)
-	for _, pane in ipairs((layout and layout.panes) or {}) do
-		if pane.pane_id == pane_id and type(pane.rect) == "table" then
-			return pane.rect
-		end
-	end
-	return nil
-end
-
-local function legacy_host_pane(agent, layouts, panes_by_id)
-	if type(agent.name) ~= "string" or not vim.startswith(agent.name, "nvim-codex-") then
-		return nil
-	end
-	for _, layout in ipairs(layouts or {}) do
-		if layout.tab_id == agent.tab_id then
-			local agent_rect = pane_rect(layout, agent.pane_id)
-			if agent_rect then
-				local best_id, best_overlap, best_edge
-				local agent_top = agent_rect.y or 0
-				local agent_bottom = agent_top + (agent_rect.height or 0)
-				for _, candidate in ipairs(layout.panes or {}) do
-					local rect = candidate.rect
-					local pane = panes_by_id[candidate.pane_id]
-					if candidate.pane_id ~= agent.pane_id and type(rect) == "table" and pane then
-						local right_edge = (rect.x or 0) + (rect.width or 0)
-						local overlap = math.min(agent_bottom, (rect.y or 0) + (rect.height or 0))
-							- math.max(agent_top, rect.y or 0)
-						if
-							right_edge == (agent_rect.x or 0)
-							and overlap > 0
-							and (pane.tab_id == nil or pane.tab_id == agent.tab_id)
-							and (
-								best_overlap == nil
-								or overlap > best_overlap
-								or (overlap == best_overlap and right_edge > best_edge)
-							)
-						then
-							best_id, best_overlap, best_edge = candidate.pane_id, overlap, right_edge
-						end
-					end
-				end
-				return best_id
-			end
-		end
-	end
-	return nil
-end
-
-local function destination_pane(agent, snapshot, panes_by_id)
-	local host_id = metadata_token(agent, "nvim_host_pane")
-	if host_id then
-		local host = panes_by_id[host_id]
-		if host and (host.tab_id == nil or host.tab_id == agent.tab_id) then
-			return host_id, true
-		end
-		return agent.pane_id, false
-	end
-	local inferred = legacy_host_pane(agent, snapshot.layouts, panes_by_id)
-	if inferred then
-		return inferred, true
-	end
-	return agent.pane_id, false
-end
-
 local function build_agent_items(snapshot)
 	local workspaces = table_index(snapshot.workspaces, "workspace_id")
 	local tabs = table_index(snapshot.tabs, "tab_id")
@@ -218,7 +123,6 @@ local function build_agent_items(snapshot)
 			local workspace = workspaces[agent.workspace_id] or {}
 			local tab = tabs[agent.tab_id] or {}
 			local pane = panes[agent.pane_id] or {}
-			local target_pane_id, targets_nvim = destination_pane(agent, snapshot, panes)
 			local name = agent.name or agent.pane_id
 			local title = agent.title or agent.display_agent or name
 			local workspace_label = workspace.label or workspace.title or agent.workspace_id or "workspace"
@@ -235,8 +139,10 @@ local function build_agent_items(snapshot)
 				tab_label = tab_label,
 				agent_cwd = cwd,
 				agent_pane_id = agent.pane_id,
-				target_pane_id = target_pane_id,
-				targets_nvim = targets_nvim,
+				agent = agent.agent,
+				workspace_id = agent.workspace_id,
+				tab_id = agent.tab_id,
+				raw_agent = agent,
 			})
 		end
 	end
@@ -269,7 +175,7 @@ local function format_agent(item)
 end
 
 local function preview_agent(ctx)
-	if not ctx.item or not ctx.item.target_pane_id then
+	if not ctx.item or not ctx.item.agent_pane_id then
 		return
 	end
 	ctx.preview:reset()
@@ -278,21 +184,66 @@ local function preview_agent(ctx)
 	ctx.preview:set_title(ctx.item.workspace_label .. " / " .. ctx.item.tab_label .. " / " .. ctx.item.name)
 	require("snacks.picker.preview").cmd({
 		vim.fn.stdpath("config") .. "/bin/herdr-pane-preview",
-		ctx.item.target_pane_id,
+		ctx.item.agent_pane_id,
 		tostring(math.max(2, vim.api.nvim_win_get_width(ctx.win))),
 	}, ctx, { term = false, ansi = true })
 end
 
 local function focus_agent_item(item)
-	if item.targets_nvim then
-		run({ "pane", "zoom", item.target_pane_id, "--on" }, {
-			on_error = function()
-				focus_agent(item.name or item.agent_pane_id)
-			end,
-		})
-		return
-	end
-	focus_agent(item.name or item.agent_pane_id)
+	run({ "agent", "get", item.name or item.agent_pane_id }, {
+		timeout = 5000,
+		on_success = function(result)
+			local payload, err = decode_result(result, "agent")
+			local agent = payload and payload.agent
+			if type(agent) ~= "table" or not agent.workspace_id or not agent.tab_id or not agent.pane_id then
+				fail_step("agent navigation", err or "agent location is unavailable; refresh the picker")
+				return
+			end
+			local steps = {
+				{ "workspace", "focus", agent.workspace_id },
+				{ "tab", "focus", agent.tab_id },
+				{ "agent", "focus", agent.name or agent.pane_id },
+				{ "pane", "zoom", agent.pane_id, "--on" },
+			}
+			local function next_step(index)
+				if not steps[index] then
+					return
+				end
+				run(steps[index], {
+					timeout = 5000,
+					on_success = function()
+						next_step(index + 1)
+					end,
+					on_error = function(_, message)
+						fail_step("agent navigation", message)
+					end,
+				})
+			end
+			next_step(1)
+		end,
+		on_error = function(_, message)
+			fail_step("agent navigation", message)
+		end,
+	})
+end
+
+M.focus_agent_item = focus_agent_item
+
+function M.agent_snapshot(callback)
+	run({ "api", "snapshot" }, {
+		timeout = 5000,
+		on_error = function(_, message)
+			callback(nil, message)
+		end,
+		on_success = function(result)
+			local payload, err = decode_result(result, "snapshot")
+			if not payload or type(payload.snapshot) ~= "table" or type(payload.snapshot.agents) ~= "table" then
+				callback(nil, err or "invalid Herdr snapshot")
+				return
+			end
+			callback(build_agent_items(payload.snapshot))
+		end,
+	})
 end
 
 local function parse_workspace_result(result, description)
@@ -1143,37 +1094,29 @@ function M.open(resume)
 end
 
 function M.select_workspace()
-	run({ "api", "snapshot" }, {
-		on_error = function(_, message)
-			fail_step("agent snapshot", message)
-		end,
-		on_success = function(result)
-			local payload, err = decode_result(result, "snapshot")
-			local snapshot = payload and payload.snapshot or nil
-			if type(snapshot) ~= "table" then
-				fail_step("agent snapshot", err or "response did not include a snapshot")
-				return
-			end
-			local items = build_agent_items(snapshot)
-			if #items == 0 then
-				util.notify("no Herdr agents found", vim.log.levels.WARN)
-				return
-			end
-			local Snacks = _G.Snacks or require("snacks")
-			Snacks.picker.pick({
-				title = "Herdr Agents",
-				items = items,
-				format = format_agent,
-				preview = preview_agent,
-				confirm = function(picker, item)
-					picker:close()
-					if item then
-						focus_agent_item(item)
-					end
-				end,
-			})
-		end,
-	})
+	M.agent_snapshot(function(items, err)
+		if not items then
+			fail_step("agent snapshot", err)
+			return
+		end
+		if #items == 0 then
+			util.notify("no Herdr agents found", vim.log.levels.WARN)
+			return
+		end
+		local Snacks = _G.Snacks or require("snacks")
+		Snacks.picker.pick({
+			title = "Herdr Agents",
+			items = items,
+			format = format_agent,
+			preview = preview_agent,
+			confirm = function(picker, item)
+				picker:close()
+				if item then
+					focus_agent_item(item)
+				end
+			end,
+		})
+	end)
 end
 
 function M.cycle_agent(direction)
@@ -1259,7 +1202,6 @@ M._test.agent_name = agent_name
 M._test.decode_result = decode_result
 M._test.shell_is_ready = shell_is_ready
 M._test.build_agent_items = build_agent_items
-M._test.legacy_host_pane = legacy_host_pane
 M._test.format_agent = format_agent
 M._test.preview_agent = preview_agent
 M._test.focus_agent_item = focus_agent_item

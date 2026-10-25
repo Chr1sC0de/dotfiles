@@ -83,7 +83,9 @@ local function delete_selected_chat()
 		end
 
 		if chat.delete_buffer(bufnr) then
-			if session.launch_mode == "herdr" then
+			if session.external_attachment then
+				util.notify("Detached from Codex: " .. label)
+			elseif session.launch_mode == "herdr" then
 				util.notify("Closing Codex Herdr tab: " .. label)
 			else
 				util.notify("Deleted Codex chat: " .. label)

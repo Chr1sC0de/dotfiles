@@ -94,6 +94,13 @@ tests["generic commands retain Workmux compatibility aliases"] = function()
 	assert_equal(vim.fn.exists(":WorktreePromptContextToggle"), 2, "generic context command")
 	assert_equal(vim.fn.exists(":WorkmuxAddPrompt"), 2, "legacy add command")
 	assert_equal(vim.fn.exists(":WorkmuxPromptContextToggle"), 2, "legacy context command")
+	assert_equal(vim.fn.maparg("<leader>wa", "n", false, true).callback, api.add_prompt, "normal prompt shortcut")
+	assert_equal(
+		vim.fn.maparg("<leader>wa", "x", false, true).callback,
+		api.add_prompt_selection,
+		"selection prompt shortcut"
+	)
+	assert_equal(vim.fn.maparg("<leader>wd", "n", false, true).callback, api.dashboard, "agent navigation shortcut")
 end
 
 tests["Herdr workspace responses use native checkout metadata"] = function()
@@ -1439,8 +1446,12 @@ tests["real Git tracking and reconciliation preserve commits and dirty worktrees
 			local next_tip = git({ "commit-tree", tip .. "^{tree}", "-p", tip, "-m", "advanced remote" })
 			git({ "update-ref", "refs/remotes/origin/feature/foo", next_tip })
 			fixture.choose = remote_choice
+			-- Earlier checkout creation already focused this workspace. Wait for
+			-- the new asynchronous request, not a command left in the history.
+			local focus_start = #calls + 1
 			local function focused(id)
-				for _, args in ipairs(calls) do
+				for index = focus_start, #calls do
+					local args = calls[index]
 					if vim.deep_equal(args, { "workspace", "focus", id }) then
 						return true
 					end
@@ -1475,6 +1486,7 @@ tests["real Git tracking and reconciliation preserve commits and dirty worktrees
 				end
 				error("origin/main not offered")
 			end
+			focus_start = #calls + 1
 			herdr.open(false)
 			assert_equal(
 				vim.wait(5000, function()
@@ -1529,7 +1541,7 @@ tests["agent navigation wraps and latest attention uses state sequence"] = funct
 	herdr._test.run = nil
 end
 
-tests["agent dashboard resolves normal, tagged, legacy, and stale pane targets"] = function()
+tests["agent dashboard always uses the agent pane despite host metadata or layout"] = function()
 	local snapshot = {
 		workspaces = { { workspace_id = "w1", label = "project" } },
 		tabs = { { tab_id = "w1:t1", workspace_id = "w1", title = "editor" } },
@@ -1586,24 +1598,18 @@ tests["agent dashboard resolves normal, tagged, legacy, and stale pane targets"]
 	}
 	local items = herdr._test.build_agent_items(snapshot)
 	assert_equal(#items, 4, "item count")
-	assert_equal(items[1].target_pane_id, "w1:p2", "normal agent pane")
-	assert_equal(items[1].targets_nvim, false, "normal target kind")
-	assert_equal(items[2].target_pane_id, "w1:p1", "tagged host pane")
-	assert_equal(items[2].targets_nvim, true, "tagged target kind")
-	assert_equal(items[3].target_pane_id, "w1:p4", "legacy left pane")
-	assert_equal(items[3].targets_nvim, true, "legacy target kind")
-	assert_equal(items[4].target_pane_id, "w1:p3", "stale metadata fallback")
-	assert_equal(items[4].targets_nvim, false, "stale target kind")
+	assert_equal(items[1].agent_pane_id, "w1:p2", "normal agent pane")
+	assert_equal(items[2].agent_pane_id, "w1:p3", "tagged agent pane")
+	assert_equal(items[3].agent_pane_id, "w1:p5", "legacy agent pane")
+	assert_equal(items[4].agent_pane_id, "w1:p3", "stale metadata fallback")
 	assert_equal(items[1].workspace_label, "project", "workspace label")
 	assert_equal(items[1].tab_label, "editor", "tab label")
 	assert_equal(items[1].text:find("Review changes", 1, true) ~= nil, true, "searchable title")
 end
 
-tests["agent dashboard previews and focuses the resolved target"] = function()
-	local calls = {}
+tests["agent dashboard previews its agent terminal"] = function()
 	local preview_command
 	local preview_opts
-	local preview_window_opts
 	local old_preview = package.loaded["snacks.picker.preview"]
 	package.loaded["snacks.picker.preview"] = {
 		cmd = function(command, _, opts)
@@ -1611,18 +1617,12 @@ tests["agent dashboard previews and focuses the resolved target"] = function()
 			preview_opts = opts
 		end,
 	}
-	local preview = {
-		reset = function() end,
-		minimal = function() end,
-		set_title = function() end,
-		wo = function(_, opts)
-			preview_window_opts = opts
-		end,
-	}
+	local preview =
+		{ reset = function() end, minimal = function() end, set_title = function() end, wo = function() end }
 	local preview_win = vim.api.nvim_get_current_win()
 	herdr._test.preview_agent({
 		item = {
-			target_pane_id = "w1:p1",
+			agent_pane_id = "w1:p2",
 			workspace_label = "project",
 			tab_label = "editor",
 			name = "nvim-codex-tagged",
@@ -1633,37 +1633,10 @@ tests["agent dashboard previews and focuses the resolved target"] = function()
 	package.loaded["snacks.picker.preview"] = old_preview
 	assert_equal(preview_command, {
 		vim.fn.stdpath("config") .. "/bin/herdr-pane-preview",
-		"w1:p1",
+		"w1:p2",
 		tostring(vim.api.nvim_win_get_width(preview_win)),
-	}, "preview command")
+	}, "agent preview command")
 	assert_equal(preview_opts, { term = false, ansi = true }, "ANSI preview renderer")
-	assert_equal(preview_window_opts, { wrap = false }, "preview wrapping")
-
-	herdr._test.run = function(args, opts)
-		table.insert(calls, vim.deepcopy(args))
-		if args[1] == "pane" then
-			opts.on_error({ code = 1, stderr = "stale", stdout = "" }, "stale")
-		elseif opts.on_success then
-			opts.on_success(response({}))
-		end
-	end
-	herdr._test.focus_agent_item({
-		name = "nvim-codex-tagged",
-		agent_pane_id = "w1:p2",
-		target_pane_id = "w1:p1",
-		targets_nvim = true,
-	})
-	assert_equal(calls[1], { "pane", "zoom", "w1:p1", "--on" }, "zoom host")
-	assert_equal(calls[2], { "agent", "focus", "nvim-codex-tagged" }, "focus fallback")
-
-	herdr._test.focus_agent_item({
-		name = "reviewer",
-		agent_pane_id = "w1:p2",
-		target_pane_id = "w1:p2",
-		targets_nvim = false,
-	})
-	assert_equal(calls[3], { "agent", "focus", "reviewer" }, "normal focus")
-	herdr._test.run = nil
 end
 
 tests["dashboard loads one snapshot into Snacks"] = function()

@@ -60,7 +60,7 @@ local function run(args, opts)
 	local argv = vim.list_extend({ herdr_binary() }, args)
 	vim.system(
 		argv,
-		{ text = true },
+		{ text = true, timeout = opts.timeout },
 		vim.schedule_wrap(function(result)
 			if result.code == 0 then
 				if opts.on_success then
@@ -119,7 +119,83 @@ end
 function M.remove_route(session)
 	if session and session.herdr_route_path then
 		pcall(vim.fn.delete, session.herdr_route_path)
+		pcall(vim.fn.delete, session.herdr_route_path .. ".launch.json")
 	end
+end
+
+function M.write_launch_metadata(session)
+	if not session.herdr_route_path or not session.herdr_pane_id or not session.tandem_args then
+		return false
+	end
+	local path = session.herdr_route_path .. ".launch.json"
+	local temporary = path .. ".tmp." .. tostring(vim.fn.getpid())
+	local record = {
+		version = 1,
+		name = session.herdr_agent_name,
+		pane_id = session.herdr_pane_id,
+		cwd = session.cwd,
+		tandem_root = session.tandem_root or session.cwd,
+		tandem_configured = true,
+	}
+	local ok, result = pcall(vim.fn.writefile, { vim.json.encode(record) }, temporary, "s")
+	if not ok or result ~= 0 then
+		pcall(vim.fn.delete, temporary)
+		return false
+	end
+	pcall(vim.uv.fs_chmod, temporary, 384)
+	if not vim.uv.fs_rename(temporary, path) then
+		pcall(vim.fn.delete, temporary)
+		return false
+	end
+	return true
+end
+
+function M.launch_metadata(agent)
+	if type(agent.name) ~= "string" or not agent.name:match("^[a-z][a-z0-9_-]*$") then
+		return nil
+	end
+	local path = M.route_path(agent.name) .. ".launch.json"
+	local ok, lines = pcall(vim.fn.readfile, path)
+	if not ok then
+		return nil
+	end
+	local decoded, record = pcall(vim.json.decode, table.concat(lines, "\n"))
+	if
+		not decoded
+		or type(record) ~= "table"
+		or record.version ~= 1
+		or record.name ~= agent.name
+		or record.pane_id ~= agent.pane_id
+		or type(record.cwd) ~= "string"
+		or type(record.tandem_root) ~= "string"
+		or (agent.cwd and agent.cwd ~= record.cwd)
+		or record.tandem_configured ~= true
+	then
+		return nil
+	end
+	return record
+end
+
+function M.get_agent(target, callback)
+	run({ "agent", "get", target }, {
+		timeout = 5000,
+		on_error = function(_, message)
+			callback(nil, message)
+		end,
+		on_success = function(result)
+			local ok, response = pcall(vim.json.decode, result.stdout or "", { luanil = { object = true } })
+			local agent = ok
+					and type(response) == "table"
+					and type(response.result) == "table"
+					and response.result.agent
+				or nil
+			if type(agent) ~= "table" or not agent.pane_id then
+				callback(nil, "invalid Herdr agent response")
+				return
+			end
+			callback(agent)
+		end,
+	})
 end
 
 function M.prepare(session, agent_name)
@@ -315,6 +391,9 @@ function M.create_backing_agent(session, opts)
 					end)
 				end,
 				on_success = function(start_result)
+					if session.herdr_route_path and not M.write_launch_metadata(session) then
+						util.notify("Could not record Tandem launch configuration", vim.log.levels.WARN)
+					end
 					M.restore_host_view(session, function()
 						if opts.on_success then
 							opts.on_success(start_result)
@@ -401,7 +480,7 @@ function M.filter_agents(agents, represented, opts)
 	for _, agent in ipairs(agents or {}) do
 		local name = agent.name
 		if
-			name
+			type(name) == "string"
 			and name:sub(1, #AGENT_PREFIX) == AGENT_PREFIX
 			and agent.agent == "codex"
 			and not represented[name]
@@ -422,7 +501,7 @@ function M.list_agents(opts)
 	run({ "agent", "list" }, {
 		on_error = opts.on_error,
 		on_success = function(result)
-			local ok, response = pcall(vim.json.decode, result.stdout or "")
+			local ok, response = pcall(vim.json.decode, result.stdout or "", { luanil = { object = true } })
 			local agents = ok and response and response.result and response.result.agents or nil
 			if type(agents) ~= "table" then
 				if opts.on_error then
