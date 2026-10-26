@@ -4,8 +4,8 @@ local navigation = require("workmux.herdr")
 local util = require("opencode.util")
 
 local M = {}
-local buffer, window, timer
-local items, rows = {}, {}
+local picker, timer
+local items = {}
 local generation, loading, failure = 0, false, nil
 
 local function identity(item)
@@ -21,10 +21,7 @@ local function local_session(item)
 end
 
 local function selected()
-	if not util.is_valid_window(window) then
-		return nil
-	end
-	return rows[vim.api.nvim_win_get_cursor(window)[1]]
+	return picker and not picker.closed and picker:current() or nil
 end
 
 local function connection_label()
@@ -52,27 +49,15 @@ local function item_status(item)
 end
 
 local function render()
-	if not util.is_valid_buffer(buffer) or not util.is_valid_window(window) then
+	if not picker or picker.closed then
 		return
 	end
-	local current = selected()
-	local key = current and identity(current)
-	local previous_line = vim.api.nvim_win_get_cursor(window)[1]
-	local lines = {
-		"Agent Attachments — this Neovim",
-		connection_label(),
-		"Enter attach/open · d detach · o go to agent · r refresh · q close",
-		"Tandem shows launch configuration, not a live per-agent connection.",
-		failure and ("STALE: " .. failure) or (loading and "Refreshing…" or ""),
-		string.format("%-25s %-10s %-8s %-12s %-12s %s", "Agent", "Task", "Here", "Tandem", "Hooks", "Project / tab"),
-	}
-	rows = {}
-	local selected_line
+	picker.title = "Agent Attachments · " .. connection_label() .. (failure and (" · STALE: " .. failure) or "")
 	for _, item in ipairs(items) do
 		local attached, tandem, hooks = item_status(item)
-		lines[#lines + 1] = string.format(
-			"%-25s %-10s %-8s %-12s %-12s %s / %s",
-			util.trim_display(identity(item), 25),
+		item.text = string.format(
+			"%s  %s  Here:%s  Tandem:%s  Hooks:%s  %s / %s",
+			identity(item),
 			item.status or "unknown",
 			attached,
 			tandem,
@@ -80,24 +65,12 @@ local function render()
 			vim.fn.fnamemodify(item.agent_cwd or "", ":~"),
 			item.tab_label or ""
 		)
-		rows[#lines] = item
-		if identity(item) == key then
-			selected_line = #lines
-		end
 	end
-	if #items == 0 then
-		lines[#lines + 1] = "No agents found."
-	end
-	vim.bo[buffer].modifiable = true
-	vim.api.nvim_buf_set_lines(buffer, 0, -1, false, lines)
-	vim.bo[buffer].modifiable = false
-	if #items > 0 then
-		vim.api.nvim_win_set_cursor(window, { selected_line or math.max(7, math.min(previous_line, #lines)), 0 })
-	end
+	picker:refresh()
 end
 
 function M.refresh()
-	if loading or not util.is_valid_window(window) then
+	if loading or not picker or picker.closed then
 		return
 	end
 	if not herdr.available() then
@@ -107,9 +80,8 @@ function M.refresh()
 	end
 	loading = true
 	local request = generation
-	render()
 	navigation.agent_snapshot(function(updated, err)
-		if request ~= generation or not util.is_valid_window(window) then
+		if request ~= generation or not picker or picker.closed then
 			return
 		end
 		loading = false
@@ -136,10 +108,10 @@ end
 
 function M.close()
 	stop_refresh()
-	if util.is_valid_window(window) then
-		vim.api.nvim_win_close(window, true)
+	if picker then
+		picker:close()
 	end
-	window = nil
+	picker = nil
 end
 
 local function open_selected()
@@ -177,43 +149,38 @@ local function navigate_selected()
 end
 
 function M.open()
-	if util.is_valid_window(window) then
-		vim.api.nvim_set_current_win(window)
+	if picker and not picker.closed then
+		picker:focus()
 		M.refresh()
 		return
 	end
-	if not util.is_valid_buffer(buffer) then
-		buffer = vim.api.nvim_create_buf(false, true)
-		vim.api.nvim_buf_set_name(buffer, "opencode://agent-dashboard")
-		vim.bo[buffer].buftype = "nofile"
-		vim.bo[buffer].bufhidden = "hide"
-		vim.bo[buffer].swapfile = false
-		vim.bo[buffer].filetype = "opencodeagents"
-		local opts = { buffer = buffer, silent = true, nowait = true }
-		vim.keymap.set("n", "<CR>", open_selected, opts)
-		vim.keymap.set("n", "d", detach_selected, opts)
-		vim.keymap.set("n", "o", navigate_selected, opts)
-		vim.keymap.set("n", "r", M.refresh, opts)
-		vim.keymap.set("n", "q", M.close, opts)
-		vim.keymap.set("n", "<Esc>", M.close, opts)
-	end
-	local width = math.max(1, math.min(math.floor(vim.o.columns * 0.94), vim.o.columns - 2))
-	local height = math.max(1, math.min(math.floor(vim.o.lines * 0.7), vim.o.lines - 4))
-	window = vim.api.nvim_open_win(buffer, true, {
-		relative = "editor",
-		width = width,
-		height = height,
-		row = math.max(0, math.floor((vim.o.lines - height) / 2)),
-		col = math.max(0, math.floor((vim.o.columns - width) / 2)),
-		style = "minimal",
-		border = "rounded",
-		title = " Agent Attachments ",
-		title_pos = "center",
-	})
-	vim.wo[window].cursorline = true
-	vim.wo[window].wrap = false
-	vim.api.nvim_create_autocmd("WinClosed", { pattern = tostring(window), once = true, callback = stop_refresh })
 	failure = nil
+	local keys = {
+		d = { "detach_agent", mode = "n", desc = "Detach agent" },
+		o = { "navigate_agent", mode = "n", desc = "Go to agent" },
+		r = { "refresh_agents", mode = "n", desc = "Refresh agents" },
+		q = { "close", mode = "n" },
+	}
+	local Snacks = _G.Snacks or require("snacks")
+	picker = Snacks.picker.pick({
+		title = "Agent Attachments",
+		show_empty = true,
+		finder = function()
+			return items
+		end,
+		format = function(item)
+			return { { item.text } }
+		end,
+		preview = navigation.preview_agent,
+		confirm = open_selected,
+		actions = {
+			detach_agent = detach_selected,
+			navigate_agent = navigate_selected,
+			refresh_agents = M.refresh,
+		},
+		win = { input = { keys = keys }, list = { keys = keys } },
+		on_close = stop_refresh,
+	})
 	render()
 	M.refresh()
 	timer = vim.uv.new_timer()

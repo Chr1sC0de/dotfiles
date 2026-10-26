@@ -189,6 +189,8 @@ local function preview_agent(ctx)
 	}, ctx, { term = false, ansi = true })
 end
 
+M.preview_agent = preview_agent
+
 local function focus_agent_item(item)
 	run({ "agent", "get", item.name or item.agent_pane_id }, {
 		timeout = 5000,

@@ -1,4 +1,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
+vim.opt.runtimepath:prepend(vim.fn.stdpath("data") .. "/lazy/snacks.nvim")
+local Snacks = require("snacks")
+Snacks.setup({ picker = { enabled = true } })
 local chat = require("opencode.chat")
 local herdr = require("opencode.herdr")
 local navigation = require("workmux.herdr")
@@ -13,6 +16,7 @@ local external = {
 	status = "working",
 	agent_cwd = "/other",
 	tab_label = "main",
+	workspace_label = "workspace",
 	raw_agent = {},
 }
 local managed = {
@@ -22,6 +26,7 @@ local managed = {
 	status = "idle",
 	agent_cwd = "/project",
 	tab_label = "main",
+	workspace_label = "workspace",
 	raw_agent = { name = "managed" },
 }
 local sessions = {}
@@ -58,45 +63,52 @@ navigation.agent_snapshot = function(cb)
 end
 dashboard.open()
 callback({ managed, external })
-local win = vim.api.nvim_get_current_win()
-local buf = vim.api.nvim_get_current_buf()
-local function lines()
-	return table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
+local picker = Snacks.picker.get()[1]
+local function settle()
+	assert(vim.wait(1000, function()
+		return not picker.finder:running() and not picker.matcher.task:running()
+	end))
 end
-assert(lines():find("Editor Tandem: connected", 1, true))
-vim.api.nvim_win_set_cursor(win, { 8, 0 })
+settle()
+assert(picker.title:find("Editor Tandem: connected", 1, true))
+equal(picker.opts.preview, navigation.preview_agent)
+picker.list:move(2, true)
 equal(dashboard._test.selected().name, "managed")
 dashboard.refresh()
 callback({ external, managed })
+settle()
 equal(dashboard._test.selected().name, "managed")
 dashboard.refresh()
 callback(nil, "offline")
-assert(lines():find("STALE: offline", 1, true))
+settle()
+assert(picker.title:find("STALE: offline", 1, true))
 equal(dashboard._test.selected().name, "managed")
 connected = false
 dashboard._test.render()
-assert(lines():find("Editor Tandem: disconnected", 1, true))
+settle()
+assert(picker.title:find("Editor Tandem: disconnected", 1, true))
 local detached
 chat.detach = function(bufnr)
 	detached = bufnr
 	sessions = {}
 	return true
 end
-vim.api.nvim_win_set_cursor(win, { 7, 0 })
+picker.list:move(1, true)
 dashboard._test.detach()
 equal(detached, 42)
 local pending = callback
 dashboard.close()
 pending({}) -- A late response must not recreate the closed dashboard.
-equal(vim.api.nvim_win_is_valid(win), false)
+equal(picker.closed, true)
 dashboard.open()
 callback({ external })
+picker = Snacks.picker.get()[1]
+settle()
 local attach_target
 chat.attach_agent = function(target)
 	attach_target = target
 end
-local enter = vim.fn.maparg("<CR>", "n", false, true).callback
-enter()
+picker.opts.confirm(picker, picker:current())
 equal(attach_target, "external")
 dashboard.close()
 local api = require("opencode")

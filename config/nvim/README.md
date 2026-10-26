@@ -124,6 +124,11 @@ use `:OpenCodeQueryFileDiagnostics`, `:OpenCodeQueryLineDiagnostics`, or
 The former `:OpenCodeCommand*` names have been replaced; existing keybindings
 still work (`<leader>aq`, `<leader>ac`, `<leader>ar`, and `<leader>ae`).
 
+`<leader>aA` opens a searchable attachment picker with the same live pane previews
+as `<leader>wd`. Press Enter to attach/open; in normal mode, `d` detaches,
+`o` goes to the agent, and `r` refreshes. Rows show attachment, Tandem launch
+configuration (not a live per-agent connection), and hook status.
+
 Attaching an agent with `<leader>aA` remembers its identity for the current project
 (each Git worktree is separate). `<leader>aa` returns to that attachment, including
 after restarting Neovim, retaining the existing agent conversation and its model.
