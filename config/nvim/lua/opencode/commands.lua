@@ -89,7 +89,7 @@ function M.setup(api)
 	)
 	vim.api.nvim_create_user_command("OpenCodeEphemeralModel", api.select_ephemeral_model, {
 		complete = function()
-			return { "edit", "query" }
+			return { "edit", "query", "commit" }
 		end,
 		desc = "Select the ephemeral OpenCode model",
 		nargs = "?",

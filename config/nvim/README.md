@@ -124,8 +124,9 @@ use `:OpenCodeQueryFileDiagnostics`, `:OpenCodeQueryLineDiagnostics`, or
 The former `:OpenCodeCommand*` names have been replaced; existing keybindings
 still work (`<leader>aq`, `<leader>ac`, `<leader>ar`, and `<leader>ae`).
 
-Choose separate query and edit models with `<leader>am` or
-`:OpenCodeEphemeralModel [query|edit]`. The picker queries OpenCode V2's model API through the authenticated CLI,
+Choose separate query, edit, and commit-message models with `<leader>am` or
+`:OpenCodeEphemeralModel [query|edit|commit]`. Commit generation and message revisions use the saved commit model.
+The picker queries OpenCode V2's model API through the authenticated CLI,
 including `provider/model#variant` choices. Discovery times out after ten seconds.
 On failure, the picker uses its last successful catalog, labeled **cached**.
 Only model IDs and labels are cached, never provider credentials.

@@ -37,6 +37,7 @@ M.EPHEMERAL_SPINNER_STYLES = {
 M.EPHEMERAL_MODEL_TARGETS = {
 	{ label = "Edits (file changes)", action = "edit" },
 	{ label = "Queries (read-only)", action = "query" },
+	{ label = "Commit message", action = "commit" },
 }
 M.VISUAL_BLOCK_MODE = "\022"
 

@@ -182,7 +182,7 @@ local function preview_agent(ctx)
 	ctx.preview:minimal()
 	ctx.preview:wo({ wrap = false })
 	ctx.preview:set_title(ctx.item.workspace_label .. " / " .. ctx.item.tab_label .. " / " .. ctx.item.name)
-	require("snacks.picker.preview").cmd({
+	require("workmux.agent_preview").cmd({
 		vim.fn.stdpath("config") .. "/bin/herdr-pane-preview",
 		ctx.item.agent_pane_id,
 		tostring(math.max(2, vim.api.nvim_win_get_width(ctx.win))),
@@ -503,17 +503,17 @@ local function generate_branch(task, callback)
 	}, "\n")
 	util.notify("generating branch name...")
 	require("opencode.backend").generate(instruction, current_cwd(), function(code, stdout, stderr)
-			if code ~= 0 then
-				fail_step("branch-name generation", stderr)
-				return
-			end
-			local branch = util.trim(stdout)
-			if branch == "" or branch:find("\n", 1, true) then
-				fail_step("branch-name generation", "OpenCode did not return one branch name")
-				return
-			end
-			callback(branch)
-		end)
+		if code ~= 0 then
+			fail_step("branch-name generation", stderr)
+			return
+		end
+		local branch = util.trim(stdout)
+		if branch == "" or branch:find("\n", 1, true) then
+			fail_step("branch-name generation", "OpenCode did not return one branch name")
+			return
+		end
+		callback(branch)
+	end)
 end
 
 local function nonempty_string(value)

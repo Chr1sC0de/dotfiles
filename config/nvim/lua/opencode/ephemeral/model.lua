@@ -26,11 +26,14 @@ function M.action_label(action)
 	if action == "query" then
 		return "queries"
 	end
+	if action == "commit" then
+		return "commit messages"
+	end
 	return "jobs"
 end
 
 function M.set(action, model)
-	if action ~= "edit" and action ~= "query" then
+	if action ~= "edit" and action ~= "query" and action ~= "commit" then
 		util.notify("Unknown OpenCode model target: " .. tostring(action), vim.log.levels.WARN)
 		return
 	end
@@ -82,8 +85,8 @@ vim.api.nvim_create_autocmd("VimLeavePre", {
 })
 
 function M.select(action)
-	if action ~= "edit" and action ~= "query" then
-		util.notify("Usage: OpenCodeEphemeralModel [query|edit]", vim.log.levels.WARN)
+	if action ~= "edit" and action ~= "query" and action ~= "commit" then
+		util.notify("Usage: OpenCodeEphemeralModel [query|edit|commit]", vim.log.levels.WARN)
 		return
 	end
 	M.load()

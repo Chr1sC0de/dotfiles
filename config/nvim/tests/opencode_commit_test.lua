@@ -92,6 +92,7 @@ local fake_opencode = bin_dir .. "/response"
 vim.fn.writefile({
 	"#!/usr/bin/env python3",
 	"import json, pathlib, subprocess, sys",
+	"assert '--model' in sys.argv and sys.argv[sys.argv.index('--model') + 1] == 'test/commit-model#high', sys.argv",
 	"result = subprocess.run([str(pathlib.Path(__file__).with_name('response')), *sys.argv[1:]], input=sys.stdin.read(), text=True, capture_output=True)",
 	"sys.stderr.write(result.stderr)",
 	"print(json.dumps({'type': 'text', 'sessionID': 'ses_fixture', 'part': {'text': result.stdout.strip()}}))",
@@ -105,6 +106,10 @@ local previous_cwd = vim.fn.getcwd()
 local previous_path = vim.env.PATH
 vim.env.PATH = bin_dir .. ":" .. previous_path
 vim.cmd.cd(root)
+
+-- Generation and revisions must use the commit preference, independently of edits/queries.
+state.ephemeral_models_loaded = true
+state.ephemeral_models = { commit = "test/commit-model#high", query = "test/query", edit = "test/edit" }
 
 commit.prepare()
 assert(

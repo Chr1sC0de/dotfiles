@@ -71,12 +71,12 @@ equal(state.ephemeral_models, {})
 equal(#warnings, 0)
 model.set("query", " first-model ")
 equal(model.get("query"), "first-model")
-equal(vim.json.decode(files[path]), { query = "first-model", edit = vim.NIL })
+equal(vim.json.decode(files[path]), { query = "first-model", edit = vim.NIL, commit = vim.NIL })
 model.set("edit", "edit-model")
 -- Another session saves a query; changing edit must retain that disk preference.
 files[path] = vim.json.encode({ query = "other-session", edit = "edit-model" })
 model.set("edit", "new-edit")
-equal(vim.json.decode(files[path]), { query = "other-session", edit = "new-edit" })
+equal(vim.json.decode(files[path]), { query = "other-session", edit = "new-edit", commit = vim.NIL })
 state.ephemeral_models, state.ephemeral_models_loaded = {}, false
 package.loaded["opencode.ephemeral.preferences"] = nil
 require("opencode.ephemeral.preferences").load()
@@ -86,6 +86,16 @@ state.ephemeral_models, state.ephemeral_models_loaded = {}, false
 model.load()
 equal(state.ephemeral_models, { edit = "new-edit" })
 equal(vim.json.decode(files[path]).query, vim.NIL)
+
+model.set("commit", "provider/commit-model#high")
+state.ephemeral_models, state.ephemeral_models_loaded = {}, false
+model.load()
+equal(model.get("commit"), "provider/commit-model#high")
+model.set("edit", "another-edit")
+equal(vim.json.decode(files[path]).commit, "provider/commit-model#high")
+model.set("commit", nil)
+equal(vim.json.decode(files[path]).commit, vim.NIL)
+equal(model.get("edit"), "another-edit")
 
 files[path] = "{ broken json"
 state.ephemeral_models_loaded = false
@@ -174,6 +184,13 @@ custom_callback("stale-model")
 equal(model.get("query"), "custom-model")
 equal(target_picker.items[1].label, "Edits (file changes)")
 equal(target_picker.items[2].label, "Queries (read-only)")
+equal(target_picker.items[3], { label = "Commit message", action = "commit" })
+selected(target_picker.items[3])
+callbacks[5]({ { model = "provider/commit-model", label = "Commit model" } }, "live")
+selected(picker.items[2])
+equal(model.get("commit"), "provider/commit-model")
+model.select_target()
+assert(picker.opts.format_item(picker.items[3]):find("provider/commit-model", 1, true))
 preferences.save, catalog.fetch = saved, fetch
 
 -- Public command registration, keybindings, and descriptions.

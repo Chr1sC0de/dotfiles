@@ -36,7 +36,9 @@ end
 local function run_process(command, opts, callback)
 	opts = opts or {}
 	if command[1] == "opencode" then
-		return require("opencode.backend").generate(opts.input, opts.cwd, callback)
+		return require("opencode.backend").generate(
+			opts.input, opts.cwd, callback, require("opencode.ephemeral.model").get("commit")
+		)
 	end
 	local stdout, stderr = {}, {}
 	local job_id = vim.fn.jobstart(command, {

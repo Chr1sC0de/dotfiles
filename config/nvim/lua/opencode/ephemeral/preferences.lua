@@ -21,7 +21,7 @@ local function read()
 		return {}
 	end
 	local models = {}
-	for _, action in ipairs({ "query", "edit" }) do
+	for _, action in ipairs({ "query", "edit", "commit" }) do
 		local model = value[action]
 		if type(model) == "string" then
 			model = util.trim_whitespace(model)
@@ -45,10 +45,10 @@ function M.save(action, model)
 	local path = M.path()
 	local temporary = path .. ".tmp." .. vim.fn.getpid() .. "." .. tostring(vim.uv.hrtime())
 	local ok, err = pcall(function()
-		-- Preserve the other action if another Neovim session has saved it.
+		-- Preserve other actions if another Neovim session has saved them.
 		local models = read()
 		models[action] = model
-		local saved = { query = models.query or vim.NIL, edit = models.edit or vim.NIL }
+		local saved = { query = models.query or vim.NIL, edit = models.edit or vim.NIL, commit = models.commit or vim.NIL }
 		vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p", 448)
 		if vim.fn.writefile({ vim.json.encode(saved) }, temporary, "s") ~= 0 then
 			error("could not write preferences")
