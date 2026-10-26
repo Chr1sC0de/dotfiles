@@ -12,12 +12,14 @@ notice. The destination is the branch currently checked out in the primary check
 
 Merge choices are Squash (preselected), Normal (fast-forward when possible),
 Merge commit (`--no-ff`), and Fast-forward only. Explicit flags override Git merge
-mode defaults. Squash offers an editable default message, Generate with Codex,
-and Cancel. Codex drafts a Conventional Commit subject from the committed changes;
+mode defaults. Squash offers an editable default message, Generate with OpenCode,
+and Cancel. OpenCode drafts a Conventional Commit subject from the committed changes;
 you can edit it before Enter starts the merge. Escape or Ctrl+C cancels selection,
-generation, or message editing. Codex is optional and uses an independent ephemeral,
-read-only invocation with approvals disabled, retaining configured authentication
-and model. Generation failures return to the message chooser.
+generation, or message editing. OpenCode is optional and uses an independent
+`run --standalone --format json` invocation with tool use denied, retaining
+configured authentication and model. Inherited Neovim routing variables and inline
+plugin/MCP configuration are removed. JSON text events supply the draft; generation
+errors, empty output, or invalid subjects return to the message chooser.
 
 Merging requires clean, attached source and destination branches with no unfinished
 Git operation. Branches, commits, workspace membership, and worktree registration

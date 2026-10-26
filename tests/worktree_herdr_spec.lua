@@ -121,7 +121,7 @@ tests["Herdr workspace responses use native checkout metadata"] = function()
 	assert_equal(#herdr._test.agent_name("/tmp/repo-feature") <= 32, true, "bounded agent name")
 end
 
-tests["branch creation starts Neovim in the root pane without Codex"] = function()
+tests["branch creation starts Neovim in the root pane without OpenCode"] = function()
 	local calls = {}
 	local process_info_calls = 0
 	herdr._test.validate_branch = function(branch, callback)
@@ -176,8 +176,8 @@ tests["branch creation starts Neovim in the root pane without Codex"] = function
 	assert_command(calls, { "pane", "process-info", "--pane", "w9:p1" }, "wait for root shell")
 	assert_equal(process_info_calls, 2, "shell readiness polls")
 	assert_command(calls, { "pane", "run", "w9:p1", "nvim ." }, "start Neovim in root pane")
-	assert_no_command(calls, { "agent", "start" }, "branch creation does not start Codex")
-	assert_no_command(calls, { "agent", "prompt" }, "branch creation does not prompt Codex")
+	assert_no_command(calls, { "agent", "start" }, "branch creation does not start OpenCode")
+	assert_no_command(calls, { "agent", "prompt" }, "branch creation does not prompt OpenCode")
 	assert_command(calls, { "workspace", "focus", "w9" }, "focus editor workspace")
 
 	herdr._test.run = nil
@@ -228,7 +228,7 @@ tests["prompt creation generates a branch and submits the task"] = function()
 	assert_no_command(calls, { "pane", "split" }, "prompt workspace remains single-pane")
 	assert_no_command(calls, { "pane", "run" }, "prompt workflow does not start Neovim")
 	assert_no_command(calls, { "agent", "focus" }, "background prompt preserves focus")
-	assert_equal(notifications[#notifications], "worktree: Codex job started in routed-workflow", "started notice")
+	assert_equal(notifications[#notifications], "worktree: OpenCode job started in routed-workflow", "started notice")
 
 	already_open, calls = true, {}
 	herdr.add_prompt("implement routed workflow")
@@ -294,7 +294,7 @@ tests["prompt creation retries while the root pane becomes available"] = functio
 	assert_equal(agent_attempts, 3, "agent start attempts")
 	assert_equal(process_info_calls, 3, "shell readiness checks")
 	assert_equal(prompt_calls, 1, "initial prompt count")
-	assert_equal(notifications[#notifications], "worktree: Codex job started in retry-agent-start", "started notice")
+	assert_equal(notifications[#notifications], "worktree: OpenCode job started in retry-agent-start", "started notice")
 
 	vim.notify = old_notify
 	vim.defer_fn = old_defer_fn
@@ -334,7 +334,7 @@ tests["prompt creation does not retry non-busy agent errors"] = function()
 	assert_equal(agent_attempts, 1, "agent start attempts")
 	assert_equal(
 		notifications[#notifications],
-		"worktree: Herdr Codex start failed: agent executable missing",
+		"worktree: Herdr OpenCode start failed: agent executable missing",
 		"failure notice"
 	)
 
@@ -374,7 +374,7 @@ tests["pane discovery failure preserves the created workspace"] = function()
 	herdr._test.run = nil
 end
 
-tests["continue opens a closed checkout with codex resume last"] = function()
+tests["continue opens a closed checkout with opencode resume last"] = function()
 	local calls = {}
 	local old_select = vim.ui.select
 	vim.ui.select = function(items, _, callback)
@@ -413,14 +413,14 @@ tests["continue opens a closed checkout with codex resume last"] = function()
 	end
 
 	herdr.open(true)
-	local start = assert_command(calls, { "agent", "start" }, "resume Codex")
-	local resume_index = vim.fn.index(start, "resume")
+	local start = assert_command(calls, { "agent", "start" }, "resume OpenCode")
+	local resume_index = vim.fn.index(start, "--continue")
 	assert_equal(resume_index >= 0, true, "resume argument")
-	assert_equal(start[resume_index + 2], "--last", "resume last argument")
-	assert_equal(vim.tbl_contains(start, "wA:p1"), true, "resumed Codex uses root pane")
+	assert_equal(type(start[resume_index + 2]), "string", "resume directory argument")
+	assert_equal(vim.tbl_contains(start, "wA:p1"), true, "resumed OpenCode uses root pane")
 	assert_no_command(calls, { "pane", "split" }, "continued workspace remains single-pane")
 	assert_no_command(calls, { "pane", "run" }, "continue workflow does not start Neovim")
-	assert_command(calls, { "agent", "focus" }, "explicit continue focuses Codex")
+	assert_command(calls, { "agent", "focus" }, "explicit continue focuses OpenCode")
 
 	vim.ui.select = old_select
 	herdr._test.run = nil
@@ -789,7 +789,7 @@ tests["remote branches create tracking before opening Neovim"] = function()
 		assert_equal(create[vim.fn.index(create, "--base") + 2], "refs/heads/feature/foo", "explicit local base")
 		assert_command(calls, { "pane", "run", "wNew:p1", "nvim ." }, "open Neovim")
 		assert_command(calls, { "workspace", "focus", "wNew" }, "focus editor workspace")
-		assert_no_command(calls, { "agent", "start" }, "normal opening does not start Codex")
+		assert_no_command(calls, { "agent", "start" }, "normal opening does not start OpenCode")
 		assert_no_command(calls, { "agent", "prompt" }, "normal opening does not submit a task")
 	end)
 end
@@ -799,8 +799,7 @@ tests["remote branches preserve continue behavior"] = function()
 		remote_fixture(fixture)
 		herdr.open(true)
 		local start = assert_command(calls, { "agent", "start" }, "continued agent")
-		assert_equal(vim.tbl_contains(start, "resume"), true, "resume requested")
-		assert_equal(vim.tbl_contains(start, "--last"), true, "resume last")
+		assert_equal(vim.tbl_contains(start, "--continue"), true, "resume requested")
 	end)
 end
 
@@ -812,7 +811,7 @@ tests["unrepresented local branches create checkouts without changing upstream"]
 		herdr.open(false)
 		assert_command(calls, { "worktree", "create" }, "local checkout")
 		assert_command(calls, { "pane", "run", "wNew:p1", "nvim ." }, "local checkout opens Neovim")
-		assert_no_command(calls, { "agent", "start" }, "local opening does not start Codex")
+		assert_no_command(calls, { "agent", "start" }, "local opening does not start OpenCode")
 		assert_no_command(git_commands(fixture), { "branch" }, "no branch rewrite")
 		assert_equal(fixture.locals["feature/local"], "refs/remotes/upstream/original", "upstream preserved")
 	end)
@@ -971,7 +970,7 @@ tests["closed checkouts reopen in Neovim unless a workspace is already open"] = 
 			herdr.open(false)
 			assert_command(calls, { "worktree", "open" }, "reopen checkout")
 			assert_command(calls, { "workspace", "focus", "wNew" }, "focus workspace")
-			assert_no_command(calls, { "agent", "start" }, "normal reopen does not start Codex")
+			assert_no_command(calls, { "agent", "start" }, "normal reopen does not start OpenCode")
 			if already_open then
 				assert_no_command(calls, { "pane", "run" }, "already open workspace gets no new Neovim")
 			else
@@ -992,7 +991,7 @@ tests["remote match to a closed checkout opens Neovim without recreating it"] = 
 		assert_command(calls, { "worktree", "open" }, "matched checkout reopened")
 		assert_command(calls, { "pane", "run", "wNew:p1", "nvim ." }, "matched checkout opens editor")
 		assert_no_command(calls, { "worktree", "create" }, "existing checkout retained")
-		assert_no_command(calls, { "agent", "start" }, "matching does not start Codex")
+		assert_no_command(calls, { "agent", "start" }, "matching does not start OpenCode")
 	end)
 end
 
@@ -1069,7 +1068,7 @@ tests["fetch refresh preserves invocation directory and selected opening mode"] 
 			)
 			if resume then
 				local start = assert_command(calls, { "agent", "start" }, "continued agent after fetch")
-				assert_equal(vim.tbl_contains(start, "resume"), true, "resume retained after fetch")
+				assert_equal(vim.tbl_contains(start, "--continue"), true, "resume retained after fetch")
 				assert_no_command(calls, { "pane", "run" }, "resume does not start Neovim")
 			else
 				assert_command(calls, { "pane", "run", "wNew:p1", "nvim ." }, "normal open after fetch")
@@ -1251,10 +1250,10 @@ tests["matching branches without a checkout preserve editor or continuation mode
 			assert_equal(create[vim.fn.index(create, "--branch") + 2], "review/foo", "reuse renamed local branch")
 			if resume then
 				local start = assert_command(calls, { "agent", "start" }, "continue matched branch")
-				assert_equal(vim.tbl_contains(start, "resume"), true, "continuation retained")
+				assert_equal(vim.tbl_contains(start, "--continue"), true, "continuation retained")
 			else
 				assert_command(calls, { "pane", "run", "wNew:p1", "nvim ." }, "matched branch opens Neovim")
-				assert_no_command(calls, { "agent", "start" }, "matched branch does not start Codex")
+				assert_no_command(calls, { "agent", "start" }, "matched branch does not start OpenCode")
 			end
 			assert_no_command(git_commands(fixture), { "branch" }, "existing upstream retained")
 		end)
@@ -1573,7 +1572,7 @@ tests["agent dashboard always uses the agent pane despite host metadata or layou
 				title = "Review changes",
 			},
 			{
-				name = "nvim-codex-tagged",
+				name = "nvim-opencode-tagged",
 				pane_id = "w1:p3",
 				tab_id = "w1:t1",
 				workspace_id = "w1",
@@ -1581,14 +1580,14 @@ tests["agent dashboard always uses the agent pane despite host metadata or layou
 				tokens = { "nvim_host_pane=w1:p1" },
 			},
 			{
-				name = "nvim-codex-legacy",
+				name = "nvim-opencode-legacy",
 				pane_id = "w1:p5",
 				tab_id = "w1:t1",
 				workspace_id = "w1",
 				agent_status = "idle",
 			},
 			{
-				name = "nvim-codex-stale",
+				name = "nvim-opencode-stale",
 				pane_id = "w1:p3",
 				tab_id = "w1:t1",
 				workspace_id = "w1",
@@ -1625,7 +1624,7 @@ tests["agent dashboard previews its agent terminal"] = function()
 			agent_pane_id = "w1:p2",
 			workspace_label = "project",
 			tab_label = "editor",
-			name = "nvim-codex-tagged",
+			name = "nvim-opencode-tagged",
 		},
 		preview = preview,
 		win = preview_win,

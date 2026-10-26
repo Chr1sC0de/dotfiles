@@ -6,7 +6,7 @@ end
 local calls, picker, preview_pane = {}, nil, nil
 local agent = {
 	name = "reviewer",
-	agent = "codex",
+	agent = "opencode",
 	pane_id = "w2:p2",
 	tab_id = "w2:t1",
 	workspace_id = "w2",
@@ -81,7 +81,13 @@ herdr._test.run = function(_, opts)
 			result = {
 				snapshot = {
 					agents = {
-						{ name = vim.NIL, pane_id = "w4:p1", cwd = vim.NIL, foreground_cwd = vim.NIL, agent = "codex" },
+						{
+							name = vim.NIL,
+							pane_id = "w4:p1",
+							cwd = vim.NIL,
+							foreground_cwd = vim.NIL,
+							agent = "opencode",
+						},
 					},
 					panes = {},
 					tabs = {},

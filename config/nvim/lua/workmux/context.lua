@@ -1,4 +1,4 @@
-local selection = require("codex.context.selection")
+local selection = require("opencode.context.selection")
 
 local M = {}
 

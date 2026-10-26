@@ -298,7 +298,7 @@ local function wait_for_shell(pane_id, callback, attempt)
 	attempt = attempt or 1
 	local function retry(message)
 		if attempt >= SHELL_READY_ATTEMPTS then
-			fail_step("Codex shell readiness", message or "timed out waiting for the root shell")
+			fail_step("OpenCode shell readiness", message or "timed out waiting for the root shell")
 			return
 		end
 		vim.defer_fn(function()
@@ -331,14 +331,14 @@ local function start_agent_when_available(workspace_id, pane_id, cwd, opts, atte
 			return
 		end
 		local label = vim.fn.fnamemodify(cwd, ":t")
-		util.notify("Codex job started" .. (label ~= "" and (" in " .. label) or ""))
+		util.notify("OpenCode job started" .. (label ~= "" and (" in " .. label) or ""))
 	end
 	local args = {
 		"agent",
 		"start",
 		name,
 		"--kind",
-		"codex",
+		"opencode",
 		"--pane",
 		pane_id,
 		"--timeout",
@@ -346,9 +346,9 @@ local function start_agent_when_available(workspace_id, pane_id, cwd, opts, atte
 		"--",
 	}
 	if opts.resume then
-		vim.list_extend(args, { "resume", "--last", "--cd", cwd })
+		vim.list_extend(args, { "--continue", cwd })
 	else
-		vim.list_extend(args, { "--cd", cwd })
+		table.insert(args, cwd)
 	end
 
 	wait_for_shell(pane_id, function()
@@ -361,7 +361,7 @@ local function start_agent_when_available(workspace_id, pane_id, cwd, opts, atte
 					end, SHELL_READY_DELAY_MS)
 					return
 				end
-				fail_step("Codex start", message)
+				fail_step("OpenCode start", message)
 				if opts.focus then
 					focus_workspace(workspace_id)
 				end
@@ -404,7 +404,7 @@ local function bootstrap_agent_workspace(workspace, checkout, opts)
 	end
 
 	list_root_pane(workspace_id, function(root_pane_id)
-		util.notify("starting Codex in the worktree...")
+		util.notify("starting OpenCode in the worktree...")
 		start_agent_when_available(workspace_id, root_pane_id, cwd, opts)
 	end)
 end
@@ -502,33 +502,18 @@ local function generate_branch(task, callback)
 		task,
 	}, "\n")
 	util.notify("generating branch name...")
-	vim.system(
-		{
-			"codex",
-			"exec",
-			"--ephemeral",
-			"--color",
-			"never",
-			"--config",
-			'model_reasoning_effort="xhigh"',
-			"-m",
-			"gpt-6-astra",
-			instruction,
-		},
-		{ text = true },
-		vim.schedule_wrap(function(result)
-			if result.code ~= 0 then
-				fail_step("branch-name generation", command_error(result))
+	require("opencode.backend").generate(instruction, current_cwd(), function(code, stdout, stderr)
+			if code ~= 0 then
+				fail_step("branch-name generation", stderr)
 				return
 			end
-			local branch = util.trim(result.stdout)
+			local branch = util.trim(stdout)
 			if branch == "" or branch:find("\n", 1, true) then
-				fail_step("branch-name generation", "Codex did not return one branch name")
+				fail_step("branch-name generation", "OpenCode did not return one branch name")
 				return
 			end
 			callback(branch)
 		end)
-	)
 end
 
 local function nonempty_string(value)

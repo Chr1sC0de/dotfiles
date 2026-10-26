@@ -4,9 +4,9 @@ if not vim.g.vscode then
 	require("core.lsp")
 	require("config.autocmds")
 
-	-- only load in codex if it exists
-	if vim.fn.executable("codex") == 1 then
-		require("config.codex").setup()
+	-- only load in opencode if it exists
+	if vim.fn.executable("opencode") == 1 then
+		require("config.opencode").setup()
 	end
 end
 

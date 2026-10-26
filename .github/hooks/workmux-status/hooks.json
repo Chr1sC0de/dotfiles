@@ -4,19 +4,19 @@
     "userPromptSubmitted": [
       {
         "type": "command",
-        "bash": "$HOME/.config/nvim/bin/codex-mux-status-hook working"
+        "bash": "$HOME/.config/nvim/bin/opencode-mux-status-hook working"
       }
     ],
     "postToolUse": [
       {
         "type": "command",
-        "bash": "$HOME/.config/nvim/bin/codex-mux-status-hook working"
+        "bash": "$HOME/.config/nvim/bin/opencode-mux-status-hook working"
       }
     ],
     "agentStop": [
       {
         "type": "command",
-        "bash": "$HOME/.config/nvim/bin/codex-mux-status-hook done"
+        "bash": "$HOME/.config/nvim/bin/opencode-mux-status-hook done"
       }
     ]
   }

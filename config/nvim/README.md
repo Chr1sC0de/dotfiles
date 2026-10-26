@@ -10,10 +10,10 @@ if both `HERDR_ENV` and `TMUX` are present.
 
 | Key | Action |
 | --- | --- |
-| `<leader>wa` | Prompt for a contextual task. Herdr generates a branch, starts a single-pane Codex workspace in the background, submits the task, and notifies when it has started; Workmux runs `add -A -p`. Visual mode includes the selection. |
-| `<leader>wA` | Prompt for an explicit branch, create its worktree, and open Neovim in the root pane without starting Codex. |
+| `<leader>wa` | Prompt for a contextual task. Herdr generates a branch, starts a single-pane OpenCode workspace in the background, submits the task, and notifies when it has started; Workmux runs `add -A -p`. Visual mode includes the selection. |
+| `<leader>wA` | Prompt for an explicit branch, create its worktree, and open Neovim in the root pane without starting OpenCode. |
 | `<leader>wo` | Pick and open a worktree; Herdr also offers local/remote branches and opens Neovim when a workspace is required. |
-| `<leader>wO` | Pick and open a worktree, using `codex resume --last` when Herdr must recreate its workspace. |
+| `<leader>wO` | Pick and open a worktree, using `opencode --continue` when Herdr must recreate its workspace. |
 | `<leader>ww` | Browse worktrees and open Neovim in Herdr; open the Workmux worktree dashboard in tmux. |
 | `<leader>wd` | Browse live Herdr agents with pane previews, or open the Workmux dashboard in tmux. |
 | `<leader>wD` | Open Workmux dashboard diff; Herdr reports that no native equivalent exists. |
@@ -31,7 +31,7 @@ cached Git refs immediately. Select **Fetch remotes / refresh** to fetch all
 remotes and reload the list; available refs remain usable if fetching fails.
 
 When a workspace must be created or reopened, `wo` and `ww` start `nvim .`
-in the checkout. Use `wO` to resume Codex instead, or `wa` to submit a Codex
+in the checkout. Use `wO` to resume OpenCode instead, or `wa` to submit an OpenCode
 task. Existing workspaces are simply focused without starting another process.
 
 Remote rows show matching local branches and whether their checkout is open.
@@ -66,33 +66,33 @@ The implementation lives in `lua/workmux/`, is exposed through
 fall back to a Neovim terminal tab. Herdr orchestration uses its structured CLI
 responses directly and leaves the Sessionizer plugin independent.
 
-## Codex Integration
+## OpenCode Integration
 
-This config includes a local Codex chat bridge under `lua/codex/` and a hook
-receiver at `bin/codex-nvim-hook`.
+This config includes a local OpenCode chat bridge under `lua/opencode/` and a hook
+receiver at `bin/opencode-nvim-hook`.
 
-Run `:CodexCommit` to stage all saved changes, generate a Conventional Commit
+Run `:OpenCodeCommit` to stage all saved changes, generate a Conventional Commit
 message, and commit automatically in the background with normal Git hooks.
 You can keep editing: unsaved buffers are left alone, and edits saved after
 staging remain unstaged for your next commit. Progress and completion appear
 as notifications without opening a popup or taking focus.
 
-For the manual workflow, run `:CodexPrepareCommit` to stage changes and prepare
-a message without committing. If a prepared message exists, `:CodexCommit`
+For the manual workflow, run `:OpenCodePrepareCommit` to stage changes and prepare
+a message without committing. If a prepared message exists, `:OpenCodeCommit`
 uses that message and staged snapshot without restaging or regenerating.
 Changing the staged snapshot aborts the operation and discards the prepared
 message; it never automatically restages within that invocation. If a commit
 fails and its staged snapshot still matches, the message is retained so
-`:CodexCommit` can retry. Otherwise, prepare again or run `:CodexCommit` afresh.
+`:OpenCodeCommit` can retry. Otherwise, prepare again or run `:OpenCodeCommit` afresh.
 
-Run `:CodexReviewCommit` before committing to open an optional review popup.
+Run `:OpenCodeReviewCommit` before committing to open an optional review popup.
 Press `a` or `<Enter>` to accept and commit, `e` to edit the subject, `f` to
-send feedback to Codex and request another proposal, or `r` to reject the
+send feedback to OpenCode and request another proposal, or `r` to reject the
 prepared message while preserving staged changes. Press `q` or `<Esc>` to close
-the popup without discarding the prepared message. `:CodexCommit` remains
+the popup without discarding the prepared message. `:OpenCodeCommit` remains
 available when no review is needed.
 
-When Neovim runs inside Herdr, each new chat starts as a real Codex agent in a
+When Neovim runs inside Herdr, each new chat starts as a real OpenCode agent in a
 right-hand split of Neovim's current tab. The split remains visible until the
 shell and agent are ready; Neovim then regains focus and its pane is zoomed.
 Lifecycle notifications report startup, readiness, and failure. The Neovim
@@ -101,50 +101,49 @@ virtual keybinding header, so the attached buffer remains the primary chat UI
 while Herdr retains native agent detection. Outside Herdr, chats continue to
 launch directly in Neovim terminals.
 
-Queries (read-only questions) and edits (file changes) always run as independent background `codex exec`
+Queries (read-only questions) and edits (file changes) always run as independent background `opencode run --standalone --format json`
 processes managed by Neovim. They can run in parallel without creating Herdr
 workspaces, tabs, or splits. Neovim retains its spinner, diagnostics, lifecycle
 notifications, jobs panel, cancellation controls, and session-only Markdown
 scratch result.
-Open a completed result from `:CodexJobs`; it appears in a dedicated tab without
+Open a completed result from `:OpenCodeJobs`; it appears in a dedicated tab without
 creating a result file. Reopening a visible result focuses its existing tab
 instead of creating a duplicate. Press `f` from either the result or its jobs
-panel row to continue the native Codex thread, `s` to return to its source, or
-`q` to close the result tab and return to the originating tab. Codex persists
+panel row to continue the native OpenCode thread, `s` to return to its source, or
+`q` to close the result tab and return to the originating tab. OpenCode persists
 the underlying thread so follow-ups use its native conversation history, but
 Neovim does not restore result buffers or jobs after restarting. If Neovim is
-not running inside Herdr, jobs fall back to direct `codex exec` processes with
+not running inside Herdr, jobs fall back to direct `opencode run --standalone --format json` processes with
 the same result and follow-up behavior.
 
-Use `:CodexQuery` to ask without editor context, `:CodexQueryFile` for the
-current file, and `:CodexQuerySelection` for selected text. Diagnostic queries
-use `:CodexQueryFileDiagnostics`, `:CodexQueryLineDiagnostics`, or
-`:CodexQuerySelectionDiagnostics`. Queries cannot modify files.
-`:CodexEditFile` and `:CodexEditSelection` apply requested file changes.
-The former `:CodexCommand*` names have been replaced; existing keybindings
+Use `:OpenCodeQuery` to ask without editor context, `:OpenCodeQueryFile` for the
+current file, and `:OpenCodeQuerySelection` for selected text. Diagnostic queries
+use `:OpenCodeQueryFileDiagnostics`, `:OpenCodeQueryLineDiagnostics`, or
+`:OpenCodeQuerySelectionDiagnostics`. Queries cannot modify files.
+`:OpenCodeEditFile` and `:OpenCodeEditSelection` apply requested file changes.
+The former `:OpenCodeCommand*` names have been replaced; existing keybindings
 still work (`<leader>aq`, `<leader>ac`, `<leader>ar`, and `<leader>ae`).
 
 Choose separate query and edit models with `<leader>am` or
-`:CodexEphemeralModel [query|edit]`. Each opening asks a short-lived Codex
-app-server for its visible model catalog, without starting a conversation.
-Codex controls catalog freshness and may use its own cache. If discovery fails
-or takes longer than ten seconds, the picker uses Codex's local cached catalog
-when available and labels it as cached. It respects `CODEX_HOME`.
+`:OpenCodeEphemeralModel [query|edit]`. The picker queries OpenCode V2's model API through the authenticated CLI,
+including `provider/model#variant` choices. Discovery times out after ten seconds.
+On failure, the picker uses its last successful catalog, labeled **cached**.
+Only model IDs and labels are cached, never provider credentials.
 **CLI default**, **Custom…**, and the current selection remain available even
 when discovery fails. An unlisted saved model is retained until you change it.
 
 Selections are saved immediately in
-`stdpath("state")/codex/ephemeral-models.json` and restored across Neovim
+`stdpath("state")/opencode/ephemeral-models.json` and restored across Neovim
 restarts for all projects on this machine. Before selecting a model, jobs follow
-the Codex CLI default; selecting **CLI default** restores that behavior.
+the OpenCode CLI default; selecting **CLI default** restores that behavior.
 A failed save leaves the selection active for the current session and displays
 a warning. Existing thread follow-ups retain their original job's model;
 starting a fresh edit from a result uses the saved edit preference.
 
-Use `:CodexChatAttach` or `<leader>aA` to reconnect to a surviving agent across
+Use `:OpenCodeChatAttach` or `<leader>aA` to reconnect to a surviving agent across
 the current Herdr session. The chat-buffer panel also provides `a` for this
 picker. Explicitly deleting a chat closes its backing Herdr pane; hiding its
-buffer or exiting Neovim leaves the agent running. When Codex itself exits for
+buffer or exiting Neovim leaves the agent running. When OpenCode itself exits for
 any reason, its dedicated Herdr pane closes automatically and an attached
 Neovim chat buffer is removed. This cleanup is owned by the Herdr pane, so it
 still runs while Neovim is detached or closed.
@@ -153,71 +152,18 @@ The dotfiles installer symlinks `config/nvim` by default, so the Neovim-side
 hook script is installed automatically on a new machine:
 
 ```text
-$HOME/.config/nvim/bin/codex-nvim-hook
+$HOME/.config/nvim/bin/opencode-nvim-hook
 ```
 
-Codex itself still needs a one-time hook registration in `~/.codex/hooks.json`.
-That file is local Codex state and is not managed by this repo. Add the Neovim
-hook to the lifecycle events Codex should report back into the running Neovim
-session:
+Managed launches automatically load `opencode-plugin/` through their private
+OpenCode configuration. The plugin forwards prompt, completion, failure, and
+input-request events to Neovim. No global hook registration is needed.
 
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "command": "$HOME/.config/nvim/bin/codex-nvim-hook",
-            "type": "command"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "command": "$HOME/.config/nvim/bin/codex-nvim-hook",
-            "type": "command"
-          }
-        ]
-      }
-    ],
-    "PermissionRequest": [
-      {
-        "hooks": [
-          {
-            "command": "$HOME/.config/nvim/bin/codex-nvim-hook",
-            "type": "command"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "command": "$HOME/.config/nvim/bin/codex-nvim-hook",
-            "type": "command"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+Run `:OpenCodeHealth` to check the CLI, Tandem, bridge, and Herdr integration.
+The chat panel shows IPC as `READY`, then `SEEN` after a lifecycle event.
 
-If `~/.codex/hooks.json` already contains hooks, keep those entries and append
-the `codex-nvim-hook` entry to each matching event. Use
-`$HOME/.config/nvim/bin/codex-mux-status-hook <status>` for lifecycle status
-hooks, where status is `working`, `waiting`, `done`, or `clear`. The dispatcher
-lets Herdr own its detected agent state, delegates to Workmux inside tmux, and
-safely does nothing outside either multiplexer.
-
-After changing hooks, start a new Codex chat and run `:CodexHealth` in Neovim.
-The chat buffer panel should show IPC as `READY` when the hook server is
-available, then `SEEN` after Codex emits a lifecycle event.
+See [Tandem integration](../../docs/tandem-integration.md) for setup, the editing
+contract, and reproducible checks.
 
 ## Subtree
 

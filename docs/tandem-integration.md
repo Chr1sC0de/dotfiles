@@ -1,162 +1,110 @@
-# Tandem integration
+# OpenCode, Tandem, and Neovim
 
-The Lazy spec installs a pinned Tandem CLI with Cargo and loads a pinned
-`tandem.nvim` at startup. The plugin starts or reconnects to the project's daemon
-automatically. Cargo must be available for the first installation; retry a failed
-build with `:Lazy build tandem.nvim`. Use `:TandemStatus` to check the connection.
-The integration is disabled in VS Code.
+## Setup
 
-Direct Codex chats, new Herdr-backed chats, and ephemeral jobs launched from this
-configuration receive a required Tandem MCP server. Native Codex tools run with a
-read-only sandbox and approval escalation disabled. Edit jobs can write through
-Tandem; analysis and command jobs receive a server that rejects write requests.
-Only the enabled Tandem tools receive explicit Codex tool permission, so their
-requests can reach the daemon under that sandbox. Existing managed restrictions
-still apply.
-The selected model, reasoning effort, session hooks, and key bindings are kept.
+The dotfiles installer links `config/nvim`. Install OpenCode **V2** (tested with
+2.1.4), Neovim 0.12+, Cargo, and Linux Bubblewrap (`bwrap`). Lazy installs
+`tandem.nvim` and builds the pinned Tandem CLI. Connect your model provider in
+OpenCode normally. Run `:TandemStatus` and `:OpenCodeHealth` from the project.
 
-In `:CodexJobs` or a completed result buffer, press `f` to resume the thread with
-that job's action and settings, or `e` to enter an instruction for a fresh edit
-thread. Every `e` starts fresh, including from an edit result, so it receives
-current Tandem edit instructions without retaining an earlier thread's
-analysis-only developer message. It uses the configured edit model and normal
-edit reasoning defaults. Existing managed restrictions and host instructions
-still apply.
+The public commands now use `OpenCode`, for example `:OpenCodeChat`,
+`:OpenCodeQueryFile`, `:OpenCodeEditSelection`, and `:OpenCodeJobs`.
+Existing `<leader>a…` mappings retain their actions. Model selections use
+`provider/model` or `provider/model#variant`; `<leader>am` opens the picker.
 
-The fresh job receives the questions and final answers through the selected
-result, plus the original file, selection, or non-file reference context.
-That context is copied into descendant jobs and survives removal of ancestors
-from the recent-job list. Internal reasoning, tool logs, and previous
-system/developer messages are not transferred. Older in-memory jobs use the
-available history and report when earlier context is missing.
+## Editing contract
 
-Edit jobs retain the original file or selection scope; jobs without a file
-target use their original workspace. Current saved files are read again before
-editing, and old temporary snapshots are not reused. The result details identify
-the parent job and the new thread. Press `f` on that edit result to continue its
-thread. Pressing `e` on an older result branches from that result; `f` always
-resumes the latest state of the existing thread.
+Managed chats and background jobs use `--standalone` with launch-local
+configuration. This keeps their Tandem connection and restrictions isolated
+from other OpenCode clients. Global/project instructions, provider credentials,
+and model configuration still load normally. The bridge adds Tandem guidance
+without replacing host instructions.
 
-`:CodexSendFile` sends the contents of result buffers and other non-file buffers
-inline as reference context. Their virtual buffer names are labels, not paths
-Codex needs to open. Ordinary files still use filesystem context and snapshots
-for unsaved text.
+The bundled V2 plugin waits for Tandem's MCP catalog before admitting prompts.
+It exposes native reading/search tools, questions, and the Tandem tools.
+Native edit/write/patch, unrestricted shells, subagents, and unrelated MCP
+writers are excluded. A deny-by-default tool policy also blocks those actions
+if the bridge fails to load.
 
-If Tandem is unavailable or the launch targets another project, launch fails
-with a visible error. Build commands that need native project writes are also
-restricted by the read-only sandbox.
+`nvim_shell` preserves read-only shell inspection through Bubblewrap: host
+mounts are read-only, network access is disabled, and no unsandboxed fallback
+exists. Install your distribution's Bubblewrap/AppArmor prerequisites when
+user namespaces are restricted. This is a shell sandbox, not a sandbox around
+the whole OpenCode process; Tandem's authorized MCP writer runs separately.
 
-When a buffer becomes modified, Tandem holds proposals for that file until the
-human saves. Other files remain available to agents. After saving, a proposal
-based on old bytes is rejected: the agent must read the new revision and
-regenerate its edit. Accepted edits run through Neovim and the existing Conform
-save hooks. This coordinates file writes; it does not suspend an agent's model
-reasoning or cancel an already running external command.
+Queries connect to `tandem mcp --read-only` and cannot access its writer.
+Edits call `tandem_read_file`, then `tandem_write_file` with full updated content
+and the returned revision. Unsaved human buffers block writes. Stale revisions
+require a fresh read and regenerated edit. Writes pass through the editor's
+normal synchronous formatting and save hooks, including Conform.
 
-Restart existing agents to use the new launch settings. Herdr discovery uses the
-`nvim-codex-td-` prefix so it cannot silently reattach older `nvim-codex-` agents
-that had native write access. New agents should be launched from the Neovim
-instance attached to the relevant project. Other configured MCP servers,
-trusted hooks, and programs launched separately remain outside Tandem's gate.
-The separate agent-only `WorktreeAddPrompt` / `<leader>wO` workflows and the
-tmux Workmux backend also retain their existing launch behavior; they are not
-covered by this integration. Use a Codex chat launched inside the worktree's
-Neovim instance when editing the same checkout together with an agent.
+Launches fail when Tandem is disconnected or the cwd/target belongs to another
+project. Open another Neovim process for another project. Non-file buffers
+(terminal, help, results, Oil, scratch) are reference context: they support
+queries and context sending, but are not file-edit targets.
 
-## Agent attachments and navigation
+## Jobs and commits
 
-`<leader>aA`, `:CodexChatAttach`, and `:AgentDashboard` open the attachment
-dashboard for all Herdr agents across projects. `Enter` attaches a Codex agent
-or opens its existing local attachment; `d` detaches without stopping the agent;
-`o` jumps to its Herdr terminal; `r` refreshes; `q` closes. Other agent types
-support navigation only. The dashboard refreshes every two seconds while open.
-`<leader>ab` continues to show local Codex chat sessions.
+Queries and edits run independently in background `opencode run` processes.
+The jobs panel retains progress, cancellation, source navigation, result tabs,
+and follow-ups. `f` continues the same native OpenCode session with its original
+model. The edit-follow-up action creates a fresh editable session containing
+the selected discussion and historical context. Native session IDs persist in
+OpenCode; Neovim's jobs/results remain local to the editor process.
 
-The **Here** column reports a live terminal attachment to this Neovim process.
-**Tandem: Configured** means the managed launch recorded Tandem settings; it
-does not assert a live per-agent MCP connection. Legacy launches and external
-agents without matching launch records show **Unknown**. The header separately
-reports this editor's Tandem connection and project. The current Tandem API
-does not provide per-agent connection identity.
+Commit preparation, review, revision, and automatic commit retain their Git
+snapshot checks. Titles, branch names, and commit subjects use tool-free model
+generation and the same JSON output decoder.
 
-External Codex agents can be attached without restarting them. This preserves
-their existing configuration and makes them the current context-send target;
-it does not add Tandem or Neovim hooks. Their hook status is **Unavailable**.
-Deleting an external agent's local chat buffer only detaches it. Managed chat
-deletion retains its existing stop behavior; use dashboard `d` to leave the
-managed agent running. Automatic context-target discovery still selects only
-managed agents.
+## Herdr
 
-`<leader>wd` previews the agent's actual terminal, then switches to its current
-workspace, tab, and agent pane and zooms that pane. Neovim host metadata and
-neighboring editor panes do not change this destination. In tmux, `wd` retains
-the Workmux dashboard. `<leader>wa` still creates a worktree from a task prompt,
-including file metadata in normal mode or selected text in visual mode.
+Inside Herdr, a managed chat opens an OpenCode agent in a sibling pane, waits
+for readiness, then attaches its terminal inside Neovim. The host pane regains
+focus and zoom. Outside Herdr it uses a direct Neovim terminal.
 
-## Pop!\_OS / Linux prerequisites
+Managed agents use the `nvim-opencode-td-` prefix and per-agent routing metadata.
+Hiding/detaching or exiting Neovim leaves the backing agent alive. Reattachment
+updates the route file, so notifications reach the new editor. Explicitly
+deleting a managed chat closes its pane. The lifecycle wrapper closes the pane
+when OpenCode exits, even while detached.
 
-Pop!\_OS is the primary acceptance target. Install the distribution's
-`bubblewrap` package alongside Codex, Neovim, and Cargo. Codex 0.153.4 prefers
-system `bwrap`; its bundled helper can fail on hosts with AppArmor user
-namespace restrictions. On affected Ubuntu 24.04 based systems, the packaged
-`bwrap-userns-restrict` AppArmor profile may also need to be loaded. Follow
-[Codex's Linux prerequisites](https://developers.openai.com/codex/sandboxing#prerequisites)
-for the distribution package and profile setup.
+`<leader>aA`, `:OpenCodeChatAttach`, and `:AgentDashboard` browse Herdr agents.
+OpenCode agents can be attached; other kinds can be navigated through the
+dashboard. An externally launched agent remains external: attaching does not
+retrofit Tandem or notification routing. The UI distinguishes it from managed
+sessions. Worktree-only OpenCode launches are likewise independent; launch a
+chat from the worktree's Neovim process for Tandem-coordinated editing.
 
-From this branch, check the actual Pop!\_OS host with:
+Managed launches load `config/nvim/opencode-plugin/` automatically. No global
+`hooks.json` is required. The bridge routes V2 events through
+`bin/opencode-nvim-hook`; Herdr owns its native agent status, while the status
+dispatcher supports Workmux inside tmux. `:OpenCodeChatResync` repairs routing.
+
+## Verification
 
 ```sh
-python3 tests/tandem_linux_check.py
+for test_file in tests/*_spec.lua; do
+  nvim --headless -u NONE -i NONE -l "$test_file" || exit
+done
+nvim --headless -u NONE -i NONE -l config/nvim/tests/opencode_commit_test.lua
+for test_file in tests/opencode*_spec.sh; do bash "$test_file" || exit; done
+python3 -B tests/tandem_integration.py
 ```
 
-This needs Python 3.10+, Codex, and Bubblewrap. It reports the OS/kernel,
-relevant namespace settings, executable versions, and a real sandbox probe.
-The native read must work and the attempted write must be denied. The check
-uses temporary canary files and an isolated Codex configuration, without
-making model requests or changing system security settings. A sandbox startup
-error is a failure. A pass establishes this host prerequisite; it does not
-replace the daemon/editor tests or an interactive Neovim/Herdr smoke test.
+The integration test uses the real OpenCode executable, MCP client, Tandem
+daemon, editor plugin, and Conform configuration. Only model responses come
+from a deterministic local HTTP fixture; no provider account is used. It checks
+unsaved-buffer waiting, stale-revision retries, formatting, shell write denial,
+read-only queries, query-to-edit promotion, continuation, and text generation.
+Results are written to `artifacts/tandem/`.
 
-## Reproducible evidence
+Override `TANDEM_NVIM`, `TANDEM_CONFORM`, or `TANDEM_BIN` for nonstandard installs.
+`TANDEM_TEST_TMPDIR` selects the temporary directory (default `/tmp/opencode`).
+The GitHub workflow runs on Ubuntu 22.04 and 24.04, installs OpenCode V2, builds
+the pinned Tandem CLI, and uploads evidence. Automated headless tests do not
+claim to exercise a live Herdr terminal UI.
 
-The `Tandem integration` GitHub Actions workflow runs the existing launcher and
-UI tests, then `tests/tandem_integration.py` on Ubuntu 22.04 and 24.04. These are
-Linux compatibility checks; they are not a substitute for the user's Pop!\_OS
-kernel and desktop configuration. The process test installs the CLI
-using the actual Lazy build callback and loads this repository's Codex setup,
-Tandem spec, and unchanged Conform configuration. It uses real Neovim, the real
-Codex CLI and native sandbox, the real MCP client, and the real daemon. A local
-deterministic Responses API fixture supplies tool calls; no live model, account,
-or API key is involved.
-
-The test checks automatic daemon startup, native write rejection, a blocked
-proposal during human editing, an independent edit to another file, rejection
-of the stale proposal after saving, a fresh edit formatted by Conform, and the
-read-only job's inability to invoke the writer. It also checks argument
-forwarding through the actual direct-chat and Herdr launch paths.
-
-The command-to-edit check requires a new thread with the earlier discussion,
-the edit model/reasoning settings, and preserved host guidance. Before issuing
-tool calls, the fixture inspects the actual model request to reject any retained
-analysis-only developer instruction. It checks successful Tandem editing,
-continued native write rejection, and a subsequent resume of the new edit
-thread. `python3 -B tests/tandem_fixture_instructions_spec.py` tests this
-instruction check without launching a model or daemon.
-
-The Actions
-summary and per-platform `tandem-integration-evidence-*` artifacts contain versions, revisions,
-the tool trace, and results.
-
-The native shell probe must successfully read the test file before its write
-is rejected. The initial Ubuntu 24.04 run failed to initialize the Bubblewrap
-network sandbox (`failed RTM_NEWADDR`). Linux CI now installs the documented
-distribution package/profile prerequisites. It retains the same read-only
-policy and does not disable AppArmor or its global user-namespace restriction.
-The previous passing macOS run is supplementary evidence, not Linux acceptance.
-
-This covers the integrated modules in a minimal headless Neovim session. It does
-not load every unrelated Lazy plugin, drive the Herdr native GUI, or establish
-that a live model always chooses the right tool. The launch restrictions and
-write gate are enforced independently of that choice. A native Herdr session
-and the complete interactive desktop configuration still need a manual smoke
-test before claiming those environments have been verified.
+Inside Herdr, run `python3 -B tests/opencode_herdr_smoke.py` for an opt-in live
+terminal check. It uses a local model fixture and owned sibling panes to verify
+launch, attachment, completion notifications, detach/reattach, routing, and
+explicit pane cleanup. It closes its test panes on exit.

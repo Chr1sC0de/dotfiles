@@ -44,7 +44,7 @@ fzf() {
 		[[ ${CANCEL_STAGE:-} != chooser ]] || return 130
 		if [[ ${GENERATE:-0} == 1 && ! -e $REMOVE_TEST_ROOT/generated ]]; then
 			: >"$REMOVE_TEST_ROOT/generated"
-			printf 'Generate with Codex\n'
+			printf 'Generate with OpenCode\n'
 		else
 			printf 'Edit default message\n'
 		fi
@@ -67,8 +67,9 @@ export -f herdr original_herdr git original_git fzf
 merge_fixture() {
 	fixture "$1"
 	unset MERGE_MODE CANCEL_STAGE GENERATE EDITED_MESSAGE MERGE_MUTATION EXPECT_RESOLUTION \
-		BRANCH_DELETE_FAIL DEST_CHANGE_AFTER_REMOVE CODEX_REAL_BIN CODEX_FAKE_FAIL CODEX_FAKE_INVALID CODEX_FAKE_WAIT
-	rm -f "$T/generated" "$T/draft" "$T/codex-args" "$T/codex-prompt"
+		BRANCH_DELETE_FAIL DEST_CHANGE_AFTER_REMOVE OPENCODE_REAL_BIN OPENCODE_FAKE_RESULT OPENCODE_FAKE_WAIT \
+		OPENCODE_NVIM_STATE_FILE OPENCODE_THREAD_ID OPENCODE_CONFIG_CONTENT
+	rm -f "$T/generated" "$T/draft" "$T/opencode-args" "$T/opencode-prompt"
 	printf 'feature\n' >"$REMOVE_CHECKOUT/feature"
 	git -C "$REMOVE_CHECKOUT" add feature
 	git -C "$REMOVE_CHECKOUT" commit -qm 'feat: add feature'
@@ -201,58 +202,61 @@ for failure in remove branch changed-dest changed-source; do
 	branch_exists
 done
 
-cat >"$T/codex" <<'CODEX'
+cat >"$T/opencode" <<'OPENCODE'
 #!/usr/bin/env bash
 set -eu
-[[ -z ${CODEX_NVIM_STATE_FILE:-} && -z ${CODEX_THREAD_ID:-} && -z ${HERDR_PANE_ID:-} ]]
-printf '%s\n' "$@" >"$REMOVE_TEST_ROOT/codex-args"
-cat >"$REMOVE_TEST_ROOT/codex-prompt"
-while [[ $# -gt 0 ]]; do
-	if [[ $1 == --output-last-message ]]; then output=$2; shift; fi
-	shift
-done
-[[ ${CODEX_FAKE_WAIT:-0} != 1 ]] || sleep 30
-[[ ${CODEX_FAKE_FAIL:-0} != 1 ]] || exit 1
-if [[ ${CODEX_FAKE_INVALID:-0} == 1 ]]; then
-	printf 'not a subject\n' >"$output"
-else
-	printf 'feat: generated subject\n' >"$output"
-fi
-CODEX
-chmod +x "$T/codex"
-for result in success failure invalid missing; do
-	merge_fixture "codex-$result"
-	export CODEX_REAL_BIN="$T/codex" GENERATE=1 CODEX_NVIM_STATE_FILE="$T/route" CODEX_THREAD_ID=inherited HERDR_PANE_ID=w1:p1
+[[ -z ${OPENCODE_NVIM_STATE_FILE:-} && -z ${OPENCODE_THREAD_ID:-} && -z ${HERDR_PANE_ID:-} ]]
+[[ $PWD == "$REMOVE_REPO" ]]
+printf '%s\n' "$@" >"$REMOVE_TEST_ROOT/opencode-args"
+printf '%s\n' "$OPENCODE_CONFIG_CONTENT" >"$REMOVE_TEST_ROOT/opencode-config"
+jq -e '.policies == [{action:"tool.use",resource:"*",effect:"deny"}] and (has("mcp") | not) and (has("plugins") | not)' \
+	"$REMOVE_TEST_ROOT/opencode-config" >/dev/null
+cat >"$REMOVE_TEST_ROOT/opencode-prompt"
+[[ ${OPENCODE_FAKE_WAIT:-0} != 1 ]] || sleep 30
+case ${OPENCODE_FAKE_RESULT:-success} in
+failure) exit 1 ;;
+invalid) printf '{"type":"text","part":{"text":"not a subject"}}\n' ;;
+error) printf '{"type":"text","part":{"text":"feat: partial subject"}}\n{"type":"error","error":{"message":"failed"}}\n' ;;
+malformed) printf 'not json\n' ;;
+empty) printf '{"type":"step_finish"}\n' ;;
+multiline) printf '{"type":"text","part":{"text":"feat: subject\\nextra line"}}\n' ;;
+*) printf '{"type":"step_start"}\n{"type":"text","part":{"text":"feat: generated subject"}}\n{"type":"step_finish"}\n' ;;
+esac
+OPENCODE
+chmod +x "$T/opencode"
+for result in success failure invalid missing error malformed empty multiline; do
+	merge_fixture "opencode-$result"
+	export OPENCODE_REAL_BIN="$T/opencode" GENERATE=1 OPENCODE_NVIM_STATE_FILE="$T/route" OPENCODE_THREAD_ID=inherited HERDR_PANE_ID=w1:p1
+	export OPENCODE_CONFIG_CONTENT='{"model":"test/model","plugins":[{"package":"inherited"}],"mcp":{"servers":{"tandem":{}}},"policies":[{"action":"tool.use","resource":"*","effect":"allow"}]}'
 	: >"$T/route"
-	case $result in failure) export CODEX_FAKE_FAIL=1 ;; invalid) export CODEX_FAKE_INVALID=1 ;; missing) export CODEX_REAL_BIN="$T/missing" ;; esac
+	if [[ $result == missing ]]; then export OPENCODE_REAL_BIN="$T/missing"; else export OPENCODE_FAKE_RESULT=$result; fi
 	run
 	merged
 	[[ -e $T/route ]]
 	if [[ $result == success ]]; then
 		contains "$T/draft" 'feat: generated subject'
-		contains "$T/codex-args" --ephemeral
-		contains "$T/codex-args" read-only
-		contains "$T/codex-args" 'approval_policy="never"'
-		contains "$T/codex-prompt" 'feat: add feature'
-		contains "$T/codex-prompt" '+feature'
+		[[ $(cat "$T/opencode-args") == $'run\n--standalone\n--format\njson' ]]
+		jq -e '.model == "test/model"' "$T/opencode-config" >/dev/null
+		contains "$T/opencode-prompt" 'feat: add feature'
+		contains "$T/opencode-prompt" '+feature'
 	else
 		contains "$T/draft" 'Squash merge feature/delete into main'
 	fi
 done
 merge_fixture cancel-generation
-CODEX_REAL_BIN="$T/codex" GENERATE=1 CODEX_FAKE_WAIT=1 run $'\e'
+OPENCODE_REAL_BIN="$T/opencode" GENERATE=1 OPENCODE_FAKE_WAIT=1 run $'\e'
 no_removal
 
 # Generation and editing cancel before any Git mutation.
 merge_fixture cancel-generation-control-c
-CODEX_REAL_BIN="$T/codex" GENERATE=1 CODEX_FAKE_WAIT=1 run $'\003'
+OPENCODE_REAL_BIN="$T/opencode" GENERATE=1 OPENCODE_FAKE_WAIT=1 run $'\003'
 no_removal
 merge_fixture generated-edited
-CODEX_REAL_BIN="$T/codex" GENERATE=1 EDITED_MESSAGE='fix: revised generated subject' run
+OPENCODE_REAL_BIN="$T/opencode" GENERATE=1 EDITED_MESSAGE='fix: revised generated subject' run
 merged
 [[ $(git -C "$REMOVE_REPO" log -1 --format=%s) == 'fix: revised generated subject' ]]
 merge_fixture changed-after-generation
-if CODEX_REAL_BIN="$T/codex" GENERATE=1 MERGE_MUTATION=dest run; then exit 1; fi
+if OPENCODE_REAL_BIN="$T/opencode" GENERATE=1 MERGE_MUTATION=dest run; then exit 1; fi
 no_removal
 
 merge_fixture detached-destination
@@ -273,15 +277,21 @@ contains "$T/output" 'Merge completed'
 
 # Resolve past the pane-closing wrapper without executing it.
 mkdir -p "$T/wrapper" "$T/real"
-cp "$ROOT/config/nvim/libexec/codex-herdr/codex" "$T/wrapper/codex"
-cp "$T/codex" "$T/real/codex"
+cat >"$T/wrapper/opencode" <<'SH'
+#!/bin/sh
+# OPENCODE_REAL_BIN
+# pane close
+exit 99
+SH
+chmod +x "$T/wrapper/opencode"
+cp "$T/opencode" "$T/real/opencode"
 resolved=$(
-    unset CODEX_REAL_BIN
-    PATH="$T/wrapper:$T/real:/usr/bin:/bin"
-    source "$ROOT/my-profile/scripts/herdr-sessionizer/merge.sh"
-    merge_codex_bin
+	unset OPENCODE_REAL_BIN
+	PATH="$T/wrapper:$T/real:/usr/bin:/bin"
+	source "$ROOT/my-profile/scripts/herdr-sessionizer/merge.sh"
+	merge_opencode_bin
 )
-[[ $resolved == "$T/real/codex" ]]
+[[ $resolved == "$T/real/opencode" ]]
 
 merge_fixture popup-termination
 status=0

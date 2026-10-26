@@ -22,9 +22,13 @@ end
 return {
 	"Chr1sC0de/tandem.nvim",
 	lazy = false,
-	enabled = not vim.g.vscode and (vim.fn.executable("codex") == 1) and (vim.fn.executable("cargo") == 1),
+	enabled = not vim.g.vscode and (vim.fn.executable("opencode") == 1) and (vim.fn.executable("cargo") == 1),
 	build = function()
 		install_tandem()
 	end,
 	opts = { command = install_root .. "/bin/tandem" },
+	config = function(_, opts)
+		require("opencode.tandem").configure(opts)
+		require("tandem").setup(opts)
+	end,
 }

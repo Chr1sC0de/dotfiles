@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -u
+
+real_opencode="${OPENCODE_REAL_BIN:-}"
+herdr_bin="${OPENCODE_HERDR_BIN:-herdr}"
+pane_id="${HERDR_PANE_ID:-}"
+route_file="${OPENCODE_NVIM_STATE_FILE:-}"
+cleanup_done=0
+
+# ShellCheck does not follow function references installed through trap.
+# shellcheck disable=SC2329,SC2317
+cleanup() {
+	if [ "${cleanup_done}" -eq 1 ]; then
+		return
+	fi
+	cleanup_done=1
+
+	if [ -n "${route_file}" ]; then
+		rm -f -- "${route_file}" "${route_file}.launch.json"
+	fi
+	if [ -n "${pane_id}" ]; then
+		"${herdr_bin}" pane close "${pane_id}" >/dev/null 2>&1 || true
+	fi
+}
+
+trap cleanup EXIT
+
+if [ -z "${real_opencode}" ]; then
+	printf 'opencode-herdr: OPENCODE_REAL_BIN is not set\n' >&2
+	exit 127
+fi
+
+"${real_opencode}" "$@"
+exit $?

@@ -34,6 +34,21 @@ return {
 				},
 			},
 			sources = {
+				select = {
+					config = function(opts)
+						local configure = opts.layout.config
+						opts.layout.config = function(layout)
+							layout = configure and configure(layout) or layout
+							-- Snacks' item-count cap can produce fractional row counts.
+							for _, box in ipairs(layout.layout) do
+								if box.win == "list" and type(box.height) == "number" and box.height > 1 then
+									box.height = math.floor(box.height)
+								end
+							end
+							return layout
+						end
+					end,
+				},
 				explorer = {
 					layout = {
 						preset = "sidebar",

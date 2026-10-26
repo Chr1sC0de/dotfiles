@@ -1,9 +1,7 @@
-"""Real Codex + Tandem + Neovim + the dotfiles' Conform/launcher integration.
+"""Real OpenCode V2 -> MCP -> Tandem -> Neovim/Conform integration.
 
-The model endpoint is a deterministic local Responses API fixture. No account,
-API key, or model call is used. Codex itself executes the requested tools, with
-its real native sandbox and real MCP client. Herdr argument checks are separate
-from a native Herdr GUI session, which this test does not simulate or claim.
+Only model responses are deterministic. No credentials or live model required.
+Herdr launch contracts are unit-tested separately from the interactive smoke test.
 """
 
 import hashlib
@@ -11,39 +9,27 @@ import http.server
 import json
 import os
 import pathlib
-import platform
-import re
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
 import threading
 import time
 
-import tomllib
-
-
-def digest(text):
-    return hashlib.sha256(text.encode()).hexdigest()
+sys.path.insert(0, str(pathlib.Path(__file__).parent / "support"))
+from opencode_fixture import config, handler_for
 
 
 def tandem_result(value):
-    """Find the MCP server's JSON inside Codex's text/content wrappers."""
     if isinstance(value, str):
-        if "\nOutput:\n" in value:
-            value = value.split("\nOutput:\n", 1)[1]
         try:
             return tandem_result(json.loads(value))
-        except (ValueError, TypeError):
+        except ValueError:
             return None
     if isinstance(value, dict):
         if isinstance(value.get("ok"), bool):
             return value
-        for item in value.values():
-            found = tandem_result(item)
-            if found is not None:
-                return found
+        value = list(value.values())
     if isinstance(value, list):
         for item in value:
             found = tandem_result(item)
@@ -52,903 +38,233 @@ def tandem_result(value):
     return None
 
 
-def tool_definitions(body):
-    def visit(items, namespace=None):
-        for item in items:
-            if item.get("type") == "namespace":
-                yield from visit(item.get("tools", []), item["name"])
-            else:
-                yield namespace, item
-
-    return list(visit(body.get("tools", [])))
-
-
-class ModelFixture:
-    def __init__(self, root):
-        self.root = root
-        self.ready_for_human = threading.Event()
-        self.human_changed = threading.Event()
+class Fixture:
+    def __init__(self):
         self.error = None
-        self.trace = []
-        self.counter = 0
-        self.native_shell_checked = False
-        self.native_patch_checked = False
-
-    def record(self, event, **values):
-        self.trace.append({"event": event, **values})
-
-    def call(self, call_id, name, arguments, namespace="mcp__tandem", custom=False):
-        item = {
-            "type": "custom_tool_call" if custom else "function_call",
-            "call_id": call_id,
-            "name": name,
-        }
-        if namespace:
-            item["namespace"] = namespace
-        item["input" if custom else "arguments"] = (
-            arguments if custom else json.dumps(arguments)
-        )
-        self.record("tool_requested", call_id=call_id, name=name, namespace=namespace)
-        return item
+        self.read = threading.Event()
+        self.release = threading.Event()
+        self.calls = []
 
     def answer(self, body):
-        self.counter += 1
-        assert self.counter <= 30, "unexpected repeated model requests"
-        inputs = body.get("input", [])
-        outputs = {
-            item.get("call_id"): item.get("output")
-            for item in inputs
-            if item.get("type") in ("function_call_output", "custom_tool_call_output")
-        }
-        readonly = "TANDEM_READONLY_TEST" in json.dumps(inputs)
-        follow_up = "TANDEM_FOLLOWUP_TEST" in json.dumps(inputs)
-        expected_model = "gpt-5.6-sol" if readonly and not follow_up else "gpt-6-astra"
-        assert body["model"] == expected_model, (
-            "the launcher changed the selected model"
-        )
-        active_instructions = json.dumps(
-            [body.get("instructions", "")]
-            + [item for item in inputs if item.get("role") in ("developer", "system")]
-        )
-        assert "TANDEM_HOST_INSTRUCTION_MARKER" in active_instructions, (
-            "host instructions were lost"
-        )
-        if readonly and not follow_up:
-            assert "Analysis-only Tandem session" in active_instructions
-        else:
-            assert "Analysis-only Tandem session" not in active_instructions, (
-                "edit job retained the query thread's analysis-only developer instruction"
-            )
-            assert "tandem_write_file" in active_instructions, (
-                "edit guidance is missing"
-            )
-        if follow_up:
-            assert readonly and "READONLY_DONE" in json.dumps(inputs), (
-                "the previous discussion was lost"
-            )
-            assert body.get("reasoning", {}).get("effort") == "high", (
-                "query reasoning leaked into edit follow-up"
-            )
-            if "TANDEM_CONTINUE_TEST" in json.dumps(inputs):
-                assert "FOLLOWUP_DONE" in json.dumps(inputs), (
-                    "fresh edit thread history was lost"
-                )
-                return {
-                    "type": "message",
-                    "role": "assistant",
-                    "id": "continue-done",
-                    "content": [{"type": "output_text", "text": "CONTINUE_DONE"}],
-                }
-            if "followup-native" not in outputs:
-                namespace, definition = next(
-                    (
-                        (ns, item)
-                        for ns, item in tool_definitions(body)
-                        if item.get("name")
-                        in ("exec_command", "shell_command", "shell")
-                    ),
-                    (None, {"name": "exec_command"}),
-                )
-                command = "cat a.py; printf 'must fail\\n' > followup-native.txt"
-                name = definition["name"]
-                if name == "exec_command":
-                    arguments = {
-                        "cmd": command,
-                        "workdir": str(self.root),
-                        "max_output_tokens": 1000,
-                    }
-                elif name == "shell_command":
-                    arguments = {"command": command, "workdir": str(self.root)}
-                else:
-                    arguments = {
-                        "command": ["/bin/sh", "-c", command],
-                        "workdir": str(self.root),
-                    }
-                return self.call(
-                    "followup-native", name, arguments, namespace=namespace
-                )
-            denied = str(outputs["followup-native"]).lower()
-            assert "value = 2" in denied, (
-                "the resumed native sandbox could not read the source"
-            )
-            assert any(
-                term in denied
-                for term in (
-                    "permission denied",
-                    "read-only",
-                    "not permitted",
-                    "denied",
-                )
-            ), denied
-            assert not (self.root / "followup-native.txt").exists()
-            if "followup-read" not in outputs:
-                return self.call("followup-read", "tandem_read_file", {"path": "a.py"})
-            current = tandem_result(outputs["followup-read"])
-            assert (
-                current is not None
-                and current["ok"]
-                and current["content"] == "value = 2\n"
-            )
-            if "followup-write" not in outputs:
-                return self.call(
-                    "followup-write",
-                    "tandem_write_file",
-                    {
-                        "path": "a.py",
-                        "expected_revision": current["revision"],
-                        "content": "value=3\n",
-                    },
-                )
-            saved = tandem_result(outputs["followup-write"])
-            assert (
-                saved is not None
-                and saved["ok"]
-                and saved["revision"] == digest("value = 3\n")
-            )
-            self.record("query_resumed_with_edit_settings_and_tandem_writer")
-            return {
-                "type": "message",
-                "role": "assistant",
-                "id": "followup-done",
-                "content": [{"type": "output_text", "text": "FOLLOWUP_DONE"}],
-            }
-        if readonly:
-            assert body.get("reasoning", {}).get("effort") == "low"
-            if "readonly-write" not in outputs:
-                return self.call(
-                    "readonly-write",
-                    "tandem_write_file",
-                    {
-                        "path": "readonly-forbidden.txt",
-                        "expected_revision": "missing",
-                        "content": "bad\n",
-                    },
-                )
-            assert not (self.root / "readonly-forbidden.txt").exists()
-            denied = str(outputs["readonly-write"]).lower()
-            assert any(
-                term in denied
-                for term in (
-                    "unknown",
-                    "not found",
-                    "not available",
-                    "read.only",
-                    "read_only",
-                    "unsupported",
-                    "unrecognized",
-                    "disabled",
-                )
-            ), denied
-            self.record("read_only_writer_rejected")
-            return {
-                "type": "message",
-                "role": "assistant",
-                "id": "readonly-done",
-                "content": [{"type": "output_text", "text": "READONLY_DONE"}],
-            }
+        try:
+            messages = body["messages"]
+            system = json.dumps([m for m in messages if m["role"] == "system"])
+            user = json.dumps([m for m in messages if m["role"] == "user"])
+            tools = {t["function"]["name"] for t in body.get("tools", [])}
+            # Automatic title generation is a separate, tool-free request.
+            if "Generate only the requested text" in system or not tools:
+                return {"content": "test: migrate editor integration"}
+            assert "HOST_GUIDANCE_MARKER" in system, "host instructions lost"
+            assert not ({"shell", "patch", "write", "edit", "subagent", "execute"} & tools), tools
+            assert "tandem_tandem_read_file" in tools, tools
+            readonly = "Analysis-only Tandem session" in system
+            assert ("tandem_tandem_write_file" in tools) != readonly, tools
+            self.calls.append({"readonly": readonly, "tools": sorted(tools)})
+            if readonly:
+                return {"content": "QUERY_DONE: use the shared helper"}
+            if "CONTINUE_TEST" in user:
+                assert "FOLLOWUP_DONE" in json.dumps(messages), "resumed history lost"
+                return {"content": "CONTINUE_DONE"}
+            followup = "FOLLOWUP_TEST" in user
+            if followup:
+                assert "QUERY_DONE" in user, "query-to-edit history lost"
+            outputs = {m["tool_call_id"]: m["content"] for m in messages if m["role"] == "tool"}
+            if "native-write" not in outputs:
+                return {"tool_calls": [{"id": "native-write", "type": "function", "function": {
+                    "name": "nvim_shell", "arguments": json.dumps({"command": "cat a.py; printf forbidden > native-forbidden.txt"})}}]}
+            native = str(outputs["native-write"])
+            assert "value" in native and ("Read-only file system" in native or "Permission denied" in native), native
+            prefix = "followup" if followup else "initial"
+            read_id, write_id = prefix + "-read", prefix + "-write"
 
-        definitions = tool_definitions(body)
-        if not self.native_shell_checked:
-            # Responses Lite models can describe tools in prompt text instead
-            # of a JSON tools array. Probe the actual native handler in that
-            # case; a successful read is required before accepting a denial.
-            definition = next(
-                (
-                    (ns, item)
-                    for ns, item in definitions
-                    if item.get("name") in ("exec_command", "shell_command", "shell")
-                ),
-                (None, {"name": "exec_command", "type": "function"}),
-            )
-            if "native-shell" not in outputs and definition:
-                namespace, item = definition
-                name = item["name"]
-                command = (
-                    "cat a.py; printf 'native write must fail\\n' > native-shell.txt"
-                )
-                if name == "exec_command":
-                    args = {
-                        "cmd": command,
-                        "workdir": str(self.root),
-                        "max_output_tokens": 1000,
-                    }
-                elif name == "shell_command":
-                    args = {"command": command, "workdir": str(self.root)}
-                else:
-                    args = {
-                        "command": ["/bin/sh", "-c", command],
-                        "workdir": str(self.root),
-                    }
-                return self.call("native-shell", name, args, namespace=namespace)
-            if "native-shell" in outputs:
-                result = str(outputs["native-shell"]).lower()
-                assert "value=0" in result, (
-                    "native shell failed to read before the write probe: " + result
-                )
-                assert any(
-                    term in result
-                    for term in (
-                        "permission denied",
-                        "read-only",
-                        "not permitted",
-                        "rejected",
-                        "denied",
-                        "write access",
-                    )
-                ), result
-                self.record(
-                    "native_shell_write_rejected", output=outputs["native-shell"]
-                )
-            else:
-                self.record("native_shell_not_exposed")
-            assert not (self.root / "native-shell.txt").exists()
-            self.native_shell_checked = True
+            def call(id_, name, args):
+                return {"tool_calls": [{"id": id_, "type": "function", "function": {
+                    "name": "tandem_tandem_" + name, "arguments": json.dumps(args)}}]}
 
-        if not self.native_patch_checked:
-            definition = next(
-                (
-                    (ns, item)
-                    for ns, item in definitions
-                    if item.get("name") == "apply_patch"
-                ),
-                None,
-            )
-            if "native-patch" not in outputs:
-                namespace, item = definition or (None, {"type": "custom"})
-                patch = "*** Begin Patch\n*** Add File: native-patch.txt\n+native write must fail\n*** End Patch\n"
-                assert item.get("type") == "custom", item
-                return self.call(
-                    "native-patch",
-                    "apply_patch",
-                    patch,
-                    namespace=namespace,
-                    custom=True,
-                )
-            if "native-patch" in outputs:
-                result = str(outputs["native-patch"]).lower()
-                assert any(
-                    term in result
-                    for term in (
-                        "permission denied",
-                        "read-only",
-                        "not permitted",
-                        "rejected",
-                        "denied",
-                        "write access",
-                        "unknown",
-                        "unrecognized",
-                        "unsupported",
-                    )
-                ), result
-                self.record(
-                    "native_patch_write_rejected", output=outputs["native-patch"]
-                )
-            else:
-                self.record("native_patch_not_exposed")
-            assert not (self.root / "native-patch.txt").exists()
-            self.native_patch_checked = True
-
-        if "read-base" not in outputs:
-            return self.call("read-base", "tandem_read_file", {"path": "a.py"})
-        base = tandem_result(outputs["read-base"])
-        assert base and base["ok"] and base["content"] == "value=0\n", outputs[
-            "read-base"
-        ]
-        if "write-stale" not in outputs:
-            self.ready_for_human.set()
-            assert self.human_changed.wait(25), (
-                "test controller did not edit the buffer"
-            )
-            return self.call(
-                "write-stale",
-                "tandem_write_file",
-                {
-                    "path": "a.py",
-                    "expected_revision": base["revision"],
-                    "content": "value = 99\n",
-                },
-            )
-        stale = tandem_result(outputs["write-stale"])
-        assert stale and stale["error"]["code"] == "stale_revision", outputs[
-            "write-stale"
-        ]
-        if "read-fresh" not in outputs:
-            self.record("stale_proposal_rejected", code=stale["error"]["code"])
-            return self.call("read-fresh", "tandem_read_file", {"path": "a.py"})
-        fresh = tandem_result(outputs["read-fresh"])
-        assert fresh and fresh["content"] == "value = 1\n", outputs["read-fresh"]
-        assert fresh["revision"] == digest("value = 1\n")
-        if "write-fresh" not in outputs:
-            return self.call(
-                "write-fresh",
-                "tandem_write_file",
-                {
-                    "path": "a.py",
-                    "expected_revision": fresh["revision"],
-                    "content": "value=2\n",
-                },
-            )
-        saved = tandem_result(outputs["write-fresh"])
-        assert saved and saved["ok"] and saved["revision"] == digest("value = 2\n"), (
-            outputs["write-fresh"]
-        )
-        self.record("fresh_edit_formatted_and_saved", revision=saved["revision"])
-        return {
-            "type": "message",
-            "role": "assistant",
-            "id": "edit-done",
-            "content": [{"type": "output_text", "text": "EDIT_DONE"}],
-        }
-
-
-def handler_for(fixture):
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def log_message(self, *_args):
-            pass
-
-        def do_POST(self):
-            try:
-                assert self.path.endswith("/responses"), self.path
-                assert not self.headers.get("Content-Encoding"), (
-                    "disable request compression for the fixture"
-                )
-                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-                item = fixture.answer(body)
-                response_id = "fixture-" + str(fixture.counter)
-                events = [
-                    {"type": "response.created", "response": {"id": response_id}},
-                    {"type": "response.output_item.done", "item": item},
-                    {
-                        "type": "response.completed",
-                        "response": {
-                            "id": response_id,
-                            "usage": {
-                                "input_tokens": 0,
-                                "output_tokens": 0,
-                                "total_tokens": 0,
-                            },
-                        },
-                    },
-                ]
-                payload = "".join(
-                    "event: " + event["type"] + "\ndata: " + json.dumps(event) + "\n\n"
-                    for event in events
-                ).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/event-stream")
-                self.send_header("Content-Length", str(len(payload)))
-                self.end_headers()
-                self.wfile.write(payload)
-            except Exception as error:
-                fixture.error = repr(error)
-                self.send_error(500, "fixture assertion failed")
-
-    return Handler
+            if read_id not in outputs:
+                self.read.set()
+                return call(read_id, "read_file", {"path": "a.py"})
+            current = tandem_result(outputs[read_id])
+            assert current and current["ok"], outputs[read_id]
+            if write_id not in outputs:
+                if not followup:
+                    assert self.release.wait(30), "human edit was not delivered"
+                return call(write_id, "write_file", {"path": "a.py",
+                    "content": "value=3\n" if followup else "value=2\n",
+                    "expected_revision": current["revision"]})
+            saved = tandem_result(outputs[write_id])
+            assert saved is not None, outputs[write_id]
+            if not saved["ok"]:
+                assert saved["error"]["code"] == "stale_revision", saved
+                if "retry-read" not in outputs:
+                    return call("retry-read", "read_file", {"path": "a.py"})
+                fresh = tandem_result(outputs["retry-read"])
+                assert fresh and fresh["ok"]
+                if "retry-write" not in outputs:
+                    return call("retry-write", "write_file", {"path": "a.py", "content": "value=2\n",
+                        "expected_revision": fresh["revision"]})
+                saved = tandem_result(outputs["retry-write"])
+                assert saved and saved["ok"], outputs["retry-write"]
+            expected = "value = 3\n" if followup else "value = 2\n"
+            assert saved["revision"] == hashlib.sha256(expected.encode()).hexdigest(), saved
+            return {"content": "FOLLOWUP_DONE" if followup else "EDIT_DONE"}
+        except Exception as error:
+            self.error = repr(error)
+            return {"content": "FIXTURE_FAILED: " + repr(error)}
 
 
 def main():
-    dotfiles = pathlib.Path(__file__).resolve().parents[1]
-    plugin = pathlib.Path(os.environ["TANDEM_NVIM"]).resolve()
-    conform = pathlib.Path(os.environ["TANDEM_CONFORM"]).resolve()
-    evidence = pathlib.Path(
-        os.environ.get("TANDEM_EVIDENCE_DIR", str(dotfiles / "artifacts/tandem"))
-    )
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    plugin = pathlib.Path(os.environ.get("TANDEM_NVIM", pathlib.Path.home() / ".local/share/nvim/lazy/tandem.nvim"))
+    conform = pathlib.Path(os.environ.get("TANDEM_CONFORM", pathlib.Path.home() / ".local/share/nvim/lazy/conform.nvim"))
+    binary = os.environ.get("TANDEM_BIN", str(pathlib.Path.home() / ".local/share/nvim/tandem/bin/tandem"))
+    evidence = pathlib.Path(os.environ.get("TANDEM_EVIDENCE_DIR", repo / "artifacts/tandem"))
     evidence.mkdir(parents=True, exist_ok=True)
     nvim = shutil.which("nvim")
-    codex = shutil.which("codex")
-    assert nvim and codex and shutil.which("cargo") and shutil.which("ruff")
-    spec_path = dotfiles / "config/nvim/lua/plugins/tandem.lua"
-    spec_source = spec_path.read_text()
-    plugin_revision = re.search(r'commit = "([0-9a-f]{40})"', spec_source)[1]
-    cli_revision = re.search(r'"--rev", "([0-9a-f]{40})"', spec_source)[1]
-    assert (
-        subprocess.check_output(
-            ["git", "-C", str(plugin), "rev-parse", "HEAD"], text=True
-        ).strip()
-        == plugin_revision
-    )
-    conform_revision = json.loads(
-        (dotfiles / "config/nvim/lazy-lock.json").read_text()
-    )["conform.nvim"]["commit"]
-    assert (
-        subprocess.check_output(
-            ["git", "-C", str(conform), "rev-parse", "HEAD"], text=True
-        ).strip()
-        == conform_revision
-    )
-    report = {
-        "dotfiles_revision": subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=dotfiles, text=True
-        ).strip(),
-        "platform": platform.platform(),
-        "tandem_revision": cli_revision,
-        "plugin_revision": plugin_revision,
-        "conform_revision": conform_revision,
-        "model_endpoint": "deterministic local fixture; no live model or credentials",
-        "checks": [],
-    }
+    assert nvim and shutil.which("opencode") and shutil.which("ruff")
+    assert pathlib.Path(binary).is_file(), "Install the pinned Tandem CLI or set TANDEM_BIN"
+    report = {"result": "FAIL", "checks": [], "versions": {}}
 
     def passed(name):
         report["checks"].append(name)
         print("PASS: " + name, flush=True)
 
-    with tempfile.TemporaryDirectory(
-        prefix="td-dot-",
-        dir=os.environ.get("TANDEM_TEST_TMPDIR", os.environ.get("RUNNER_TEMP", "/tmp")),
-    ) as temporary:
-        base = pathlib.Path(temporary)
+    with tempfile.TemporaryDirectory(prefix="td-open-", dir=os.environ.get("TANDEM_TEST_TMPDIR", "/tmp/opencode")) as tmp:
+        base = pathlib.Path(tmp)
         root = base / "project"
         root.mkdir()
         subprocess.run(["git", "init", "--quiet", str(root)], check=True)
-        file = root / "a.py"
-        file.write_text("value=0\n")
-        env = os.environ.copy()
-        for key, directory in (
-            ("XDG_DATA_HOME", "data"),
-            ("XDG_STATE_HOME", "state"),
-            ("XDG_CACHE_HOME", "cache"),
-            ("XDG_CONFIG_HOME", "config"),
-            ("CODEX_HOME", "codex-test-home"),
-        ):
-            path = base / directory
-            path.mkdir()
-            env[key] = str(path)
+        source = root / "a.py"
+        source.write_text("value=0\n")
+        (root / "AGENTS.md").write_text("HOST_GUIDANCE_MARKER: preserve host instructions.\n")
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("OPENCODE_", "HERDR_"))}
+        for key in ("HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME"):
+            env[key] = str(base / key)
+            pathlib.Path(env[key]).mkdir()
+        env["PWD"] = str(root)
         env["TERM"] = "xterm-256color"
-        # This child's isolated Codex home contains only fixture configuration.
-        fixture = ModelFixture(root)
-        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler_for(fixture))
-        threading.Thread(
-            target=server.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True
-        ).start()
-        model_config = "\n".join(
-            [
-                'model = "gpt-6-astra"',
-                'model_reasoning_effort = "high"',
-                'model_provider = "tandem-fixture"',
-                'developer_instructions = "TANDEM_HOST_INSTRUCTION_MARKER: Preserve host guidance."',
-                "[features]",
-                "enable_request_compression = false",
-                "shell_snapshot = false",
-                "multi_agent = false",
-                "[model_providers.tandem-fixture]",
-                'name = "Tandem integration fixture"',
-                'base_url = "http://127.0.0.1:' + str(server.server_port) + '/v1"',
-                'wire_api = "responses"',
-                "requires_openai_auth = false",
-                "supports_websockets = false",
-                "request_max_retries = 0",
-                "stream_max_retries = 0",
-                "[projects." + json.dumps(str(root)) + "]",
-                'trust_level = "trusted"',
-            ]
-        )
-        (pathlib.Path(env["CODEX_HOME"]) / "config.toml").write_text(model_config)
-        bootstrap = base / "install.lua"
-        cli_path_file = base / "cli-path"
-        bootstrap.write_text(
-            "local spec = dofile("
-            + json.dumps(str(spec_path))
-            + ")\n"
-            + "assert(spec.enabled and spec.lazy == false)\nspec.build()\n"
-            + "vim.fn.writefile({spec.opts.command}, "
-            + json.dumps(str(cli_path_file))
-            + ")\n"
-        )
-        log_path = evidence / "process.log"
-        log = log_path.open("wb")
-        editor = None
-        daemon_pid = None
-        binary = None
+        fixture = Fixture()
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler_for(fixture.answer))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        env["OPENCODE_CONFIG_CONTENT"] = json.dumps(config(server.server_port))
+        opts = {"command": binary, "root": str(root), "state_home": env["XDG_STATE_HOME"]}
+        init = base / "init.lua"
+        init.write_text("\n".join([
+            f"vim.opt.runtimepath:append({json.dumps(str(p))})" for p in [repo / "config/nvim", plugin, conform]
+        ] + [
+            "vim.opt.swapfile = false",
+            'vim.cmd("filetype plugin indent on")',
+            f'dofile({json.dumps(str(repo / "config/nvim/lua/plugins/conform.lua"))}).config()',
+            f"vim.cmd.edit({json.dumps(str(source))})",
+            f"local opts = vim.json.decode({json.dumps(json.dumps(opts))})",
+            'require("opencode.tandem").configure(opts)',
+            'require("tandem").setup(opts)',
+            'require("config.opencode").setup()',
+        ]))
+        socket = str(base / "nvim.sock")
+        log = (evidence / "process.log").open("w")
+        editor = subprocess.Popen([nvim, "--headless", "--listen", socket, "-u", str(init)],
+                                  cwd=root, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log)
+
+        def expr(expression):
+            output = subprocess.check_output([nvim, "--server", socket, "--remote-expr",
+                "luaeval(" + json.dumps("vim.json.encode(" + expression + ")") + ")"],
+                cwd=root, env=env, text=True, stderr=log, timeout=5)
+            return json.loads(output)
+
+        def lua(code):
+            return expr("(function() " + code + "; return true end)()")
+
+        def cli(*args):
+            return json.loads(subprocess.check_output([binary, "--root", str(root), "--state-home",
+                env["XDG_STATE_HOME"], *args], text=True, env=env, timeout=10))
+
+        def until(predicate, label, timeout=60):
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                if fixture.error:
+                    raise AssertionError(fixture.error)
+                assert editor.poll() is None, "Neovim exited; see process.log"
+                try:
+                    if predicate():
+                        return
+                except (subprocess.SubprocessError, ValueError):
+                    pass
+                time.sleep(0.05)
+            raise AssertionError("Timed out: " + label)
+
+        def launch(action, instruction):
+            lua(f'require("opencode.ephemeral.jobs").run({json.dumps(action)}, require("opencode.context.targets").build_file(), {json.dumps(instruction)})')
+            return expr('require("opencode.state").next_ephemeral_job_id - 1')
+
+        def job(id_):
+            return expr(f'require("opencode.state").ephemeral_jobs[{id_}]')
+
+        def finish(id_, expected):
+            until(lambda: job(id_).get("finished_at"), expected)
+            record = job(id_)
+            assert record["status"] == "success", record
+            assert expected in "\n".join(record["answer_lines"]), record
+            assert record["thread_id"].startswith("ses_"), record
+            return record
+
         try:
-            subprocess.run(
-                [nvim, "--headless", "-u", "NONE", "-l", str(bootstrap)],
-                cwd=root,
-                env=env,
-                stdout=log,
-                stderr=log,
-                timeout=600,
-                check=True,
-            )
-            binary = cli_path_file.read_text().strip()
-            report["versions"] = {
-                "tandem": subprocess.check_output(
-                    [binary, "--version"], text=True
-                ).strip(),
-                "codex": subprocess.check_output(
-                    [codex, "--version"], env=env, text=True
-                ).strip(),
-                "neovim": subprocess.check_output(
-                    [nvim, "--version"], text=True
-                ).splitlines()[0],
-                "ruff": subprocess.check_output(
-                    ["ruff", "--version"], text=True
-                ).strip(),
-            }
-            assert report["versions"]["tandem"] == "tandem-cli 0.2.0"
-            passed("actual Lazy build callback installs the pinned Rust CLI")
-            socket = str(base / "nvim.sock")
-            init = base / "init.lua"
-            init.write_text(
-                "\n".join(
-                    [
-                        "vim.opt.runtimepath:append("
-                        + json.dumps(str(dotfiles / "config/nvim"))
-                        + ")",
-                        "vim.opt.runtimepath:append(" + json.dumps(str(plugin)) + ")",
-                        "vim.opt.runtimepath:append(" + json.dumps(str(conform)) + ")",
-                        "vim.opt.swapfile = false",
-                        'vim.cmd("filetype plugin indent on")',
-                        "dofile("
-                        + json.dumps(
-                            str(dotfiles / "config/nvim/lua/plugins/conform.lua")
-                        )
-                        + ").config()",
-                        "vim.cmd.edit(" + json.dumps(str(file)) + ")",
-                        'require("tandem").setup(dofile('
-                        + json.dumps(str(spec_path))
-                        + ").opts)",
-                        'require("config.codex").setup()',
-                        # Pin the fixture model independently of user defaults.
-                        "require('codex.state').ephemeral_models.edit = 'gpt-6-astra'",
-                    ]
-                )
-            )
-            editor = subprocess.Popen(
-                [nvim, "--headless", "--listen", socket, "-u", str(init)],
-                cwd=root,
-                env=env,
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=log,
-            )
-
-            def expr(expression):
-                lua = "vim.json.encode(" + expression + ")"
-                output = subprocess.check_output(
-                    [
-                        nvim,
-                        "--server",
-                        socket,
-                        "--remote-expr",
-                        "luaeval(" + json.dumps(lua) + ")",
-                    ],
-                    cwd=root,
-                    env=env,
-                    text=True,
-                    stderr=log,
-                    timeout=5,
-                )
-                return json.loads(output)
-
-            def cli(*args):
-                output = subprocess.check_output(
-                    [
-                        binary,
-                        "--root",
-                        str(root),
-                        "--state-home",
-                        env["XDG_STATE_HOME"],
-                        *args,
-                    ],
-                    env=env,
-                    text=True,
-                    stderr=log,
-                    timeout=8,
-                )
-                return json.loads(output)
-
-            def until(predicate, label, timeout=40):
-                deadline = time.monotonic() + timeout
-                last = None
-                while time.monotonic() < deadline:
-                    if fixture.error:
-                        raise AssertionError(fixture.error)
-                    assert editor.poll() is None, "Neovim exited; see process.log"
-                    try:
-                        if predicate():
-                            return
-                    except (
-                        OSError,
-                        subprocess.SubprocessError,
-                        ValueError,
-                        KeyError,
-                    ) as error:
-                        last = error
-                    time.sleep(0.05)
-                raise AssertionError(label + ": " + str(last))
-
-            until(
-                lambda: expr("require('tandem').status().connected"),
-                "daemon connection",
-            )
-            daemon_pid = cli("status")["pid"]
-            assert expr("require('tandem').status().root") == str(root)
-            passed("dotfiles plugin options start and attach the daemon automatically")
-
-            def check_args(argv, read_only=False):
-                assert argv[argv.index("--sandbox") + 1] == "read-only"
-                config = {}
-                for index, arg in enumerate(argv[:-1]):
-                    if arg == "-c":
-                        parsed = tomllib.loads(argv[index + 1])
-                        config.update(parsed)
-                assert config["approval_policy"] == "never"
-                mcp = config["mcp_servers"]["tandem"]
-                assert mcp["command"] == binary and mcp["required"] is True
-                assert set(mcp["tools"]) == set(mcp["enabled_tools"])
-                assert all(
-                    tool["approval_mode"] == "approve" for tool in mcp["tools"].values()
-                )
-                assert mcp["args"][:4] == [
-                    "--root",
-                    str(root),
-                    "--state-home",
-                    env["XDG_STATE_HOME"],
-                ]
-                assert ("--read-only" in mcp["args"]) == read_only
-                assert ("tandem_write_file" in mcp["enabled_tools"]) != read_only
-
-            # Use the real direct-chat function, intercepting only the terminal
-            # launch so the test does not pretend to drive Codex's interactive UI.
-            direct = expr(
-                "(function() local old = vim.fn.jobstart; local notify = vim.notify; local captured; "
-                "vim.notify = function(msg, level, opts) if msg ~= 'Failed to start Codex chat' then notify(msg, level, opts) end end; "
-                "vim.fn.jobstart = function(cmd, opts) "
-                "if cmd[1] == 'codex' then captured = cmd; return -1 end; return old(cmd, opts) end; "
-                "local ok, err = pcall(require('codex.chat').create); vim.fn.jobstart = old; vim.notify = notify; assert(ok, err); return captured end)()"
-            )
-            check_args(direct)
-            expr(
-                "(function() vim.cmd.edit("
-                + json.dumps(str(file))
-                + "); return true end)()"
-            )
-            herdr = expr(
-                "require('codex.herdr').agent_start_args({cwd="
-                + json.dumps(str(root))
-                + ",herdr_agent_name='nvim-codex-td-test',herdr_pane_id='w1:p2',tandem_args=require('tandem').codex_args({cwd="
-                + json.dumps(str(root))
-                + "})})"
-            )
-            check_args(herdr[herdr.index("--") + 1 :])
-            passed(
-                "actual direct-chat and Herdr launch paths forward the protected Codex arguments"
-            )
-
-            def launch(action, marker):
-                code = (
-                    "(function() local jobs=require('codex.ephemeral.jobs'); jobs.run("
-                    + json.dumps(action)
-                )
-                code += ",require('codex.context.targets').build_file(),"
-                code += (
-                    json.dumps(marker)
-                    + "); return require('codex.state').next_ephemeral_job_id - 1 end)()"
-                )
-                return expr(code)
-
-            job_id = launch("edit", "TANDEM_EDIT_TEST: update a.py through Tandem")
-            until(
-                lambda: fixture.ready_for_human.is_set(),
-                "Codex reaches its first real MCP read",
-            )
-            assert file.read_text() == "value=0\n"
-            expr(
-                "(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'value=1'}); return true end)()"
-            )
-            until(lambda: bool(cli("status")["leases"]), "human edit lease")
-            fixture.human_changed.set()
-            until(lambda: cli("status")["waiting"] == 1, "real Codex MCP writer waits")
-            assert file.read_text() == "value=0\n"
-            assert expr("vim.api.nvim_buf_get_lines(0,0,-1,false)") == ["value=1"]
-            passed(
-                "real Codex MCP write waits while the live human buffer stays unchanged"
-            )
-            proposal = base / "other.txt"
-            proposal.write_text("other agent\n")
-            assert cli(
-                "write",
-                "other.txt",
-                "--expect",
-                "missing",
-                "--content-file",
-                str(proposal),
-            )["ok"]
-            assert (root / "other.txt").read_text() == "other agent\n"
-            assert cli("status")["waiting"] == 1 and expr("vim.bo.modified") is True
-            passed("another agent can edit another file during the human lease")
-            expr("(function() vim.cmd('write'); return true end)()")
-            until(
-                lambda: (
-                    expr(
-                        "require('codex.state').ephemeral_jobs["
-                        + str(job_id)
-                        + "].status"
-                    )
-                    in ("success", "failed", "failed_to_start")
-                ),
-                "Codex edit job completes",
-            )
-            job = expr("require('codex.state').ephemeral_jobs[" + str(job_id) + "]")
-            assert job["status"] == "success", job
-            assert file.read_text() == "value = 2\n"
-            assert expr("vim.api.nvim_buf_get_lines(0,0,-1,false)") == ["value = 2"]
-            assert expr("vim.bo.modified") is False
-            passed(
-                "stale proposal is rejected; reread and regenerated edit run the actual Conform save hooks"
-            )
-            assert fixture.native_shell_checked and fixture.native_patch_checked
-            assert (
-                not (root / "native-shell.txt").exists()
-                and not (root / "native-patch.txt").exists()
-            )
-            passed("native patch and shell paths cannot write around Tandem")
-
-            expr(
-                "(function() require('codex.state').ephemeral_models.query='gpt-5.6-sol'; return true end)()"
-            )
-            read_job = launch(
-                "query", "TANDEM_READONLY_TEST: demonstrate this job cannot write"
-            )
-            until(
-                lambda: (
-                    expr(
-                        "require('codex.state').ephemeral_jobs["
-                        + str(read_job)
-                        + "].status"
-                    )
-                    in ("success", "failed", "failed_to_start")
-                ),
-                "read-only Codex job completes",
-            )
-            assert (
-                expr(
-                    "require('codex.state').ephemeral_jobs["
-                    + str(read_job)
-                    + "].status"
-                )
-                == "success"
-            )
-            assert (
-                not (root / "readonly-forbidden.txt").exists()
-                and file.read_text() == "value = 2\n"
-            )
-            passed("actual read-only Codex job cannot invoke Tandem's writer")
-
-            follow_job = expr(
-                "(function() local state=require('codex.state'); "
-                "assert(require('codex.ephemeral.jobs').follow_up(state.ephemeral_jobs["
-                + str(read_job)
-                + "],"
-                "'TANDEM_FOLLOWUP_TEST: now edit a.py using the previous discussion',{action='edit'})); "
-                "return state.next_ephemeral_job_id - 1 end)()"
-            )
-            until(
-                lambda: (
-                    expr(
-                        "require('codex.state').ephemeral_jobs["
-                        + str(follow_job)
-                        + "].status"
-                    )
-                    in ("success", "failed", "failed_to_start")
-                ),
-                "query-to-edit follow-up completes",
-            )
-            follow = expr(
-                "require('codex.state').ephemeral_jobs[" + str(follow_job) + "]"
-            )
-            parent = expr(
-                "require('codex.state').ephemeral_jobs[" + str(read_job) + "]"
-            )
-            assert follow["status"] == "success", follow
-            assert (
-                follow["thread_id"] != parent["thread_id"]
-                and follow["parent_job_id"] == read_job
-            )
-            assert follow["action"] == "edit" and follow["model"] == "gpt-6-astra"
-            assert file.read_text(encoding="utf-8") == "value = 3\n"
-            assert expr("vim.api.nvim_buf_get_lines(0,0,-1,false)") == ["value = 3"]
-            passed(
-                "fresh edit thread preserves discussion and host guidance, with writable Tandem instructions"
-            )
-            continued_job = expr(
-                "(function() local state=require('codex.state'); "
-                "assert(require('codex.ephemeral.jobs').follow_up(state.ephemeral_jobs["
-                + str(follow_job)
-                + "],'TANDEM_CONTINUE_TEST: summarize the edit')); "
-                "return state.next_ephemeral_job_id - 1 end)()"
-            )
-            until(
-                lambda: (
-                    expr(
-                        "require('codex.state').ephemeral_jobs["
-                        + str(continued_job)
-                        + "].status"
-                    )
-                    in ("success", "failed", "failed_to_start")
-                ),
-                "edit thread follow-up completes",
-            )
-            continued = expr(
-                "require('codex.state').ephemeral_jobs[" + str(continued_job) + "]"
-            )
-            assert continued["status"] == "success", continued
-            assert continued["thread_id"] == follow["thread_id"]
-            assert "CONTINUE_DONE" in continued["answer_lines"]
-            passed(
-                "normal follow-up resumes the fresh edit thread without analysis-only instructions"
-            )
-            report["result"] = "passed"
+            for name, command in {"opencode": ["opencode", "--version"], "tandem": [binary, "--version"],
+                                  "neovim": [nvim, "--version"], "ruff": ["ruff", "--version"]}.items():
+                report["versions"][name] = subprocess.check_output(command, text=True, env=env).splitlines()[0]
+            until(lambda: expr('require("tandem").status().connected'), "editor connection")
+            passed("real Tandem daemon and editor connected")
+            first = launch("edit", "EDIT_TEST")
+            until(fixture.read.is_set, "first MCP read")
+            # The model pauses after its first read, so the human's draft must
+            # block its write and then force a fresh-revision retry after save.
+            lua('vim.api.nvim_buf_set_lines(0, 0, -1, false, {"value=1"})')
+            until(lambda: len(expr('require("tandem").status().dirty')) == 1, "dirty claim")
+            fixture.release.set()
+            until(lambda: cli("status")["waiting"] > 0, "writer waits for human")
+            assert expr('vim.api.nvim_buf_get_lines(0, 0, -1, false)') == ["value=1"]
+            lua('vim.cmd("write")')
+            finish(first, "EDIT_DONE")
+            assert source.read_text() == "value = 2\n"
+            assert expr('vim.api.nvim_buf_get_lines(0, 0, -1, false)') == ["value = 2"]
+            passed("agent waits for unsaved buffer, retries stale revision, and writes through Conform")
+            query = launch("query", "QUERY_TEST")
+            finish(query, "QUERY_DONE")
+            assert source.read_text() == "value = 2\n"
+            passed("query exposes read-only MCP and no native writers")
+            lua(f'assert(require("opencode.ephemeral.jobs").follow_up(require("opencode.state").ephemeral_jobs[{query}], "FOLLOWUP_TEST", {{action="edit"}}))')
+            follow = expr('require("opencode.state").next_ephemeral_job_id - 1')
+            promoted = finish(follow, "FOLLOWUP_DONE")
+            assert source.read_text() == "value = 3\n"
+            passed("query-to-edit promotion preserves discussion and grants only Tandem writes")
+            lua(f'assert(require("opencode.ephemeral.jobs").follow_up(require("opencode.state").ephemeral_jobs[{follow}], "CONTINUE_TEST"))')
+            resumed = finish(expr('require("opencode.state").next_ephemeral_job_id - 1'), "CONTINUE_DONE")
+            assert promoted["thread_id"] == resumed["thread_id"]
+            passed("follow-up resumes the same native OpenCode session")
+            lua('require("opencode.backend").generate("Generate a commit subject", vim.fn.getcwd(), function(code, text) vim.g.generated = {code=code,text=text} end)')
+            until(lambda: expr("vim.g.generated") is not None, "text generation")
+            assert expr("vim.g.generated") == {"code": 0, "text": "test: migrate editor integration"}
+            passed("tool-free text generation returns clean model output")
+            report["result"] = "PASS"
         except Exception as error:
-            report["result"] = "failed"
             report["error"] = repr(error)
             raise
         finally:
-            fixture.human_changed.set()
-            if editor and editor.poll() is None:
-                try:
-                    report["jobs"] = expr(
-                        "(function() local out = {}; for _, job in pairs(require('codex.state').ephemeral_jobs) do "
-                        "out[#out+1] = {action=job.action,status=job.status,exit_code=job.exit_code,"
-                        "stderr=job.stderr_lines,answer=job.answer_lines}; end; return out end)()"
-                    )
-                    if report.get("result") != "passed":
-                        print(json.dumps(report["jobs"], indent=2), file=sys.stderr)
-                except (OSError, ValueError, subprocess.SubprocessError):
-                    pass
+            for path in pathlib.Path(env["XDG_DATA_HOME"]).rglob("*.log"):
+                shutil.copyfile(path, evidence / ("opencode-" + path.name))
+            fixture.release.set()
+            try:
+                lua('vim.cmd("qa!")')
+            except Exception:
+                pass
+            try:
+                editor.wait(timeout=5)
+            except subprocess.TimeoutExpired:
                 editor.terminate()
-                editor.communicate(timeout=10)
-            if daemon_pid and binary:
-                try:
-                    status = json.loads(
-                        subprocess.check_output(
-                            [
-                                binary,
-                                "--root",
-                                str(root),
-                                "--state-home",
-                                env["XDG_STATE_HOME"],
-                                "status",
-                            ],
-                            env=env,
-                            text=True,
-                            stderr=subprocess.DEVNULL,
-                            timeout=2,
-                        )
-                    )
-                    if status.get("pid") == daemon_pid:
-                        os.kill(daemon_pid, signal.SIGTERM)
-                except (OSError, ValueError, subprocess.SubprocessError):
-                    pass
+                editor.wait(timeout=5)
             server.shutdown()
-            server.server_close()
             log.close()
-            report["tool_trace"] = fixture.trace
             (evidence / "results.json").write_text(json.dumps(report, indent=2) + "\n")
-            print(json.dumps(report, indent=2), flush=True)
-            if report.get("result") != "passed":
-                print(log_path.read_text(errors="replace")[-12000:], file=sys.stderr)
-    print("All Tandem dotfiles integration checks passed.", flush=True)
 
 
 if __name__ == "__main__":
