@@ -1,4 +1,12 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
+local temporary = vim.fn.tempname()
+vim.fn.mkdir(temporary .. "/project/.git", "p")
+vim.fn.mkdir(temporary .. "/other/.git", "p")
+local original_stdpath, original_cwd = vim.fn.stdpath, vim.fn.getcwd()
+vim.fn.stdpath = function(kind)
+	return kind == "state" and temporary .. "/state" or original_stdpath(kind)
+end
+vim.cmd.cd(temporary .. "/project")
 vim.g.opencode_chat_test = true
 local chat = require("opencode.chat")
 local herdr = require("opencode.herdr")
@@ -62,7 +70,9 @@ assert(chat.detach(old_buffer))
 equal(stopped, { 1001 })
 equal(state.opencode_sessions[old_buffer], nil)
 equal(vim.api.nvim_buf_is_valid(old_buffer), false)
-chat.attach_agent("external")
+-- The registry is empty after detach, as after restarting Neovim. Toggle must
+-- restore the disk-backed identity rather than discover/create another agent.
+chat.toggle()
 equal(attached, 2)
 session = chat.active_session()
 assert(chat.delete_buffer(session.bufnr)) -- Existing session-panel deletion only detaches externals.
@@ -104,4 +114,40 @@ assert(failed_session.external_attachment)
 equal(failed_session.launch_status, "detached")
 assert(not chat.is_running(failed_session.bufnr))
 chat.detach(failed_session.bufnr)
+
+local attachment = require("opencode.attachment")
+local project = attachment.project()
+local saved = attachment.load(project)
+assert(saved and saved.name == "external")
+package.loaded["opencode.attachment"] = nil
+equal(require("opencode.attachment").load(project), saved)
+vim.cmd.cd(temporary .. "/other")
+equal(attachment.load(attachment.project()), nil)
+vim.cmd.cd(temporary .. "/project")
+
+-- A reused name in another pane must not silently become the remembered chat.
+local prompted, dashboard = 0, 0
+local original_select = vim.ui.select
+vim.ui.select = function(choices, _, callback)
+	prompted = prompted + 1
+	callback(choices[1])
+end
+chat.attach_existing = function() dashboard = dashboard + 1 end
+agent.pane_id = "w9:p9"
+chat.toggle()
+equal(prompted, 1)
+equal(dashboard, 1)
+equal(attachment.load(project), saved)
+equal(attached, 4)
+
+-- A delayed lookup must not attach into a different project.
+herdr.get_agent = function(_, callback) resolve = callback end
+chat.attach_agent("external")
+vim.cmd.cd(temporary .. "/other")
+resolve(agent)
+equal(attached, 4)
+vim.ui.select = original_select
+vim.cmd.cd(original_cwd)
+vim.fn.stdpath = original_stdpath
+vim.fn.delete(temporary, "rf")
 print("opencode_external_attachment_spec.lua: ok")

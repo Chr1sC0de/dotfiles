@@ -4,6 +4,7 @@ local state = require("opencode.state")
 local util = require("opencode.util")
 local tandem = require("opencode.tandem")
 local backend = require("opencode.backend")
+local attachment = require("opencode.attachment")
 
 --- Utility functions for launching and interacting with OpenCode terminal chat buffers.
 local M = {}
@@ -1631,14 +1632,24 @@ end
 local attaching = {}
 
 ---Explicitly attach a live OpenCode agent, including externally launched agents.
-function M.attach_agent(target, callback)
+function M.attach_agent(target, callback, expected)
 	ensure_session_state()
+	local project = attachment.project()
 	if attaching[target] then
 		return
 	end
 	attaching[target] = true
 	herdr.get_agent(target, function(agent, err)
 		attaching[target] = nil
+		if attachment.project() ~= project then
+			if callback then callback(nil) end
+			return
+		end
+		if expected and not attachment.matches(expected, agent) then
+			util.notify("Remembered OpenCode agent is unavailable or has changed", vim.log.levels.WARN)
+			if callback then callback(nil) end
+			return
+		end
 		if not agent or agent.agent ~= "opencode" then
 			util.notify(err or "Only OpenCode agents support Neovim attachment", vim.log.levels.WARN)
 			if callback then
@@ -1651,6 +1662,7 @@ function M.attach_agent(target, callback)
 			if session.herdr_agent_name == (agent.name or agent.pane_id) and session.herdr_pane_id == agent.pane_id then
 				if session_is_running(session) then
 					M.focus(session.bufnr)
+					attachment.save(project, session)
 					if callback then
 						callback(session)
 					end
@@ -1661,6 +1673,9 @@ function M.attach_agent(target, callback)
 		end
 		local managed = #herdr.filter_agents({ agent }) > 0
 		local session = attach_existing_agent(agent, previous, not managed)
+		if session and session_is_running(session) then
+			attachment.save(project, session)
+		end
 		if callback then
 			callback(session)
 		end
@@ -1900,6 +1915,22 @@ function M.toggle()
 	end
 
 	M.remember_previous_buffer()
+	local project = attachment.project()
+	local remembered = attachment.load(project)
+	if remembered then
+		M.attach_agent(remembered.name, function(restored)
+			if restored and session_is_running(restored) then return end
+			if attachment.project() ~= project then return end
+			vim.ui.select({ "Reattach an agent", "Cancel" }, {
+				prompt = "Remembered OpenCode attachment unavailable",
+			}, function(choice)
+				if choice == "Reattach an agent" and attachment.project() == project then
+					M.attach_existing()
+				end
+			end)
+		end, remembered)
+		return
+	end
 	local session = M.active_session()
 	if session then
 		vim.api.nvim_set_current_buf(session.bufnr)

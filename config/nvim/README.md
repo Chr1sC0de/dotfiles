@@ -124,6 +124,12 @@ use `:OpenCodeQueryFileDiagnostics`, `:OpenCodeQueryLineDiagnostics`, or
 The former `:OpenCodeCommand*` names have been replaced; existing keybindings
 still work (`<leader>aq`, `<leader>ac`, `<leader>ar`, and `<leader>ae`).
 
+Attaching an agent with `<leader>aA` remembers its identity for the current project
+(each Git worktree is separate). `<leader>aa` returns to that attachment, including
+after restarting Neovim, retaining the existing agent conversation and its model.
+If the remembered agent is missing or has moved to a different pane/workspace,
+the toggle offers reattachment rather than silently creating or selecting another chat.
+
 Choose separate query, edit, and commit-message models with `<leader>am` or
 `:OpenCodeEphemeralModel [query|edit|commit]`. Commit generation and message revisions use the saved commit model.
 The picker queries OpenCode V2's model API through the authenticated CLI,
