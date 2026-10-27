@@ -279,7 +279,7 @@ pane_history = false
 # scrollback_limit_bytes = 10000000
 
 [[keys.command]]
-key = "prefix+k"
+key = "prefix+f"
 type = "popup"
 command = 'herdr-sessionizer projects'
 width = 150
@@ -287,7 +287,7 @@ height = 45
 description = "open project workspace"
 
 [[keys.command]]
-key = "prefix+f"
+key = "prefix+g"
 type = "popup"
 command = 'herdr-sessionizer worktrees'
 width = 150
