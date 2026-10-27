@@ -1133,7 +1133,9 @@ function M.generate_title(bufnr)
 	session.title_status = "naming"
 	session.title_error = nil
 	session.title_job_id = backend.generate(title_prompt(session, lines), session.cwd, function(code, output, err)
-		if state.opencode_sessions[bufnr] ~= session then return end
+		if state.opencode_sessions[bufnr] ~= session then
+			return
+		end
 		session.title_job_id = nil
 		if code == 0 and M.set_title(bufnr, output) then
 			util.notify("Named OpenCode chat: " .. session.title)
@@ -1416,7 +1418,10 @@ function M.create()
 		return nil
 	end
 	local protected_env, env_error = backend.environment(config, { root = root })
-	if not protected_env then util.notify(env_error, vim.log.levels.ERROR); return nil end
+	if not protected_env then
+		util.notify(env_error, vim.log.levels.ERROR)
+		return nil
+	end
 	protected_env.PWD = vim.fn.getcwd()
 
 	M.cleanup()
@@ -1642,12 +1647,16 @@ function M.attach_agent(target, callback, expected)
 	herdr.get_agent(target, function(agent, err)
 		attaching[target] = nil
 		if attachment.project() ~= project then
-			if callback then callback(nil) end
+			if callback then
+				callback(nil)
+			end
 			return
 		end
 		if expected and not attachment.matches(expected, agent) then
 			util.notify("Remembered OpenCode agent is unavailable or has changed", vim.log.levels.WARN)
-			if callback then callback(nil) end
+			if callback then
+				callback(nil)
+			end
 			return
 		end
 		if not agent or agent.agent ~= "opencode" then
@@ -1915,12 +1924,23 @@ function M.toggle()
 	end
 
 	M.remember_previous_buffer()
+	local session = M.active_session()
+	if session then
+		vim.api.nvim_set_current_buf(session.bufnr)
+		vim.cmd("startinsert")
+		return
+	end
+
 	local project = attachment.project()
 	local remembered = attachment.load(project)
 	if remembered then
 		M.attach_agent(remembered.name, function(restored)
-			if restored and session_is_running(restored) then return end
-			if attachment.project() ~= project then return end
+			if restored and session_is_running(restored) then
+				return
+			end
+			if attachment.project() ~= project then
+				return
+			end
 			vim.ui.select({ "Reattach an agent", "Cancel" }, {
 				prompt = "Remembered OpenCode attachment unavailable",
 			}, function(choice)
@@ -1929,12 +1949,6 @@ function M.toggle()
 				end
 			end)
 		end, remembered)
-		return
-	end
-	local session = M.active_session()
-	if session then
-		vim.api.nvim_set_current_buf(session.bufnr)
-		vim.cmd("startinsert")
 		return
 	end
 
