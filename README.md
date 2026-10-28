@@ -1,40 +1,52 @@
 # README
 
-if we have tar issues, this may help
+## Install (Debian/Ubuntu x86-64)
+
+If curl or HTTPS certificates are missing, bootstrap them first:
+
+```bash
+sudo apt-get update && sudo apt-get install -y curl ca-certificates
+```
+
+Omit `sudo` when running as root. Otherwise, run directly:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Chr1sC0de/dotfiles/refs/heads/master/install.sh | bash - \
+    && . "$HOME/.bashrc" \
+    && nvim --headless "+Lazy! sync" +MasonToolsInstallSync +q!
+```
+
+The installer downloads jq, bat, ripgrep, and fd concurrently from official
+GitHub releases. Optional GitHub CLI (`bash utils/dependencies-install-all.sh --github`)
+also uses a release binary. System packages are installed through APT only when
+missing; an already-provisioned system skips APT entirely for default dependencies.
+Non-root installation requires sudo access.
+
+To use Debian packages for jq, bat, ripgrep, and fd instead:
+
+```bash
+DOTFILES_CORE_SOURCE=apt bash utils/dependencies-install-all.sh
+```
+
+See [installation audit](docs/install-audit.md) for container tests and measurements.
+
+If tar reports ownership/permission issues, this may help:
 
 ```bash
 export TAR_OPTIONS="--no-same-owner --no-same-permissions"
 ```
 
-```bash
-sudo apt-get update -y \
-    && sudo apt-get install curl -y \
-    && curl https://raw.githubusercontent.com/Chr1sC0de/dotfiles/refs/heads/master/install.sh | bash - \
-    && . $HOME/.bashrc \
-    && nvim --headless "+Lazy! sync" +MasonToolsInstallSync +q!
-```
-
-when running as root, sometimes it's better to not use sudo
-
-```bash
-apt-get update -y \
-    && apt-get install curl -y \
-    && curl https://raw.githubusercontent.com/Chr1sC0de/dotfiles/refs/heads/master/install.sh | bash - \
-    && . $HOME/.bashrc \
-    && nvim --headless "+Lazy! sync" +MasonToolsInstallSync +q!
-```
-
-in docker images during build
+In Docker images during build:
 
 ```dockerfile
 ENV TAR_OPTIONS="--no-same-owner --no-same-permissions"
-ENV DOTFILES_INSTALL_SCRIPT=https://raw.githubusercontent.com/Chr1sC0de/dotfiles/refs/heads/master/install.sh;
+ENV DOTFILES_INSTALL_SCRIPT=https://raw.githubusercontent.com/Chr1sC0de/dotfiles/refs/heads/master/install.sh
 
-RUN apt-get update -y \
-    && apt-get install curl -y \
-    && curl $DOTFILES_INSTALL_SCRIPT | bash -;
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl -fsSL "$DOTFILES_INSTALL_SCRIPT" | bash -
 
-RUN bash -l -i -c "\. $HOME/.bashrc && nvim --headless '+Lazy! sync\' +MasonToolsInstallSync +q!";
+RUN bash -l -i -c '. "$HOME/.bashrc" && nvim --headless "+Lazy! sync" +MasonToolsInstallSync +q!'
 ```
 
 Default dotfile installation (`bash utils/dotfiles-install.sh` from this repository)

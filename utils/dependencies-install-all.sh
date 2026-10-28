@@ -53,5 +53,5 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 for SCRIPT_FILENAME in "${TO_INSTALL[@]}"; do
-    bash "$DEPENDENCIES_SCRIPTS_FOLDER/$SCRIPT_FILENAME"
+    bash "$DEPENDENCIES_SCRIPTS_FOLDER/$SCRIPT_FILENAME" || exit "$?"
 done

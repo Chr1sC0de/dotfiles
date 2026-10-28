@@ -1,18 +1,8 @@
 #!/usr/bin/env bash
-
-tag=v0.23.5
-file=eza_x86_64-unknown-linux-gnu.tar.gz
-repository=eza-community/eza
-release="https://github.com/$repository/releases/download/$tag/$file"
-
-source_file=/tmp/eza
-target_file="$HOME"/.local/bin/eza
-
-echo setting up eza release $release to /tmp
-wget -P /tmp $release
-
-(cd /tmp && tar -xvzf $file || exit)
-
-echo moving $source_file to "$target_file"
-
-mv -f $source_file "$target_file"
+set -euo pipefail
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+curl -fsSL --retry 3 https://github.com/eza-community/eza/releases/download/v0.23.5/eza_x86_64-unknown-linux-gnu.tar.gz -o "$tmp/eza.tar.gz"
+tar -xzf "$tmp/eza.tar.gz" -C "$tmp"
+mkdir -p "$HOME/.local/bin"
+install -m 755 "$tmp/eza" "$HOME/.local/bin/eza"

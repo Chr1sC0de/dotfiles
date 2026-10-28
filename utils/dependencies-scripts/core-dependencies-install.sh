@@ -1,50 +1,32 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-dependencies=(
-	"git"
-	"jq"
-	"curl"
-	"wget"
-	"ca-certificates"
-	"bat"
-	"ripgrep"
-	"fd-find"
-	"build-essential"
-	"cmake"
-	"python3"
-	"tmux"
-	"sudo"
-)
-
-if [[ $EUID -ne 0 ]]; then
-	sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${dependencies[@]}"
-else
-	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${dependencies[@]}"
-fi
-
-if [[ $EUID -ne 0 ]]; then
-	sudo apt-get autoremove -y
-else
-	apt-get autoremove -y
-fi
-
+dependencies=(git curl ca-certificates build-essential cmake python3 tmux)
+case ${DOTFILES_CORE_SOURCE:-binaries} in
+apt) dependencies+=(jq bat ripgrep fd-find) ;;
+binaries) ;;
+*)
+	echo 'DOTFILES_CORE_SOURCE must be apt or binaries' >&2
+	exit 2
+	;;
+esac
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+bash "$script_dir/../apt-install-missing.sh" "${dependencies[@]}"
 mkdir -p "$HOME/.local/bin"
-
-# create symbolic link fo fdfind
-if type fdfind &>/dev/null; then
-	ln -sf "$(which fdfind)" "$HOME/.local/bin/fd"
+if [[ ${DOTFILES_CORE_SOURCE:-binaries} == binaries ]]; then
+	bash "$script_dir/core-binaries-install.sh"
+else
+	if type fdfind &>/dev/null; then
+		ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+	fi
+	if type batcat &>/dev/null; then
+		ln -sf "$(command -v batcat)" "$HOME/.local/bin/bat"
+	fi
 fi
-
-# create symbolic link for bash
-if type batcat &>/dev/null; then
-	ln -sf "$(which batcat)" "$HOME/.local/bin/bat"
+if [[ ! -d $HOME/.fzf/.git ]]; then
+	git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
 fi
-
-# install fzf
-git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
-
 "$HOME/.fzf/install" --all --no-bash
-
-# install dependencies for tmux plugins
-# now just press ctrl + leader r then `ctrl + leader I`
-git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+if [[ ! -d $HOME/.tmux/plugins/tpm/.git ]]; then
+	git clone --depth 1 https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
+fi
