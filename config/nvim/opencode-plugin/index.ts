@@ -1,7 +1,7 @@
 import { Plugin } from "@opencode/plugin"
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
-import { inspect } from "./shell"
+import { run } from "./shell"
 
 const hook = fileURLToPath(new URL("../bin/opencode-nvim-hook", import.meta.url))
 
@@ -26,21 +26,23 @@ export default Plugin.define({
       "tandem_tandem_read_file", "tandem_tandem_status",
       ...(readOnly ? [] : ["tandem_tandem_write_file"]),
     ])
-    // Apply on every registry rebuild, including deferred MCP discovery. This
-    // also prevents other MCP writers, subagents and shell tools bypassing Tandem.
+    // Apply the session's tool set on every registry rebuild, including deferred
+    // MCP discovery. Shell access is controlled by the readOnly option below.
     await ctx.tool.transform((editor) => {
       for (const tool of editor.list()) if (!allowed.has(tool.id)) editor.remove(tool.id)
       if (!textOnly) editor.add({
         name: "nvim_shell",
         options: { codemode: false },
-        description: "Run a read-only Linux shell command for inspection. Filesystem writes and network access are unavailable. Use Tandem for edits.",
+        description: readOnly
+          ? "Run a read-only Linux shell command for inspection. Filesystem writes and network access are unavailable."
+          : "Run a Linux shell command with the user's normal permissions, including filesystem writes, networking, and Docker access. Use for tests, builds, package installs, Git, and filesystem operations. Prefer Tandem for source edits to coordinate with Neovim buffers.",
         input: { type: "object", properties: {
           command: { type: "string" },
           timeout: { type: "integer", minimum: 1, maximum: 120000 },
         }, required: ["command"], additionalProperties: false },
         execute: async (input, context) => {
           const { command, timeout } = input as { command: string, timeout?: number }
-          return { content: await inspect(command, ctx.location.directory, context.signal, timeout) }
+          return { content: await run(command, ctx.location.directory, context.signal, timeout, readOnly) }
         },
       })
     })
@@ -48,12 +50,14 @@ export default Plugin.define({
       for (const name of Object.keys(event.tools)) if (!allowed.has(name)) delete event.tools[name]
       event.system.push({ type: "text", text: textOnly
         ? "Generate only the requested text. Do not use tools."
-        : `Tandem project: ${ctx.options.root}. Use paths relative to this root. ` +
-          (readOnly ? "Analysis-only Tandem session. Do not modify files. " :
-            "For every edit use tandem_read_file then tandem_write_file with full content and expected_revision. ") +
-          "Wait for unsaved human buffers. On busy retry after the human saves. " +
+        : `Tandem project: ${ctx.options.root}. Use paths relative to this root for Tandem tools. ` +
+          (readOnly ? "Analysis-only Tandem session. Do not modify files. Shell is read-only and network-isolated. " :
+            "Shell commands have the user's normal filesystem and network permissions, including Docker access. " +
+            "Use the shell for tests, builds, package installs, Git, and filesystem operations. " +
+            "Prefer Tandem for source edits: use tandem_read_file then tandem_write_file with full content and expected_revision. ") +
+          "When using Tandem, wait for unsaved human buffers. On busy retry after the human saves. " +
           "On stale_revision reread and regenerate; never attach a fresh revision to stale content. " +
-          "On outcome_unknown reread before retrying. Native writes are unavailable; shell is read-only. " +
+          "On outcome_unknown reread before retrying. " +
           "If Tandem is unavailable, report it and suggest :TandemStatus or :TandemReconnect."
       })
     })
