@@ -286,13 +286,13 @@ width = 150
 height = 45
 description = "open project workspace"
 
-[[keys.command]]
-key = "prefix+g"
-type = "popup"
-command = 'herdr-sessionizer worktrees'
-width = 150
-height = 45
-description = "open worktree workspace"
+# [[keys.command]]
+# key = "prefix+g"
+# type = "popup"
+# command = 'herdr-sessionizer worktrees'
+# width = 150
+# height = 45
+# description = "open worktree workspace"
 
 [[keys.command]]
 key = "prefix+d"
