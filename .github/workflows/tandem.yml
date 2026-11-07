@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       tandem_ref:
-        description: 'Optional published rewrite revision; leave empty for unit tests only during local development'
+        description: 'Optional Git revision override; defaults to the pinned installer revision'
         required: false
         type: string
 permissions:
@@ -59,16 +59,9 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/ruff"
           "$RUNNER_TEMP/ruff/bin/pip" install ruff==0.12.12
           echo "$RUNNER_TEMP/ruff/bin" >> "$GITHUB_PATH"
-      - uses: actions/checkout@v4
-        if: inputs.tandem_ref != ''
-        with:
-          repository: Chr1sC0de/tandem
-          ref: ${{ inputs.tandem_ref }}
-          path: .ci/tandem
-      - name: Build supplied Tandem rewrite
-        if: inputs.tandem_ref != ''
+      - name: Install Tandem from GitHub
         env:
-          TANDEM_SOURCE: ${{ github.workspace }}/.ci/tandem
+          TANDEM_REF: ${{ inputs.tandem_ref }}
         run: bash utils/install-tandem.sh
       - name: Existing launcher and UI regression suites
         shell: bash
@@ -80,7 +73,6 @@ jobs:
           nvim --headless -u NONE -i NONE -l config/nvim/tests/opencode_commit_test.lua
           for test_file in tests/opencode*_spec.sh; do bash "$test_file"; done
       - name: Real OpenCode, daemon, buffer, and Conform integration
-        if: inputs.tandem_ref != ''
         env:
           TANDEM_BIN: /home/runner/.cargo/bin/tandem
           TANDEM_CONFORM: ${{ github.workspace }}/.ci/conform.nvim

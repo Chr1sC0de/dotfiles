@@ -234,8 +234,10 @@ def main():
             lua(f'assert(require("opencode.ephemeral.jobs").follow_up(require("opencode.state").ephemeral_jobs[{query}], "FOLLOWUP_TEST", {{action="edit"}}))')
             follow = expr('require("opencode.state").next_ephemeral_job_id - 1')
             promoted = finish(follow, "FOLLOWUP_DONE")
-            assert source.read_text() == "# human draft\nvalue = 2\n"
-            assert expr('vim.api.nvim_buf_get_lines(0, 0, -1, false)') == ["value=3"]
+            assert source.read_text() == "value = 3\n"
+            assert expr('vim.api.nvim_buf_get_lines(0, 0, -1, false)') == ["value = 3"]
+            assert expr('vim.bo.modified') is False
+            passed("clean agent edit automatically saves through Conform")
             passed("query-to-edit promotion preserves discussion and edits live buffer")
             lua(f'assert(require("opencode.ephemeral.jobs").follow_up(require("opencode.state").ephemeral_jobs[{follow}], "CONTINUE_TEST"))')
             resumed = finish(expr('require("opencode.state").next_ephemeral_job_id - 1'), "CONTINUE_DONE")

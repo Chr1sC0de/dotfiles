@@ -49,7 +49,7 @@ export default Plugin.define({
             "Use the shell for tests, builds, package installs, Git, and filesystem operations. " +
             "Prefer Tandem for source edits. ") +
           'Use "$TANDEM_BIN" buffers, read PATH (or read --buffer ID), then write PATH --expect REVISION --content-file - with full replacement text on stdin. ' +
-          "Reads include unsaved edits; writes merge compatible concurrent changes and leave buffers unsaved. Do not save without user authorization. Disk tools, tests and Git only see saved content. " +
+          "Reads include unsaved edits; writes merge compatible concurrent changes. Tandem automatically saves only clean, unchanged named buffers through normal save hooks; existing or concurrent drafts remain unsaved. Check saved and save_error in the result; do not separately save drafts without user authorization. Disk tools, tests and Git only see saved content. " +
           "On merge_conflict or snapshot_expired reread and reconsider; never attach a fresh revision to stale content. " +
           'On outcome_unknown run "$TANDEM_BIN" outcome ATTEMPT_ID and inspect the buffer; never blindly replay the write. ' +
           "Reading a path loads its Neovim buffer if needed. If unavailable, report it and suggest :TandemStatus."

@@ -61,7 +61,7 @@ function M.config(cwd, _, path)
 	end
 	if path and not inside(root, vim.fs.normalize(vim.fn.fnamemodify(path, ":p"))) then return nil, "The target file is outside Tandem's project." end
 	local binary = options.command or vim.env.TANDEM_BIN or "tandem"
-	if vim.fn.executable(binary) ~= 1 then return nil, "Tandem CLI is missing; install it from the local source." end
+	if vim.fn.executable(binary) ~= 1 then return nil, "Tandem CLI is missing; run bash utils/install-tandem.sh." end
 	return { tandem = { command = vim.fn.exepath(binary), root = root, editor = status.editor, state_home = options.state_home } }, nil, root
 end
 return M

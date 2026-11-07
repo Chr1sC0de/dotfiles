@@ -7,14 +7,17 @@ Bubblewrap (`bwrap`). Link `config/nvim` using the dotfiles installer, then:
 
 ```sh
 bash utils/install-tandem.sh
-# Override the development source checkout if needed:
+# Override the pinned Git revision if needed:
+TANDEM_REF=COMMIT_OR_TAG bash utils/install-tandem.sh
+# Or install from a local development checkout:
 TANDEM_SOURCE=/path/to/tandem bash utils/install-tandem.sh
 ```
 
-The default source is `$HOME/GitHub/tandem`; Cargo installs into its normal
+The installer defaults to [Chr1sC0de/tandem](https://github.com/Chr1sC0de/tandem),
+pinned to the commit in `utils/install-tandem.sh`. `TANDEM_SOURCE` takes precedence
+over `TANDEM_REF` when set. Cargo installs into its normal
 binary directory (`$HOME/.cargo/bin` by default). Put that directory on PATH,
 or set `TANDEM_BIN` to the absolute installed executable before starting Neovim.
-Installation from a pinned Git revision is deferred until the rewrite is verified.
 
 Neovim startup registers its built-in RPC socket with Tandem asynchronously.
 No companion editor plugin or MCP server is needed. Registration retries with
@@ -56,11 +59,15 @@ compatible concurrent changes merge, while overlapping changes return
 snapshots, reread and reconsider the edit. For `outcome_unknown`, query the
 attempt and inspect the buffer; never blindly replay the write.
 
-Writes **leave buffers unsaved**. The user controls saving, which runs normal
-formatting and save hooks, including Conform. Filesystem reads, tests, builds,
-and Git still see saved content. Commit preparation stages saved changes only;
-save intended buffer edits before preparing a commit. Agents must not save
-without authorization. Reading a path loads its Neovim buffer if needed.
+With conditional autosave, writes save named buffers only when they were clean
+at read time and remain unchanged before application. Normal formatting and save
+hooks run, including Conform. Existing or concurrent drafts remain unsaved;
+agents must not separately save these without authorization. Check `saved` and
+`save_error` in the result. Filesystem tools and Git see saved content only.
+Reading a path loads its Neovim buffer if needed.
+
+The pinned GitHub revision includes conditional autosave. After upgrading,
+restart the workspace's Tandem daemon to load the updated bridge.
 
 Edit sessions have normal shell permissions for builds, Git, package installs,
 Docker, and filesystem operations. Native edit/write/patch tools, subagents,
@@ -116,10 +123,9 @@ Override `TANDEM_BIN`, `TANDEM_CONFORM`, or `TANDEM_EVIDENCE_DIR` as needed.
 `TANDEM_TEST_TMPDIR` defaults to `/tmp/opencode`. Inside Herdr, the opt-in
 `python3 -B tests/opencode_herdr_smoke.py` exercises owned live terminal panes.
 
-CI always runs regression suites. During local rewrite development, the real
-Tandem integration step is deferred unless a published rewrite revision is
-provided through the manual workflow's `tandem_ref` input. It never silently
-tests the obsolete implementation.
+CI runs regression suites and real Tandem integration tests on Ubuntu 22.04
+and 24.04 using the installer's pinned GitHub revision. The manual workflow's
+`tandem_ref` input can override that revision.
 
 After upgrading an existing installation, Lazy's clean operation can remove
 the retired companion checkout. The old CLI under Neovim's data directory is
