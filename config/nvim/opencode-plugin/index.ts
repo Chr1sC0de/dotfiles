@@ -10,24 +10,16 @@ export default Plugin.define({
   async setup(ctx) {
     const textOnly = ctx.options.text_only === true
     const readOnly = ctx.options.read_only === true
-    if (ctx.options.gateway) await ctx.mcp.transform(editor => editor.set("tandem", ctx.options.gateway as any))
-    if (ctx.options.gateway) await ctx.session.hook("prompt", async () => {
-      const deadline = Date.now() + 15000
-      while (true) {
-        const tools = await ctx.tool.list()
-        if (tools.some(tool => tool.id === "tandem_tandem_read_file")) break
-        if (Date.now() >= deadline) throw new Error("Tandem MCP did not become ready; check :TandemStatus")
-        await new Promise(resolve => setTimeout(resolve, 50))
-      }
-    })
+    const tandem = ctx.options.tandem as { command: string, root: string, editor: string, state_home?: string } | undefined
+    const shellEnv: Record<string, string> = tandem ? {
+      TANDEM_ROOT: tandem.root, TANDEM_EDITOR: tandem.editor, TANDEM_BIN: tandem.command,
+      ...(tandem.state_home ? { XDG_STATE_HOME: tandem.state_home } : {}),
+    } : {}
     const allowed = new Set(textOnly ? [] : [
       "read", "glob", "grep", "webfetch", "websearch", "question",
       "nvim_shell",
-      "tandem_tandem_read_file", "tandem_tandem_status",
-      ...(readOnly ? [] : ["tandem_tandem_write_file"]),
     ])
-    // Apply the session's tool set on every registry rebuild, including deferred
-    // MCP discovery. Shell access is controlled by the readOnly option below.
+    // Apply the session's tool set on every registry rebuild.
     await ctx.tool.transform((editor) => {
       for (const tool of editor.list()) if (!allowed.has(tool.id)) editor.remove(tool.id)
       if (!textOnly) editor.add({
@@ -42,7 +34,7 @@ export default Plugin.define({
         }, required: ["command"], additionalProperties: false },
         execute: async (input, context) => {
           const { command, timeout } = input as { command: string, timeout?: number }
-          return { content: await run(command, ctx.location.directory, context.signal, timeout, readOnly) }
+          return { content: await run(command, ctx.location.directory, context.signal, timeout, readOnly, shellEnv) }
         },
       })
     })
@@ -50,15 +42,17 @@ export default Plugin.define({
       for (const name of Object.keys(event.tools)) if (!allowed.has(name)) delete event.tools[name]
       event.system.push({ type: "text", text: textOnly
         ? "Generate only the requested text. Do not use tools."
-        : `Tandem project: ${ctx.options.root}. Use paths relative to this root for Tandem tools. ` +
-          (readOnly ? "Analysis-only Tandem session. Do not modify files. Shell is read-only and network-isolated. " :
+        : `Tandem project: ${ctx.options.root}. Use paths relative to this root. ` +
+          'Invoke the CLI directly through nvim_shell as "$TANDEM_BIN"; TANDEM_ROOT and TANDEM_EDITOR select this workspace and editor. ' +
+          (readOnly ? "Analysis-only session. Do not modify files or buffers, including through Tandem. The filesystem shell is read-only and network-isolated, but Tandem writes are not technically blocked. " :
             "Shell commands have the user's normal filesystem and network permissions, including Docker access. " +
             "Use the shell for tests, builds, package installs, Git, and filesystem operations. " +
-            "Prefer Tandem for source edits: use tandem_read_file then tandem_write_file with full content and expected_revision. ") +
-          "When using Tandem, wait for unsaved human buffers. On busy retry after the human saves. " +
-          "On stale_revision reread and regenerate; never attach a fresh revision to stale content. " +
-          "On outcome_unknown reread before retrying. " +
-          "If Tandem is unavailable, report it and suggest :TandemStatus or :TandemReconnect."
+            "Prefer Tandem for source edits. ") +
+          'Use "$TANDEM_BIN" buffers, read PATH (or read --buffer ID), then write PATH --expect REVISION --content-file - with full replacement text on stdin. ' +
+          "Reads include unsaved edits; writes merge compatible concurrent changes and leave buffers unsaved. Do not save without user authorization. Disk tools, tests and Git only see saved content. " +
+          "On merge_conflict or snapshot_expired reread and reconsider; never attach a fresh revision to stale content. " +
+          'On outcome_unknown run "$TANDEM_BIN" outcome ATTEMPT_ID and inspect the buffer; never blindly replay the write. ' +
+          "Reading a path loads its Neovim buffer if needed. If unavailable, report it and suggest :TandemStatus."
       })
     })
 

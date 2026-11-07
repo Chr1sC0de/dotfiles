@@ -135,12 +135,12 @@ tests["query jobs use Sol and retain reasoning defaults"] = function()
 	assert_contains_arg(captured_command, "--model", "model flag")
 	assert_contains_arg(captured_command, "gpt-6.1-sol", "default query model")
 	assert_contains_arg(captured_command, "--standalone", "private backend")
-	assert_contains_arg(captured_env.mcp.servers.tandem.command, "--read-only", "read-only MCP")
+	assert(captured_env.plugins[#captured_env.plugins].options.read_only == true)
 	assert_equal(captured_env.plugins[#captured_env.plugins].options.read_only, true, "query restrictions")
 	assert_contains_arg(captured_command, "--format", "JSON events")
 	assert_contains_arg(captured_command, "json", "JSON format")
 	assert_not_contains_arg(captured_command, "--ephemeral", "persisted session")
-	assert_contains_text(captured_prompt, "Do not modify files.", "query prompt mode")
+	assert_contains_text(captured_prompt, "Do not modify files or buffers", "query prompt mode")
 end
 
 tests["edit jobs use Sol and route writes through Tandem"] = function()
@@ -186,7 +186,7 @@ tests["edit jobs use Sol and route writes through Tandem"] = function()
 	assert_contains_arg(captured_command, "--model", "model flag")
 	assert_contains_arg(captured_command, "gpt-6.1-sol", "default edit model")
 	assert_contains_arg(captured_command, "--standalone", "private backend")
-	assert_not_contains_arg(captured_env.mcp.servers.tandem.command, "--read-only", "Tandem writer available")
+	assert(captured_env.plugins[#captured_env.plugins].options.read_only == false)
 	assert_equal(captured_env.plugins[#captured_env.plugins].options.read_only, false, "edit restrictions")
 	assert_not_contains_arg(captured_command, 'model_reasoning_effort="low"', "query reasoning override")
 end
@@ -233,10 +233,10 @@ tests["edit jobs can start while the human buffer is modified"] = function()
 	spinner.start_spinner = old_start_spinner
 	spinner.start_diagnostic = old_start_diagnostic
 
-	assert_equal(jobstarted, true, "job started; file operations wait inside Tandem")
+	assert_equal(jobstarted, true, "job started; Tandem coordinates live buffer changes")
 end
 
-tests["an unavailable gateway never falls back to native edits"] = function()
+tests["an unavailable registration never falls back to native edits"] = function()
 	reset_state()
 	local old_args = require("opencode.tandem").config
 	require("opencode.tandem").config = function()
@@ -246,7 +246,7 @@ tests["an unavailable gateway never falls back to native edits"] = function()
 	local command, err = jobs.command_args(job)
 	require("opencode.tandem").config = old_args
 	assert_equal(command, nil, "no launch command")
-	assert_equal(err, "offline", "gateway error propagated")
+	assert_equal(err, "offline", "registration error propagated")
 end
 
 tests["direct jobs start independently for parallel execution"] = function()

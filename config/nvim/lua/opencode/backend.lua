@@ -17,12 +17,11 @@ function M.environment(config, opts)
 		inherited = decoded
 	end
 	local merged = vim.tbl_deep_extend("force", inherited, config or {})
+	merged.tandem = nil
 	merged.policies = vim.deepcopy(inherited.policies or {})
 	table.insert(merged.policies, { action = "tool.use", resource = "*", effect = "deny" })
 	if not opts.text_only then
-		local actions = { "read", "glob", "grep", "webfetch", "websearch", "question", "external_directory", "nvim_shell",
-			"tandem_tandem_read_file", "tandem_tandem_status" }
-		if not opts.read_only then table.insert(actions, "tandem_tandem_write_file") end
+		local actions = { "read", "glob", "grep", "webfetch", "websearch", "question", "external_directory", "nvim_shell" }
 		for _, action in ipairs(actions) do
 			table.insert(merged.policies, { action = "tool.use", resource = action .. ":*", effect = "allow" })
 		end
@@ -32,9 +31,13 @@ function M.environment(config, opts)
 		read_only = opts.read_only == true,
 		text_only = opts.text_only == true,
 		root = opts.root,
-		gateway = config and config.mcp and config.mcp.servers.tandem,
+		tandem = config and config.tandem,
 	} })
-	return { OPENCODE_CONFIG_CONTENT = vim.json.encode(merged) }
+	local env = { OPENCODE_CONFIG_CONTENT = vim.json.encode(merged) }
+	if config and config.tandem then
+		env.TANDEM_ROOT, env.TANDEM_EDITOR, env.TANDEM_BIN = config.tandem.root, config.tandem.editor, config.tandem.command
+	end
+	return env
 end
 
 function M.run_args(opts)

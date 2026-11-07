@@ -18,6 +18,16 @@ local config = vim.json.decode(env.OPENCODE_CONFIG_CONTENT)
 assert(config.model == "fixture/test" and config.plugins[1] == "host-plugin")
 assert(config.plugins[2].options.text_only)
 assert(config.policies[#config.policies].effect == "deny")
+local launch = { command = "/local/bin/tandem", root = "/workspace", editor = "specific-editor", state_home = "/state" }
+local managed = assert(backend.environment({ tandem = launch }, { root = launch.root, read_only = true }))
+local managed_config = vim.json.decode(managed.OPENCODE_CONFIG_CONTENT)
+assert(managed.TANDEM_ROOT == launch.root and managed.TANDEM_EDITOR == launch.editor and managed.TANDEM_BIN == launch.command)
+assert(managed_config.tandem == nil and managed_config.mcp == nil)
+assert(vim.deep_equal(managed_config.plugins[2].options.tandem, launch))
+assert(managed_config.plugins[2].options.read_only)
+for _, policy in ipairs(managed_config.policies) do
+	assert(not policy.resource:find("tandem", 1, true))
+end
 vim.env.OPENCODE_CONFIG_CONTENT = 'invalid'
 assert(backend.environment() == nil)
 vim.env.OPENCODE_CONFIG_CONTENT = previous

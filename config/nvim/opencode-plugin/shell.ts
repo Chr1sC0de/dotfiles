@@ -2,7 +2,7 @@ import { spawn } from "node:child_process"
 
 // Coding sessions use the user's normal shell permissions. Analysis sessions
 // stay sandboxed; never fall back to an unrestricted shell if Bubblewrap fails.
-export function run(command: string, cwd: string, signal: AbortSignal, timeout = 120000, readOnly = false): Promise<string> {
+export function run(command: string, cwd: string, signal: AbortSignal, timeout = 120000, readOnly = false, env: Record<string, string> = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     const executable = readOnly ? "bwrap" : "/bin/sh"
     const args = readOnly ? [
@@ -11,7 +11,7 @@ export function run(command: string, cwd: string, signal: AbortSignal, timeout =
       "--chdir", cwd, "--", "/bin/sh", "-c", command,
     ] : ["-c", command]
     const child = spawn(executable, args, {
-      cwd, signal, timeout: Math.min(Math.max(timeout, 1), 120000), stdio: ["ignore", "pipe", "pipe"],
+      cwd, signal, env: { ...process.env, ...env }, timeout: Math.min(Math.max(timeout, 1), 120000), stdio: ["ignore", "pipe", "pipe"],
     })
     let output = ""
     const append = (chunk: Buffer) => { output = (output + chunk.toString()).slice(-51200) }

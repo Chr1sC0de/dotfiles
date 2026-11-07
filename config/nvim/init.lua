@@ -1,6 +1,7 @@
 require("core.lazy")
 
 if not vim.g.vscode then
+	require("opencode.tandem").setup()
 	require("core.lsp")
 	require("config.autocmds")
 

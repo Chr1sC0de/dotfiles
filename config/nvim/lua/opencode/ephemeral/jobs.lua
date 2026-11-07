@@ -172,12 +172,12 @@ end
 local function build_ephemeral_prompt(action, instruction, target)
 	local mode_description
 	if action == "edit" then
-		mode_description = "Apply the user's requested edits through tandem_read_file and tandem_write_file. "
-			.. "The supplied context may be unsaved: wait for the human to save, then read the saved revision. "
-			.. "On stale_revision reread and regenerate your edit. Never use native patch or shell writes. "
+		mode_description = "Apply edits using tandem read and tandem write through the shell. "
+			.. "Read the live buffer, then write full content with --expect REVISION --content-file -. Changes remain unsaved. "
+			.. "On merge_conflict or snapshot_expired reread and reconsider. On outcome_unknown query tandem outcome ATTEMPT_ID and inspect; never replay blindly. "
 			.. "Keep changes scoped to the supplied context."
 	else
-		mode_description = "Answer the user's instruction using the supplied context. Do not modify files."
+		mode_description = "Answer the user's instruction using the supplied context. Do not modify files or buffers, including through Tandem."
 	end
 
 	local lines = {
@@ -537,7 +537,7 @@ function M.follow_up(job, instruction, opts)
 		reasoning_effort = action == "query" and constants.EPHEMERAL_QUERY_REASONING_EFFORT or nil
 		target.context_lines = {
 			"Earlier buffer text, selections, and snapshots are historical context.",
-			"Read the current saved files through Tandem before editing; do not read old temporary snapshots.",
+			"Read the current live buffers through Tandem before editing; do not read old temporary snapshots.",
 		}
 		if job.file_path then
 			table.insert(target.context_lines, "File: " .. job.file_path)

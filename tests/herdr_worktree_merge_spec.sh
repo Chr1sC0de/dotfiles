@@ -227,7 +227,7 @@ chmod +x "$T/opencode"
 for result in success failure invalid missing error malformed empty multiline; do
 	merge_fixture "opencode-$result"
 	export OPENCODE_REAL_BIN="$T/opencode" GENERATE=1 OPENCODE_NVIM_STATE_FILE="$T/route" OPENCODE_THREAD_ID=inherited HERDR_PANE_ID=w1:p1
-	export OPENCODE_CONFIG_CONTENT='{"model":"test/model","plugins":[{"package":"inherited"}],"mcp":{"servers":{"tandem":{}}},"policies":[{"action":"tool.use","resource":"*","effect":"allow"}]}'
+	export OPENCODE_CONFIG_CONTENT='{"model":"test/model","plugins":[{"package":"inherited"}],"mcp":{"servers":{"fixture":{}}},"policies":[{"action":"tool.use","resource":"*","effect":"allow"}]}'
 	: >"$T/route"
 	if [[ $result == missing ]]; then export OPENCODE_REAL_BIN="$T/missing"; else export OPENCODE_FAKE_RESULT=$result; fi
 	run

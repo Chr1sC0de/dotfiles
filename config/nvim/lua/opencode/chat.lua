@@ -1431,9 +1431,7 @@ function M.create()
 	local session = new_session(vim.api.nvim_get_current_buf())
 	session.tandem_env = protected_env
 	session.tandem_configured = true
-	local tandem_ok, tandem_plugin = pcall(require, "tandem")
-	local tandem_status = tandem_ok and tandem_plugin.status and tandem_plugin.status() or {}
-	session.tandem_root = tandem_status.root or session.cwd
+	session.tandem_root = root
 	local hook_env = session_hook_env(session) or {}
 	hook_env.OPENCODE_THREAD_ID = ""
 

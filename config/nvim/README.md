@@ -101,7 +101,7 @@ virtual keybinding header, so the attached buffer remains the primary chat UI
 while Herdr retains native agent detection. Outside Herdr, chats continue to
 launch directly in Neovim terminals.
 
-Queries (read-only questions) and edits (file changes) always run as independent background `opencode run --standalone --format json`
+Queries (analysis-only instructions) and edits (live buffer changes) always run as independent background `opencode run --standalone --format json`
 processes managed by Neovim. They can run in parallel without creating Herdr
 workspaces, tabs, or splits. Neovim retains its spinner, diagnostics, lifecycle
 notifications, jobs panel, cancellation controls, and session-only Markdown
@@ -119,7 +119,8 @@ the same result and follow-up behavior.
 Use `:OpenCodeQuery` to ask without editor context, `:OpenCodeQueryFile` for the
 current file, and `:OpenCodeQuerySelection` for selected text. Diagnostic queries
 use `:OpenCodeQueryFileDiagnostics`, `:OpenCodeQueryLineDiagnostics`, or
-`:OpenCodeQuerySelectionDiagnostics`. Queries cannot modify files.
+`:OpenCodeQuerySelectionDiagnostics`. Queries are instructed not to modify files or buffers;
+Tandem writes are not technically blocked by the shell filesystem sandbox.
 `:OpenCodeEditFile` and `:OpenCodeEditSelection` apply requested file changes.
 The former `:OpenCodeCommand*` names have been replaced; existing keybindings
 still work (`<leader>aq`, `<leader>ac`, `<leader>ar`, and `<leader>ae`).

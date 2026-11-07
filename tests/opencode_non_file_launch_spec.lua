@@ -1,13 +1,11 @@
 -- Run from the dotfiles root:
--- TANDEM_NVIM_PATH=/path/to/tandem.nvim nvim --headless -u NONE -i NONE -l tests/opencode_non_file_launch_spec.lua
+-- nvim --headless -u NONE -i NONE -l tests/opencode_non_file_launch_spec.lua
 local root = vim.fn.getcwd()
 vim.opt.runtimepath:prepend(root .. "/config/nvim")
-local tandem_path = vim.env.TANDEM_NVIM_PATH or vim.fn.stdpath("data") .. "/lazy/tandem.nvim"
-vim.opt.runtimepath:append(tandem_path)
 local validator = require("opencode.tandem")
-local connection = { connected = true, root = vim.uv.fs_realpath(root), command = vim.v.progpath, state_home = root }
+local connection = { connected = true, editor = "test-editor", root = vim.uv.fs_realpath(root), command = vim.v.progpath, state_home = root }
 local last_options
-package.loaded["tandem"] = { status = function() return connection end }
+validator.status = function() return connection end
 validator.configure(connection)
 local config = validator.config
 validator.config = function(cwd, read_only, path)
@@ -134,7 +132,7 @@ for _, case in ipairs(cases) do
 		assert(last_options.path == nil and last_options.read_only == true)
 		assert(last_options.cwd == root)
 		contains(prompt, "first reference line\nselected reference line\nlast reference line")
-		contains(prompt, "Do not modify files.")
+	contains(prompt, "Do not modify files or buffers")
 		local parent = current_job()
 		panel.jump_to_source(parent)
 		assert(vim.api.nvim_get_current_buf() == buf)
@@ -195,6 +193,6 @@ connection.connected = false
 local buf = buffer("", "", "text")
 jobs.run("query", targets.build_file(), "offline")
 assert(current_job().status == "failed_to_start")
-contains(notices[#notices], "not connected")
+contains(notices[#notices], "not registered")
 vim.api.nvim_buf_delete(buf, { force = true })
 print("opencode_non_file_launch_spec.lua: ok (14 non-file cases, real Tandem validation)")

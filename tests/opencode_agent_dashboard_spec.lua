@@ -48,11 +48,9 @@ herdr.launch_metadata = function(agent)
 	end
 end
 local connected = true
-package.loaded.tandem = {
-	status = function()
-		return { connected = connected, root = "/project" }
-	end,
-}
+require("opencode.tandem").status = function()
+	return { connected = connected, root = "/project" }
+end
 equal({ dashboard._test.item_status(external) }, { "No", "Unknown", "—" })
 equal({ dashboard._test.item_status(managed) }, { "No", "Configured", "—" })
 sessions = { { bufnr = 42, herdr_agent_name = "external", herdr_pane_id = "w1:p1", external_attachment = true } }

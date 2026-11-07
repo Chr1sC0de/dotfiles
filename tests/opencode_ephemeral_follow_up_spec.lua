@@ -1,14 +1,10 @@
 -- Use the real Tandem argument validator; intercept only process launch and UI input.
 local root = vim.fn.getcwd()
 vim.opt.runtimepath:prepend(root .. "/config/nvim")
-local plugin = vim.env.TANDEM_NVIM_PATH
-	or (vim.fn.isdirectory(root .. "/.ci/tandem.nvim") == 1 and root .. "/.ci/tandem.nvim")
-	or vim.fn.stdpath("data") .. "/lazy/tandem.nvim"
-vim.opt.runtimepath:append(plugin)
 local validator = require("opencode.tandem")
-local connection = { connected = true, root = vim.uv.fs_realpath(root), command = vim.v.progpath, state_home = root }
+local connection = { connected = true, editor = "test-editor", root = vim.uv.fs_realpath(root), command = vim.v.progpath, state_home = root }
 local launch_options
-package.loaded["tandem"] = { status = function() return connection end }
+validator.status = function() return connection end
 validator.configure(connection)
 local config = validator.config
 validator.config = function(cwd, read_only, path)
@@ -102,12 +98,12 @@ for _, kind in ipairs({ "file", "selection", "prompt", "buffer" }) do
 	next_job.thread_id = "fresh-edit-" .. kind
 	contains(args, "--standalone")
 	assert(environment.plugins[#environment.plugins].options.read_only == false)
-	assert(not vim.tbl_contains(environment.mcp.servers.tandem.command, "--read-only"))
+	assert(environment.plugins[#environment.plugins].options.tandem.editor == "test-editor")
 	assert(not args:find('model_reasoning_effort="low"', 1, true))
 	assert(not args:find("Analysis-only Tandem session", 1, true))
 	contains(prompt, "Implement the suggestion")
-	contains(prompt, "tandem_read_file")
-	contains(prompt, "tandem_write_file")
+	contains(prompt, "tandem read")
+	contains(prompt, "tandem write")
 	contains(prompt, "historical")
 	assert(not prompt:find("/deleted/snapshot", 1, true))
 	if not job.file_path then
@@ -227,7 +223,7 @@ connection.connected = false
 before = launches
 assert(jobs.follow_up(job, "Edit", { action = "edit" }) == false)
 assert(launches == before and child().status == "failed_to_start")
-contains(notice, "not connected")
+contains(notice, "not registered")
 connection.connected = true
 
 local function complete(job, answer, thread_id)

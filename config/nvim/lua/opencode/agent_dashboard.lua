@@ -25,7 +25,7 @@ local function selected()
 end
 
 local function connection_label()
-	local ok, tandem = pcall(require, "tandem")
+	local ok, tandem = pcall(require, "opencode.tandem")
 	if not ok or type(tandem.status) ~= "function" then
 		return "Editor Tandem: unavailable"
 	end

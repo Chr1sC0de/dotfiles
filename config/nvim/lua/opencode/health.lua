@@ -13,7 +13,7 @@ function M.report()
 	local hook = require("opencode.util").opencode_nvim_hook_path()
 	check(vim.fn.filereadable(hook) == 1, "notifications", hook)
 	local config, err = require("opencode.tandem").config(vim.fn.getcwd(), true)
-	check(config ~= nil, "Tandem", err or "connected; protected launch ready")
+	check(config ~= nil, "Tandem", err or "RPC editor registered; CLI launch ready")
 	local chat = require("opencode.chat")
 	check(vim.env.HERDR_ENV ~= "1" or chat.herdr_available(), "Herdr",
 		vim.env.HERDR_ENV == "1" and "managed panes" or "direct terminal fallback")

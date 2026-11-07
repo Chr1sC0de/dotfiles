@@ -2,10 +2,15 @@ name: Tandem integration
 on:
   push:
     branches: [master]
-    paths: ['config/nvim/**', 'tests/**', '.github/workflows/tandem.yml']
+    paths: ['config/nvim/**', 'tests/**', 'utils/install-tandem.sh', '.github/workflows/tandem.yml']
   pull_request:
-    paths: ['config/nvim/**', 'tests/**', '.github/workflows/tandem.yml']
+    paths: ['config/nvim/**', 'tests/**', 'utils/install-tandem.sh', '.github/workflows/tandem.yml']
   workflow_dispatch:
+    inputs:
+      tandem_ref:
+        description: 'Optional published rewrite revision; leave empty for unit tests only during local development'
+        required: false
+        type: string
 permissions:
   contents: read
 jobs:
@@ -37,11 +42,6 @@ jobs:
           bwrap --version
       - uses: actions/checkout@v4
         with:
-          repository: Chr1sC0de/tandem.nvim
-          ref: 99f740e17a65e7d1a6ed6b528c894613d8f756e3
-          path: .ci/tandem.nvim
-      - uses: actions/checkout@v4
-        with:
           repository: stevearc/conform.nvim
           ref: 016802de402556da54c36bd7359b441266b01cdd
           path: .ci/conform.nvim
@@ -59,8 +59,17 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/ruff"
           "$RUNNER_TEMP/ruff/bin/pip" install ruff==0.12.12
           echo "$RUNNER_TEMP/ruff/bin" >> "$GITHUB_PATH"
-      - name: Build pinned Tandem CLI through the Lazy build callback
-        run: nvim --headless -u NONE -l tests/support/install_tandem.lua
+      - uses: actions/checkout@v4
+        if: inputs.tandem_ref != ''
+        with:
+          repository: Chr1sC0de/tandem
+          ref: ${{ inputs.tandem_ref }}
+          path: .ci/tandem
+      - name: Build supplied Tandem rewrite
+        if: inputs.tandem_ref != ''
+        env:
+          TANDEM_SOURCE: ${{ github.workspace }}/.ci/tandem
+        run: bash utils/install-tandem.sh
       - name: Existing launcher and UI regression suites
         shell: bash
         run: |
@@ -71,8 +80,9 @@ jobs:
           nvim --headless -u NONE -i NONE -l config/nvim/tests/opencode_commit_test.lua
           for test_file in tests/opencode*_spec.sh; do bash "$test_file"; done
       - name: Real OpenCode, daemon, buffer, and Conform integration
+        if: inputs.tandem_ref != ''
         env:
-          TANDEM_NVIM: ${{ github.workspace }}/.ci/tandem.nvim
+          TANDEM_BIN: /home/runner/.cargo/bin/tandem
           TANDEM_CONFORM: ${{ github.workspace }}/.ci/conform.nvim
           TANDEM_TEST_TMPDIR: ${{ runner.temp }}
         run: python3 tests/tandem_integration.py
