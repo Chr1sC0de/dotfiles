@@ -62,7 +62,6 @@ class Fixture:
                 return {"content": "test: migrate editor integration"}
             assert "HOST_GUIDANCE_MARKER" in system, "host instructions lost"
             assert "shell" in tools and {"patch", "write", "edit"} & tools, tools
-            assert "nvim_shell" not in tools, tools
             assert "Tandem editor integration" in system, "Tandem instructions lost"
             assert not any(name.startswith("tandem_") for name in tools), tools
             readonly = "Analysis-only session" in system

@@ -2,8 +2,8 @@
 
 ## Development setup
 
-Install OpenCode V2 (tested with 2.1.4), Neovim 0.12+, Cargo, and Linux
-Bubblewrap (`bwrap`). Link `config/nvim` using the dotfiles installer, then:
+Install OpenCode V2 (tested with 2.1.4), Neovim 0.12+, and Cargo.
+Link `config/nvim` using the dotfiles installer, then:
 
 ```sh
 bash utils/install-tandem.sh
@@ -34,13 +34,15 @@ stays fixed; open another Neovim process for another workspace.
 
 Managed chats and background jobs use `--standalone` with launch-local
 configuration. Host instructions, provider credentials, and model settings
-still load normally. The OpenCode notification bridge retains routing and
-shell access; it does not expose Tandem-specific tools.
+still load normally. The OpenCode plugin only forwards lifecycle notifications
+to Neovim; it does not supply tools or modify the tool registry.
 
-Agents invoke the CLI directly through `nvim_shell`, using `TANDEM_BIN`,
+Agents invoke the CLI directly through OpenCode's built-in shell, using `TANDEM_BIN`,
 `TANDEM_ROOT`, and an explicit `TANDEM_EDITOR` for the originating Neovim.
-The bridge also supplies those settings directly to shell subprocesses,
-including a custom state directory when configured.
+The launcher supplies those environment variables to the private OpenCode
+process, including `XDG_STATE_HOME` when a custom state directory is configured.
+Guidance in `config/nvim/opencode-instructions/` explains Tandem's editing
+contract and the session's analysis or text-generation mode.
 
 ```sh
 "$TANDEM_BIN" buffers
@@ -69,15 +71,16 @@ Reading a path loads its Neovim buffer if needed.
 The pinned GitHub revision includes conditional autosave. After upgrading,
 restart the workspace's Tandem daemon to load the updated bridge.
 
-Edit sessions have normal shell permissions for builds, Git, package installs,
-Docker, and filesystem operations. Native edit/write/patch tools, subagents,
-and unrelated tools remain excluded by the managed session's allowlist.
+Coding and analysis sessions use OpenCode's native tools with normal filesystem
+and network access, including builds, Git, package installs, and Docker.
+Managed launches allow tool permissions without approval prompts, subject to
+inherited policies and agent-specific restrictions. Prefer Tandem for source
+reads and edits to coordinate with live Neovim buffers.
 
 Query sessions receive analysis-only instructions: do not modify files **or
-buffers**. Their shell uses Bubblewrap with read-only filesystem mounts and
-network isolation, with no unrestricted fallback. This does **not** prevent
-writes through Tandem's daemon socket; analysis-only buffer access is an
-instruction, not a security boundary.
+buffers**. This restriction is instruction-only, not a security boundary;
+tools retain normal filesystem and network access. Text-generation jobs
+remain tool-free through a tool-deny policy.
 
 Tandem currently supports UTF-8 Unix text buffers up to 1 MiB and rejects final
 newline changes. Its snapshots expire on daemon restart. There is no automatic
@@ -105,6 +108,7 @@ launches remain independent; launch from that worktree's Neovim for buffer acces
 ## Verification
 
 ```sh
+export XDG_STATE_HOME="$(mktemp -d /tmp/opencode/nvim-test-state.XXXXXX)"
 for test_file in tests/*_spec.lua; do
   nvim --headless -u NONE -i NONE -l "$test_file" || exit
 done

@@ -331,7 +331,6 @@ tests["follow-ups resume the captured thread and inherit job settings"] = functi
 	local parent = jobs.create("query", make_target(), "gpt-test", "first question", {
 		cwd = vim.fn.getcwd(),
 		reasoning_effort = "low",
-		sandbox = "read-only",
 		thread_id = "thread-123",
 	})
 	parent.finished_at = os.time()

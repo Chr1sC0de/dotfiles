@@ -285,8 +285,8 @@ tests["legacy native-write agents are not silently reattached"] = function()
 	}, {})
 	herdr.route_path = original_route_path
 	vim.fn.delete(route_path)
-	assert_equal(#candidates, 1, "only protected launches can reattach")
-	assert_equal(candidates[1].name, "nvim-opencode-td-123-new", "protected candidate")
+	assert_equal(#candidates, 1, "only managed launches can reattach")
+	assert_equal(candidates[1].name, "nvim-opencode-td-123-new", "managed candidate")
 end
 
 for name, test in pairs(tests) do

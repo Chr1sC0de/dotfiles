@@ -1417,19 +1417,19 @@ function M.create()
 		util.notify(err, vim.log.levels.ERROR)
 		return nil
 	end
-	local protected_env, env_error = backend.environment(config, { root = root })
-	if not protected_env then
+	local launch_env, env_error = backend.environment(config, { root = root })
+	if not launch_env then
 		util.notify(env_error, vim.log.levels.ERROR)
 		return nil
 	end
-	protected_env.PWD = vim.fn.getcwd()
+	launch_env.PWD = vim.fn.getcwd()
 
 	M.cleanup()
 	M.remember_previous_buffer()
 	vim.cmd("enew")
 
 	local session = new_session(vim.api.nvim_get_current_buf())
-	session.tandem_env = protected_env
+	session.tandem_env = launch_env
 	session.tandem_configured = true
 	session.tandem_root = root
 	local hook_env = session_hook_env(session) or {}
