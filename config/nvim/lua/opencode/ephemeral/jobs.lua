@@ -101,7 +101,6 @@ function M.create(action, target, selected_model, instruction, attrs)
 		result_return_bufnr = nil,
 		result_return_tabpage = nil,
 		result_tabpage = nil,
-		sandbox = "read-only",
 		snapshot_path = target.snapshot_path,
 		start_line = target.start_line,
 		started_at = os.time(),

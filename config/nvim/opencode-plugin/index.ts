@@ -1,64 +1,15 @@
 import { Plugin } from "@opencode/plugin"
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
-import { run } from "./shell"
 
 const hook = fileURLToPath(new URL("../bin/opencode-nvim-hook", import.meta.url))
 
 export default Plugin.define({
   id: "dotfiles.nvim",
   async setup(ctx) {
-    const textOnly = ctx.options.text_only === true
-    const readOnly = ctx.options.read_only === true
-    const tandem = ctx.options.tandem as { command: string, root: string, editor: string, state_home?: string } | undefined
-    const shellEnv: Record<string, string> = tandem ? {
-      TANDEM_ROOT: tandem.root, TANDEM_EDITOR: tandem.editor, TANDEM_BIN: tandem.command,
-      ...(tandem.state_home ? { XDG_STATE_HOME: tandem.state_home } : {}),
-    } : {}
-    const allowed = new Set(textOnly ? [] : [
-      "read", "glob", "grep", "webfetch", "websearch", "question",
-      "nvim_shell",
-    ])
-    // Apply the session's tool set on every registry rebuild.
-    await ctx.tool.transform((editor) => {
-      for (const tool of editor.list()) if (!allowed.has(tool.id)) editor.remove(tool.id)
-      if (!textOnly) editor.add({
-        name: "nvim_shell",
-        options: { codemode: false },
-        description: readOnly
-          ? "Run a read-only Linux shell command for inspection. Filesystem writes and network access are unavailable."
-          : "Run a Linux shell command with the user's normal permissions, including filesystem writes, networking, and Docker access. Use for tests, builds, package installs, Git, and filesystem operations. Prefer Tandem for source edits to coordinate with Neovim buffers.",
-        input: { type: "object", properties: {
-          command: { type: "string" },
-          timeout: { type: "integer", minimum: 1, maximum: 120000 },
-        }, required: ["command"], additionalProperties: false },
-        execute: async (input, context) => {
-          const { command, timeout } = input as { command: string, timeout?: number }
-          return { content: await run(command, ctx.location.directory, context.signal, timeout, readOnly, shellEnv) }
-        },
-      })
-    })
-    await ctx.session.hook("context", async (event) => {
-      for (const name of Object.keys(event.tools)) if (!allowed.has(name)) delete event.tools[name]
-      event.system.push({ type: "text", text: textOnly
-        ? "Generate only the requested text. Do not use tools."
-        : `Tandem project: ${ctx.options.root}. Use paths relative to this root. ` +
-          'Invoke the CLI directly through nvim_shell as "$TANDEM_BIN"; TANDEM_ROOT and TANDEM_EDITOR select this workspace and editor. ' +
-          (readOnly ? "Analysis-only session. Do not modify files or buffers, including through Tandem. The filesystem shell is read-only and network-isolated, but Tandem writes are not technically blocked. " :
-            "Shell commands have the user's normal filesystem and network permissions, including Docker access. " +
-            "Use the shell for tests, builds, package installs, Git, and filesystem operations. " +
-            "Prefer Tandem for source edits. ") +
-          'Use "$TANDEM_BIN" buffers, read PATH (or read --buffer ID), then write PATH --expect REVISION --content-file - with full replacement text on stdin. ' +
-          "Reads include unsaved edits; writes merge compatible concurrent changes. Tandem automatically saves only clean, unchanged named buffers through normal save hooks; existing or concurrent drafts remain unsaved. Check saved and save_error in the result; do not separately save drafts without user authorization. Disk tools, tests and Git only see saved content. " +
-          "On merge_conflict or snapshot_expired reread and reconsider; never attach a fresh revision to stale content. " +
-          'On outcome_unknown run "$TANDEM_BIN" outcome ATTEMPT_ID and inspect the buffer; never blindly replay the write. ' +
-          "Reading a path loads its Neovim buffer if needed. If unavailable, report it and suggest :TandemStatus."
-      })
-    })
-
     // Only managed interactive launches carry routing information. The route
     // file is reread by the hook on each event, allowing Neovim reattachment.
-    if (textOnly || (!process.env.OPENCODE_NVIM_SERVER && !process.env.OPENCODE_NVIM_STATE_FILE)) return
+    if (!process.env.OPENCODE_NVIM_SERVER && !process.env.OPENCODE_NVIM_STATE_FILE) return
     let notifications = Promise.resolve()
     const notify = (event: { hook_event_name: string, [key: string]: unknown }) => {
       notifications = notifications.then(() => new Promise<void>((resolve) => {

@@ -120,10 +120,16 @@ Use `:OpenCodeQuery` to ask without editor context, `:OpenCodeQueryFile` for the
 current file, and `:OpenCodeQuerySelection` for selected text. Diagnostic queries
 use `:OpenCodeQueryFileDiagnostics`, `:OpenCodeQueryLineDiagnostics`, or
 `:OpenCodeQuerySelectionDiagnostics`. Queries are instructed not to modify files or buffers;
-Tandem writes are not technically blocked by the shell filesystem sandbox.
+this is instruction-only, with normal filesystem and network access through OpenCode's built-in tools.
 `:OpenCodeEditFile` and `:OpenCodeEditSelection` apply requested file changes.
 The former `:OpenCodeCommand*` names have been replaced; existing keybindings
 still work (`<leader>aq`, `<leader>ac`, `<leader>ar`, and `<leader>ae`).
+
+Managed launches pass Tandem's workspace/editor environment to a private OpenCode
+process and load guidance from `opencode-instructions/`. Coding and analysis
+sessions allow tool permissions without approval prompts; text-generation jobs
+remain tool-free. The local `opencode-plugin/` only forwards Neovim status
+notifications; Tandem uses OpenCode's built-in shell directly.
 
 `<leader>aA` opens a searchable attachment picker with the same live pane previews
 as `<leader>wd`. Press Enter to attach/open; in normal mode, `d` detaches,

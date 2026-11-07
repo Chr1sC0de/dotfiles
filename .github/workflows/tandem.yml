@@ -28,18 +28,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install the distribution's Linux sandbox dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils
-          if [ -f /usr/share/apparmor/extra-profiles/bwrap-userns-restrict ] && [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null || true)" = Y ]; then
-            sudo install -m 0644 /usr/share/apparmor/extra-profiles/bwrap-userns-restrict /etc/apparmor.d/bwrap-userns-restrict
-            sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
-          fi
-          command -v bwrap
-          bwrap --version
       - uses: actions/checkout@v4
         with:
           repository: stevearc/conform.nvim

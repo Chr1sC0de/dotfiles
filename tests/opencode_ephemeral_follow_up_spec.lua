@@ -97,8 +97,8 @@ for _, kind in ipairs({ "file", "selection", "prompt", "buffer" }) do
 	contains(prompt, "Old context")
 	next_job.thread_id = "fresh-edit-" .. kind
 	contains(args, "--standalone")
-	assert(environment.plugins[#environment.plugins].options.read_only == false)
-	assert(environment.plugins[#environment.plugins].options.tandem.editor == "test-editor")
+	assert(environment.instructions[#environment.instructions]:match("tandem.md$"))
+	assert(environment.plugins[#environment.plugins].options == nil)
 	assert(not args:find('model_reasoning_effort="low"', 1, true))
 	assert(not args:find("Analysis-only Tandem session", 1, true))
 	contains(prompt, "Implement the suggestion")

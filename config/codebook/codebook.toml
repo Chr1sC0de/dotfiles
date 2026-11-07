@@ -23,6 +23,7 @@ words = [
     "augroup",
     "autocmds",
     "autoscaling",
+    "awslocal",
     "bashdb",
     "bigfile",
     "boto",

@@ -7,7 +7,6 @@ function M.report()
 		table.insert(lines, (ok and "OK   " or "WARN ") .. label .. ": " .. detail)
 	end
 	check(vim.fn.executable("opencode") == 1, "CLI", "OpenCode V2 on PATH")
-	check(vim.fn.executable("bwrap") == 1, "read-only shell", "Bubblewrap on PATH")
 	local backend = require("opencode.backend")
 	check(vim.fn.filereadable(backend.plugin_path() .. "/index.ts") == 1, "bridge", backend.plugin_path())
 	local hook = require("opencode.util").opencode_nvim_hook_path()

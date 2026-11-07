@@ -1,5 +1,5 @@
--- OpenCode V2 process boundary. Private servers keep launch-specific Tandem
--- connections and restrictions out of the user's shared background service.
+-- OpenCode V2 process boundary. Private servers inherit launch-specific Tandem
+-- environment without affecting the user's shared background service.
 local M = {}
 
 function M.plugin_path()
@@ -18,24 +18,24 @@ function M.environment(config, opts)
 	end
 	local merged = vim.tbl_deep_extend("force", inherited, config or {})
 	merged.tandem = nil
-	merged.policies = vim.deepcopy(inherited.policies or {})
-	table.insert(merged.policies, { action = "tool.use", resource = "*", effect = "deny" })
-	if not opts.text_only then
-		local actions = { "read", "glob", "grep", "webfetch", "websearch", "question", "external_directory", "nvim_shell" }
-		for _, action in ipairs(actions) do
-			table.insert(merged.policies, { action = "tool.use", resource = action .. ":*", effect = "allow" })
-		end
+	merged.instructions = vim.deepcopy(merged.instructions or {})
+	local instructions = M.plugin_path() .. "/../opencode-instructions/"
+	if opts.text_only then
+		merged.policies = vim.deepcopy(merged.policies or {})
+		table.insert(merged.policies, { action = "tool.use", resource = "*", effect = "deny" })
+		table.insert(merged.instructions, instructions .. "text-only.md")
+	else
+		merged.permissions = vim.deepcopy(merged.permissions or {})
+		table.insert(merged.permissions, { action = "*", resource = "*", effect = "allow" })
+		merged.plugins = vim.deepcopy(merged.plugins or {})
+		table.insert(merged.plugins, { package = M.plugin_path() })
+		if config and config.tandem then table.insert(merged.instructions, instructions .. "tandem.md") end
+		if opts.read_only then table.insert(merged.instructions, instructions .. "analysis.md") end
 	end
-	merged.plugins = vim.deepcopy(inherited.plugins or {})
-	table.insert(merged.plugins, { package = M.plugin_path(), options = {
-		read_only = opts.read_only == true,
-		text_only = opts.text_only == true,
-		root = opts.root,
-		tandem = config and config.tandem,
-	} })
 	local env = { OPENCODE_CONFIG_CONTENT = vim.json.encode(merged) }
 	if config and config.tandem then
 		env.TANDEM_ROOT, env.TANDEM_EDITOR, env.TANDEM_BIN = config.tandem.root, config.tandem.editor, config.tandem.command
+		if config.tandem.state_home then env.XDG_STATE_HOME = config.tandem.state_home end
 	end
 	return env
 end

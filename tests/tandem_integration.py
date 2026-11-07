@@ -61,8 +61,9 @@ class Fixture:
             if "Generate only the requested text" in system or not tools:
                 return {"content": "test: migrate editor integration"}
             assert "HOST_GUIDANCE_MARKER" in system, "host instructions lost"
-            assert not ({"shell", "patch", "write", "edit", "subagent", "execute"} & tools), tools
-            assert "nvim_shell" in tools, tools
+            assert "shell" in tools and {"patch", "write", "edit"} & tools, tools
+            assert "nvim_shell" not in tools, tools
+            assert "Tandem editor integration" in system, "Tandem instructions lost"
             assert not any(name.startswith("tandem_") for name in tools), tools
             readonly = "Analysis-only session" in system
             self.calls.append({"readonly": readonly, "tools": sorted(tools)})
@@ -70,7 +71,7 @@ class Fixture:
                 outputs = {m["tool_call_id"]: m["content"] for m in messages if m["role"] == "tool"}
                 if "query-read" not in outputs:
                     return {"tool_calls": [{"id": "query-read", "type": "function", "function": {
-                        "name": "nvim_shell", "arguments": json.dumps({"command": '"$TANDEM_BIN" read a.py'})}}]}
+                        "name": "shell", "arguments": json.dumps({"command": '"$TANDEM_BIN" read a.py'})}}]}
                 assert tandem_result(outputs["query-read"])["ok"], outputs
                 return {"content": "QUERY_DONE: use the shared helper"}
             if "CONTINUE_TEST" in user:
@@ -85,7 +86,7 @@ class Fixture:
 
             def call(id_, command):
                 return {"tool_calls": [{"id": id_, "type": "function", "function": {
-                    "name": "nvim_shell", "arguments": json.dumps({"command": command})}}]}
+                    "name": "shell", "arguments": json.dumps({"command": command})}}]}
 
             if read_id not in outputs:
                 return call(read_id, '"$TANDEM_BIN" read a.py')
@@ -230,7 +231,7 @@ def main():
             query = launch("query", "QUERY_TEST")
             finish(query, "QUERY_DONE")
             assert source.read_text() == "# human draft\nvalue = 2\n"
-            passed("query receives analysis-only instructions and no native writers")
+            passed("query receives analysis-only instructions with native tools available")
             lua(f'assert(require("opencode.ephemeral.jobs").follow_up(require("opencode.state").ephemeral_jobs[{query}], "FOLLOWUP_TEST", {{action="edit"}}))')
             follow = expr('require("opencode.state").next_ephemeral_job_id - 1')
             promoted = finish(follow, "FOLLOWUP_DONE")

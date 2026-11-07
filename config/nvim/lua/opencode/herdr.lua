@@ -4,8 +4,7 @@ local tandem = require("opencode.tandem")
 local M = {}
 M._test = {}
 
--- Existing agents cannot be retrofitted with a read-only sandbox and MCP tools.
--- Only discover agents started by this protected launch path.
+-- Discover managed agents launched with Tandem environment and notification routing.
 local AGENT_PREFIX = "nvim-opencode-td-"
 local LIFECYCLE_SUBDIR = "libexec/opencode-herdr"
 local ROUTE_SUBDIR = "opencode/herdr"
