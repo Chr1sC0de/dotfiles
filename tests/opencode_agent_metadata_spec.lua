@@ -1,5 +1,5 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
-local herdr = require("opencode.herdr")
+local herdr = require("agents.herdr")
 local root = vim.fn.tempname()
 vim.fn.mkdir(root, "p")
 herdr.route_path = function(name)

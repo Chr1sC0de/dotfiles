@@ -2,16 +2,16 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
 
 local sent
-package.loaded["opencode.chat"] = {
+package.loaded["agents.chat"] = {
 	paste = function(text)
 		sent = text
 		return true
 	end,
 }
-local context = require("opencode.context")
-local jobs = require("opencode.ephemeral.jobs")
-local panel = require("opencode.ephemeral.jobs_panel")
-local util = require("opencode.util")
+local context = require("agents.context")
+local jobs = require("agents.ephemeral.jobs")
+local panel = require("agents.ephemeral.jobs_panel")
+local util = require("agents.util")
 util.notify = function() end
 
 local function contains(text)

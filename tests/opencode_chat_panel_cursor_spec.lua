@@ -8,8 +8,8 @@ package.path = table.concat({
 
 vim.g.opencode_chat_test = true
 
-local state = require("opencode.state")
-local panel = require("opencode.chat_panel")
+local state = require("agents.state")
+local panel = require("agents.chat_panel")
 
 local created_buffers = {}
 
@@ -123,7 +123,11 @@ tests["refresh and already-open focus preserve current row"] = function()
 	assert_equal(vim.api.nvim_win_get_cursor(state.opencode_chat_buffers_win)[1], manual_line, "refresh cursor line")
 
 	panel.open()
-	assert_equal(vim.api.nvim_win_get_cursor(state.opencode_chat_buffers_win)[1], manual_line, "already-open cursor line")
+	assert_equal(
+		vim.api.nvim_win_get_cursor(state.opencode_chat_buffers_win)[1],
+		manual_line,
+		"already-open cursor line"
+	)
 end
 
 for name, test in pairs(tests) do

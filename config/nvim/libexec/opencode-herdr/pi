@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Only managed Pi launches acquire lifecycle cleanup. The wrapper directory is
+# also on OpenCode agents' PATH, where invoking Pi must still use the real CLI.
+wrapper_dir="$(dirname -- "${BASH_SOURCE[0]}")"
+IFS=: read -r -a search_path <<<"${PATH:-}"
+clean_path=""
+for directory in "${search_path[@]}"; do
+	if [ ! "${directory:-.}" -ef "${wrapper_dir}" ]; then
+		clean_path="${clean_path:+${clean_path}:}${directory:-.}"
+	fi
+done
+if [ -z "${PI_REAL_BIN:-}" ]; then
+	for directory in "${search_path[@]}"; do
+		if [ ! "${directory:-.}" -ef "${wrapper_dir}" ] && [ -x "${directory:-.}/pi" ]; then
+			PATH="${clean_path}" exec "${directory:-.}/pi" "$@"
+		fi
+	done
+	printf 'pi-herdr: real Pi executable was not found\n' >&2
+	exit 127
+fi
+# Child shells must not intercept ordinary pi/opencode commands as fresh
+# lifecycle launches and accidentally close the backing pane.
+PATH="${clean_path}" AGENT_REAL_BIN="${PI_REAL_BIN}" PI_REAL_BIN= exec bash "${wrapper_dir}/lifecycle" "$@"

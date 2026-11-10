@@ -504,7 +504,7 @@ local function generate_branch(task, callback)
 		task,
 	}, "\n")
 	util.notify("generating branch name...")
-	require("opencode.backend").generate(instruction, current_cwd(), function(code, stdout, stderr)
+	require("agents.backend").generate(instruction, current_cwd(), function(code, stdout, stderr)
 		if code ~= 0 then
 			fail_step("branch-name generation", stderr)
 			return

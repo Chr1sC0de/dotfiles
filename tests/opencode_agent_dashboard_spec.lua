@@ -2,10 +2,10 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
 vim.opt.runtimepath:prepend(vim.fn.stdpath("data") .. "/lazy/snacks.nvim")
 local Snacks = require("snacks")
 Snacks.setup({ picker = { enabled = true } })
-local chat = require("opencode.chat")
-local herdr = require("opencode.herdr")
+local chat = require("agents.chat")
+local herdr = require("agents.herdr")
 local navigation = require("workmux.herdr")
-local dashboard = require("opencode.agent_dashboard")
+local dashboard = require("agents.agent_dashboard")
 local function equal(a, b)
 	assert(vim.deep_equal(a, b), vim.inspect(a) .. " != " .. vim.inspect(b))
 end
@@ -48,7 +48,7 @@ herdr.launch_metadata = function(agent)
 	end
 end
 local connected = true
-require("opencode.tandem").status = function()
+require("agents.tandem").status = function()
 	return { connected = connected, root = "/project" }
 end
 equal({ dashboard._test.item_status(external) }, { "No", "Unknown", "—" })
@@ -109,8 +109,8 @@ end
 picker.opts.confirm(picker, picker:current())
 equal(attach_target, "external")
 dashboard.close()
-local api = require("opencode")
-require("opencode.commands").setup(api)
+local api = require("agents")
+require("agents.commands").setup(api)
 equal(vim.fn.maparg("<leader>aA", "n", false, true).callback, api.attach_chat)
 equal(vim.fn.exists(":AgentDashboard"), 2)
 equal(vim.fn.exists(":OpenCodeChatAttach"), 2)

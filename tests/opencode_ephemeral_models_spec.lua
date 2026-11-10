@@ -1,11 +1,11 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
 dofile("tests/support/tandem.lua")
 
-local state = require("opencode.state")
-local util = require("opencode.util")
-local model = require("opencode.ephemeral.model")
-local preferences = require("opencode.ephemeral.preferences")
-local catalog = require("opencode.ephemeral.catalog")
+local state = require("agents.state")
+local util = require("agents.util")
+local model = require("agents.ephemeral.model")
+local preferences = require("agents.ephemeral.preferences")
+local catalog = require("agents.ephemeral.catalog")
 local function equal(actual, expected)
 	assert(vim.deep_equal(actual, expected), vim.inspect(actual) .. " ~= " .. vim.inspect(expected))
 end
@@ -78,8 +78,8 @@ files[path] = vim.json.encode({ query = "other-session", edit = "edit-model" })
 model.set("edit", "new-edit")
 equal(vim.json.decode(files[path]), { query = "other-session", edit = "new-edit", commit = vim.NIL })
 state.ephemeral_models, state.ephemeral_models_loaded = {}, false
-package.loaded["opencode.ephemeral.preferences"] = nil
-require("opencode.ephemeral.preferences").load()
+package.loaded["agents.ephemeral.preferences"] = nil
+require("agents.ephemeral.preferences").load()
 equal(state.ephemeral_models, { query = "other-session", edit = "new-edit" })
 model.set("query", nil)
 state.ephemeral_models, state.ephemeral_models_loaded = {}, false
@@ -200,7 +200,7 @@ vim.fn.delete, vim.fn.stdpath = old.delete, old.stdpath
 vim.fn.jobstart, vim.fn.chansend = old.jobstart, old.chansend
 vim.fn.chanclose, vim.fn.jobstop = old.chanclose, old.jobstop
 vim.ui.select, vim.ui.input = old.select, old.input
-local api = require("opencode")
+local api = require("agents")
 api.setup()
 local commands = vim.api.nvim_get_commands({})
 for _, suffix in ipairs({ "", "File", "Selection", "FileDiagnostics", "LineDiagnostics", "SelectionDiagnostics" }) do
@@ -212,7 +212,7 @@ assert(api.query and api.query_file and api.query_selection and not api.command)
 local mapping = vim.fn.maparg("<leader>ac", "n", false, true)
 assert(mapping.desc:find("read-only", 1, true))
 -- CLI default must omit --model for either action.
-local jobs = require("opencode.ephemeral.jobs")
+local jobs = require("agents.ephemeral.jobs")
 for _, action in ipairs({ "query", "edit" }) do
 	local args = assert(jobs.command_args({
 		action = action,

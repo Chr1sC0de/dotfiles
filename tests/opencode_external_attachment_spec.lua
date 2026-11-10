@@ -8,9 +8,9 @@ vim.fn.stdpath = function(kind)
 end
 vim.cmd.cd(temporary .. "/project")
 vim.g.opencode_chat_test = true
-local chat = require("opencode.chat")
-local herdr = require("opencode.herdr")
-local state = require("opencode.state")
+local chat = require("agents.chat")
+local herdr = require("agents.herdr")
+local state = require("agents.state")
 vim.notify = function() end
 local function equal(a, b)
 	assert(vim.deep_equal(a, b), vim.inspect(a) .. " != " .. vim.inspect(b))
@@ -115,12 +115,12 @@ equal(failed_session.launch_status, "detached")
 assert(not chat.is_running(failed_session.bufnr))
 chat.detach(failed_session.bufnr)
 
-local attachment = require("opencode.attachment")
+local attachment = require("agents.attachment")
 local project = attachment.project()
 local saved = attachment.load(project)
 assert(saved and saved.name == "external")
-package.loaded["opencode.attachment"] = nil
-equal(require("opencode.attachment").load(project), saved)
+package.loaded["agents.attachment"] = nil
+equal(require("agents.attachment").load(project), saved)
 vim.cmd.cd(temporary .. "/other")
 equal(attachment.load(attachment.project()), nil)
 vim.cmd.cd(temporary .. "/project")
@@ -132,7 +132,9 @@ vim.ui.select = function(choices, _, callback)
 	prompted = prompted + 1
 	callback(choices[1])
 end
-chat.attach_existing = function() dashboard = dashboard + 1 end
+chat.attach_existing = function()
+	dashboard = dashboard + 1
+end
 agent.pane_id = "w9:p9"
 chat.toggle()
 equal(prompted, 1)
@@ -141,7 +143,9 @@ equal(attachment.load(project), saved)
 equal(attached, 4)
 
 -- A delayed lookup must not attach into a different project.
-herdr.get_agent = function(_, callback) resolve = callback end
+herdr.get_agent = function(_, callback)
+	resolve = callback
+end
 chat.attach_agent("external")
 vim.cmd.cd(temporary .. "/other")
 resolve(agent)

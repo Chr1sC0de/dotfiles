@@ -8,8 +8,8 @@ package.path = table.concat({
 
 vim.g.opencode_chat_test = true
 
-local state = require("opencode.state")
-local chat = require("opencode.chat")
+local state = require("agents.state")
+local chat = require("agents.chat")
 
 local notifications = {}
 vim.notify = function(message, level, opts)
@@ -76,7 +76,9 @@ end
 
 local function assert_equal(actual, expected, label)
 	if actual ~= expected then
-		error(string.format("%s: expected %s, got %s\n%s", label, vim.inspect(expected), vim.inspect(actual), messages()))
+		error(
+			string.format("%s: expected %s, got %s\n%s", label, vim.inspect(expected), vim.inspect(actual), messages())
+		)
 	end
 end
 
@@ -95,7 +97,7 @@ tests["UserPromptSubmit followed by ordinary Stop emits one completion"] = funct
 	send_hook({ hook_event_name = "Stop", turn_id = "turn-1", last_assistant_message = "Implemented and verified." })
 
 	assert_equal(#notifications, 1, "notification count")
-	assert_contains(notifications[1].message, "OpenCode task completed", "completion notification")
+	assert_contains(notifications[1].message, "Agent task completed", "completion notification")
 end
 
 tests["duplicate Stop does not duplicate completion"] = function()
@@ -106,7 +108,7 @@ tests["duplicate Stop does not duplicate completion"] = function()
 	send_hook({ hook_event_name = "Stop", turn_id = "turn-1", last_assistant_message = "Done." })
 
 	assert_equal(#notifications, 1, "notification count")
-	assert_contains(notifications[1].message, "OpenCode task completed", "completion notification")
+	assert_contains(notifications[1].message, "Agent task completed", "completion notification")
 end
 
 tests["PermissionRequest emits one input-required notification"] = function()
@@ -127,7 +129,7 @@ tests["PermissionRequest emits one input-required notification"] = function()
 	})
 
 	assert_equal(#notifications, 1, "notification count")
-	assert_contains(notifications[1].message, "OpenCode needs input", "input notification")
+	assert_contains(notifications[1].message, "Agent needs input", "input notification")
 end
 
 tests["Stop with direct question emits input-required notification"] = function()
@@ -141,7 +143,7 @@ tests["Stop with direct question emits input-required notification"] = function(
 	})
 
 	assert_equal(#notifications, 1, "notification count")
-	assert_contains(notifications[1].message, "OpenCode needs input", "input notification")
+	assert_contains(notifications[1].message, "Agent needs input", "input notification")
 end
 
 tests["Stop with optional follow-up wording does not emit input-required notification"] = function()
@@ -155,7 +157,7 @@ tests["Stop with optional follow-up wording does not emit input-required notific
 	})
 
 	assert_equal(#notifications, 1, "notification count")
-	assert_contains(notifications[1].message, "OpenCode task completed", "completion notification")
+	assert_contains(notifications[1].message, "Agent task completed", "completion notification")
 end
 
 tests["direct question plus optional wording still emits input-required notification"] = function()
@@ -169,7 +171,7 @@ tests["direct question plus optional wording still emits input-required notifica
 	})
 
 	assert_equal(#notifications, 1, "notification count")
-	assert_contains(notifications[1].message, "OpenCode needs input", "input notification")
+	assert_contains(notifications[1].message, "Agent needs input", "input notification")
 end
 
 tests["terminal and idle status changes do not emit desktop notifications"] = function()

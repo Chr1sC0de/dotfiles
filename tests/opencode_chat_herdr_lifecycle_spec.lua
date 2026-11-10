@@ -8,9 +8,9 @@ package.path = table.concat({
 
 vim.g.opencode_chat_test = true
 
-local chat = require("opencode.chat")
-local herdr = require("opencode.herdr")
-local state = require("opencode.state")
+local chat = require("agents.chat")
+local herdr = require("agents.herdr")
+local state = require("agents.state")
 
 vim.notify = function() end
 

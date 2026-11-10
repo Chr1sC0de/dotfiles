@@ -7,7 +7,7 @@ package.path = table.concat({
 }, ";")
 
 dofile("tests/support/tandem.lua")
-local herdr = require("opencode.herdr")
+local herdr = require("agents.herdr")
 
 local function assert_equal(actual, expected, label)
 	if not vim.deep_equal(actual, expected) then
@@ -217,24 +217,20 @@ tests["agent start targets the backing pane"] = function()
 		herdr_agent_name = "nvim-opencode-td-123-2",
 		herdr_pane_id = "w7:p9",
 	})
-	assert_equal(
-		args,
-		{
-			"agent",
-			"start",
-			"nvim-opencode-td-123-2",
-			"--kind",
-			"opencode",
-			"--pane",
-			"w7:p9",
-			"--timeout",
-			"60000",
-			"--",
-			"--standalone",
-			"/tmp/project",
-		},
-		"agent start args"
-	)
+	assert_equal(args, {
+		"agent",
+		"start",
+		"nvim-opencode-td-123-2",
+		"--kind",
+		"opencode",
+		"--pane",
+		"w7:p9",
+		"--timeout",
+		"60000",
+		"--",
+		"--standalone",
+		"/tmp/project",
+	}, "agent start args")
 end
 
 tests["reattach candidates require Neovim route state"] = function()

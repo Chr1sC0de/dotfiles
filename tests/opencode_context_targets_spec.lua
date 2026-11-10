@@ -6,7 +6,7 @@ package.path = table.concat({
 	package.path,
 }, ";")
 
-local targets = require("opencode.context.targets")
+local targets = require("agents.context.targets")
 
 local function assert_equal(actual, expected, label)
 	if actual ~= expected then
@@ -53,11 +53,7 @@ tests["unmodified file target keeps disk read instruction"] = function()
 
 	assert_equal(target.modified, "no", "target modified")
 	assert_equal(target.snapshot_path, nil, "snapshot path")
-	assert_contains(
-		table.concat(target.context_lines, "\n"),
-		"The file is available in the workspace.",
-		"disk context"
-	)
+	assert_contains(table.concat(target.context_lines, "\n"), "The file is available in the workspace.", "disk context")
 
 	pcall(vim.api.nvim_buf_delete, bufnr, { force = true })
 end

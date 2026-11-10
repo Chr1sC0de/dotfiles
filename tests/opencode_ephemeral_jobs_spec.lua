@@ -7,13 +7,13 @@ package.path = table.concat({
 }, ";")
 
 dofile("tests/support/tandem.lua")
-local constants = require("opencode.constants")
-local state = require("opencode.state")
+local constants = require("agents.constants")
+local state = require("agents.state")
 state.ephemeral_models_loaded = true
-local jobs = require("opencode.ephemeral.jobs")
-local jobs_panel = require("opencode.ephemeral.jobs_panel")
-local spinner = require("opencode.ephemeral.spinner")
-local util = require("opencode.util")
+local jobs = require("agents.ephemeral.jobs")
+local jobs_panel = require("agents.ephemeral.jobs_panel")
+local spinner = require("agents.ephemeral.spinner")
+local util = require("agents.util")
 local initial_ephemeral_models = vim.deepcopy(state.ephemeral_models)
 
 local function reset_state()
@@ -238,13 +238,13 @@ end
 
 tests["an unavailable registration never falls back to native edits"] = function()
 	reset_state()
-	local old_args = require("opencode.tandem").config
-	require("opencode.tandem").config = function()
+	local old_args = require("agents.tandem").config
+	require("agents.tandem").config = function()
 		return nil, "offline"
 	end
 	local job = jobs.create("edit", make_target(), nil, "fix it")
 	local command, err = jobs.command_args(job)
-	require("opencode.tandem").config = old_args
+	require("agents.tandem").config = old_args
 	assert_equal(command, nil, "no launch command")
 	assert_equal(err, "offline", "registration error propagated")
 end

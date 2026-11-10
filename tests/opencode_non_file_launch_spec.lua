@@ -2,23 +2,31 @@
 -- nvim --headless -u NONE -i NONE -l tests/opencode_non_file_launch_spec.lua
 local root = vim.fn.getcwd()
 vim.opt.runtimepath:prepend(root .. "/config/nvim")
-local validator = require("opencode.tandem")
-local connection = { connected = true, editor = "test-editor", root = vim.uv.fs_realpath(root), command = vim.v.progpath, state_home = root }
+local validator = require("agents.tandem")
+local connection = {
+	connected = true,
+	editor = "test-editor",
+	root = vim.uv.fs_realpath(root),
+	command = vim.v.progpath,
+	state_home = root,
+}
 local last_options
-validator.status = function() return connection end
+validator.status = function()
+	return connection
+end
 validator.configure(connection)
 local config = validator.config
 validator.config = function(cwd, read_only, path)
 	last_options = { cwd = cwd, read_only = read_only, path = path }
 	return config(cwd, read_only, path)
 end
-local targets = require("opencode.context.targets")
-local diagnostics = require("opencode.context.diagnostics")
-local jobs = require("opencode.ephemeral.jobs")
-local panel = require("opencode.ephemeral.jobs_panel")
-local state = require("opencode.state")
+local targets = require("agents.context.targets")
+local diagnostics = require("agents.context.diagnostics")
+local jobs = require("agents.ephemeral.jobs")
+local panel = require("agents.ephemeral.jobs_panel")
+local state = require("agents.state")
 state.ephemeral_models_loaded = true
-local util = require("opencode.util")
+local util = require("agents.util")
 local notices = {}
 util.notify = function(message)
 	notices[#notices + 1] = message
@@ -39,7 +47,7 @@ vim.fn.chansend = function(_, text)
 	prompt = text
 end
 vim.fn.chanclose = function() end
-local spinner = require("opencode.ephemeral.spinner")
+local spinner = require("agents.ephemeral.spinner")
 spinner.start_spinner = function()
 	return function() end
 end
@@ -132,7 +140,7 @@ for _, case in ipairs(cases) do
 		assert(last_options.path == nil and last_options.read_only == true)
 		assert(last_options.cwd == root)
 		contains(prompt, "first reference line\nselected reference line\nlast reference line")
-	contains(prompt, "Do not modify files or buffers")
+		contains(prompt, "Do not modify files or buffers")
 		local parent = current_job()
 		panel.jump_to_source(parent)
 		assert(vim.api.nvim_get_current_buf() == buf)

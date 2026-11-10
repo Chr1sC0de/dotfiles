@@ -1,9 +1,9 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
 vim.o.swapfile = false
 
-local commit = require("opencode.commit")
-local review = require("opencode.commit_review")
-local state = require("opencode.state")
+local commit = require("agents.commit")
+local review = require("agents.commit_review")
+local state = require("agents.state")
 
 local function expect_valid(message)
 	local valid, reason = commit.validate_fallback(message)
@@ -76,7 +76,7 @@ local restaged = collect_staged(root)
 assert(restaged.fingerprint ~= prepared.fingerprint, "staging new work should invalidate the prepared snapshot")
 
 run_git(root, { "config", "user.email", "opencode-test@example.com" })
-run_git(root, { "config", "user.name", "OpenCode Test" })
+run_git(root, { "config", "user.name", "Agent Test" })
 run_git(root, { "config", "commit.gpgsign", "false" })
 run_git(root, { "config", "core.hooksPath", root .. "/.git/hooks" })
 local previous_executable = vim.fn.executable
@@ -303,7 +303,7 @@ assert(
 
 -- Exercise the automatic entrypoint with real Git and controlled asynchronous generation.
 local notices = {}
-local util = require("opencode.util")
+local util = require("agents.util")
 local previous_notify = util.notify
 util.notify = function(message)
 	notices[#notices + 1] = message
@@ -412,7 +412,7 @@ assert(
 	"automatic flow must stage and generate once"
 )
 for _, message in ipairs(notices) do
-	assert(not message:find("OpenCode commit ready:", 1, true), "automatic flow must not ask for another command")
+	assert(not message:find("Agent commit ready:", 1, true), "automatic flow must not ask for another command")
 end
 vim.cmd.cd(root)
 
@@ -447,7 +447,10 @@ assert((vim.uv or vim.loop).fs_chmod(hook, 493))
 commit.run()
 wait_finished()
 assert(head() == before and state.opencode_prepared_commit ~= nil, "hook failure should retain matching candidate")
-assert(state.opencode_prepared_commit.message == "fix: retry prepared commit", "retry should preserve generated message")
+assert(
+	state.opencode_prepared_commit.message == "fix: retry prepared commit",
+	"retry should preserve generated message"
+)
 initial_generations, initial_adds = generation_count, add_count
 vim.fn.writefile({ "new work after failed hook" }, root .. "/added.txt")
 vim.fn.delete(hook)
@@ -479,7 +482,7 @@ assert(
 )
 
 -- Verify command wiring and empty-worktree handling through the public command.
-local api = require("opencode")
+local api = require("agents")
 assert(
 	api.commit == commit.run and api.commit_prepared == commit.commit,
 	"public APIs should preserve prepared-only entrypoint"

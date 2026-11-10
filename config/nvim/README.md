@@ -66,33 +66,39 @@ The implementation lives in `lua/workmux/`, is exposed through
 fall back to a Neovim terminal tab. Herdr orchestration uses its structured CLI
 responses directly and leaves the Sessionizer plugin independent.
 
-## OpenCode Integration
+## Agent Integration
 
-This config includes a local OpenCode chat bridge under `lua/opencode/` and a hook
+Use `:AgentBackend` / `<leader>aB` to select OpenCode or Pi per checkout.
+Switching keeps their conversations and terminal drafts independent. All
+`:OpenCode…` commands remain compatibility aliases for `:Agent…`; existing
+mappings are unchanged. Shared modules now live in `lua/agents/`, with backend
+adapters in `backends/` and project selection in `selection.lua`.
+
+This config includes a backend-neutral OpenCode/Pi chat bridge under `lua/agents/` and a hook
 receiver at `bin/opencode-nvim-hook`.
 
-Run `:OpenCodeCommit` to stage all saved changes, generate a Conventional Commit
+Run `:AgentCommit` to stage all saved changes, generate a Conventional Commit
 message, and commit automatically in the background with normal Git hooks.
 You can keep editing: unsaved buffers are left alone, and edits saved after
 staging remain unstaged for your next commit. Progress and completion appear
 as notifications without opening a popup or taking focus.
 
-For the manual workflow, run `:OpenCodePrepareCommit` to stage changes and prepare
-a message without committing. If a prepared message exists, `:OpenCodeCommit`
+For the manual workflow, run `:AgentPrepareCommit` to stage changes and prepare
+a message without committing. If a prepared message exists, `:AgentCommit`
 uses that message and staged snapshot without restaging or regenerating.
 Changing the staged snapshot aborts the operation and discards the prepared
 message; it never automatically restages within that invocation. If a commit
 fails and its staged snapshot still matches, the message is retained so
-`:OpenCodeCommit` can retry. Otherwise, prepare again or run `:OpenCodeCommit` afresh.
+`:AgentCommit` can retry. Otherwise, prepare again or run `:AgentCommit` afresh.
 
-Run `:OpenCodeReviewCommit` before committing to open an optional review popup.
+Run `:AgentReviewCommit` before committing to open an optional review popup.
 Press `a` or `<Enter>` to accept and commit, `e` to edit the subject, `f` to
-send feedback to OpenCode and request another proposal, or `r` to reject the
+send feedback to the originating backend and request another proposal, or `r` to reject the
 prepared message while preserving staged changes. Press `q` or `<Esc>` to close
-the popup without discarding the prepared message. `:OpenCodeCommit` remains
+the popup without discarding the prepared message. `:AgentCommit` remains
 available when no review is needed.
 
-When Neovim runs inside Herdr, each new chat starts as a real OpenCode agent in a
+When Neovim runs inside Herdr, each new chat starts as a real agent using the selected backend in a
 right-hand split of Neovim's current tab. The split remains visible until the
 shell and agent are ready; Neovim then regains focus and its pane is zoomed.
 Lifecycle notifications report startup, readiness, and failure. The Neovim
@@ -101,71 +107,72 @@ virtual keybinding header, so the attached buffer remains the primary chat UI
 while Herdr retains native agent detection. Outside Herdr, chats continue to
 launch directly in Neovim terminals.
 
-Queries (analysis-only instructions) and edits (live buffer changes) always run as independent background `opencode run --standalone --format json`
-processes managed by Neovim. They can run in parallel without creating Herdr
-workspaces, tabs, or splits. Neovim retains its spinner, diagnostics, lifecycle
-notifications, jobs panel, cancellation controls, and session-only Markdown
-scratch result.
-Open a completed result from `:OpenCodeJobs`; it appears in a dedicated tab without
-creating a result file. Reopening a visible result focuses its existing tab
-instead of creating a duplicate. Press `f` from either the result or its jobs
-panel row to continue the native OpenCode thread, `s` to return to its source, or
-`q` to close the result tab and return to the originating tab. OpenCode persists
-the underlying thread so follow-ups use its native conversation history, but
-Neovim does not restore result buffers or jobs after restarting. If Neovim is
-not running inside Herdr, jobs fall back to direct `opencode run --standalone --format json` processes with
-the same result and follow-up behavior.
+Queries (analysis-only instructions) and edits (live buffer changes) run as
+independent background processes: OpenCode uses `opencode run --standalone --format json`,
+while Pi uses JSON print mode. They can run in parallel without creating Herdr
+panes. Open completed results with `:AgentJobs`; `f` continues the original
+backend's native conversation, `s` returns to the source, and `q` closes the
+result tab. Jobs/results are session-only; native conversation IDs support resume.
+Switching backends never redirects a running job or its follow-ups.
 
-Use `:OpenCodeQuery` to ask without editor context, `:OpenCodeQueryFile` for the
-current file, and `:OpenCodeQuerySelection` for selected text. Diagnostic queries
-use `:OpenCodeQueryFileDiagnostics`, `:OpenCodeQueryLineDiagnostics`, or
-`:OpenCodeQuerySelectionDiagnostics`. Queries are instructed not to modify files or buffers;
-this is instruction-only, with normal filesystem and network access through OpenCode's built-in tools.
-`:OpenCodeEditFile` and `:OpenCodeEditSelection` apply requested file changes.
+Use `:AgentQuery` to ask without editor context, `:AgentQueryFile` for the
+current file, and `:AgentQuerySelection` for selected text. Diagnostic queries
+use `:AgentQueryFileDiagnostics`, `:AgentQueryLineDiagnostics`, or
+`:AgentQuerySelectionDiagnostics`. Queries are instructed not to modify files or buffers;
+this is instruction-only, with normal filesystem and network access through the backend's native tools.
+`:AgentEditFile` and `:AgentEditSelection` apply requested file changes.
 The former `:OpenCodeCommand*` names have been replaced; existing keybindings
 still work (`<leader>aq`, `<leader>ac`, `<leader>ar`, and `<leader>ae`).
 
-Managed launches pass Tandem's workspace/editor environment to a private OpenCode
+Managed launches pass Tandem's workspace/editor environment to the selected backend
 process and load guidance from `opencode-instructions/`. Coding and analysis
 sessions allow tool permissions without approval prompts; text-generation jobs
 remain tool-free. The local `opencode-plugin/` only forwards Neovim status
-notifications; Tandem uses OpenCode's built-in shell directly.
+notifications for OpenCode; `pi-extension/` supplies Pi lifecycle events.
+Both use their native shell tool for Tandem editing.
 
 `<leader>aA` opens a searchable attachment picker with the same live pane previews
 as `<leader>wd`. Press Enter to attach/open; in normal mode, `d` detaches,
 `o` goes to the agent, and `r` refreshes. Rows show attachment, Tandem launch
 configuration (not a live per-agent connection), and hook status.
 
-Attaching an agent with `<leader>aA` remembers its identity for the current project
+Attaching an agent with `<leader>aA` remembers its identity per backend for the current project
 (each Git worktree is separate). `<leader>aa` returns to that attachment, including
 after restarting Neovim, retaining the existing agent conversation and its model.
 If the remembered agent is missing or has moved to a different pane/workspace,
 the toggle offers reattachment rather than silently creating or selecting another chat.
 
 Choose separate query, edit, and commit-message models with `<leader>am` or
-`:OpenCodeEphemeralModel [query|edit|commit]`. Commit generation and message revisions use the saved commit model.
-The picker queries OpenCode V2's model API through the authenticated CLI,
-including `provider/model#variant` choices. Discovery times out after ten seconds.
+`:AgentEphemeralModel [query|edit|commit]`. Commit generation and message revisions use the saved commit model.
+The picker uses the selected backend's catalog: OpenCode V2's authenticated
+model API (including `provider/model#variant`) or Pi's `--list-models`. Discovery times out after ten seconds.
 On failure, the picker uses its last successful catalog, labeled **cached**.
 Only model IDs and labels are cached, never provider credentials.
 **CLI default**, **Custom…**, and the current selection remain available even
 when discovery fails. An unlisted saved model is retained until you change it.
 
 Selections are saved immediately in
-`stdpath("state")/opencode/ephemeral-models.json` and restored across Neovim
+`stdpath("state")/opencode/ephemeral-models.json` (OpenCode) and
+`stdpath("state")/opencode/pi-ephemeral-models.json` (Pi) and restored across Neovim
 restarts for all projects on this machine. Before selecting a model, jobs follow
-the OpenCode CLI default; selecting **CLI default** restores that behavior.
+their backend's CLI default; selecting **CLI default** restores that behavior.
 A failed save leaves the selection active for the current session and displays
 a warning. Existing thread follow-ups retain their original job's model;
 starting a fresh edit from a result uses the saved edit preference.
 
-Use `:OpenCodeChatAttach` or `<leader>aA` to reconnect to a surviving agent across
+Use `:AgentChatAttach` or `<leader>aA` to reconnect to a surviving agent across
 the current Herdr session. The chat-buffer panel also provides `a` for this
 picker. Explicitly deleting a chat closes its backing Herdr pane; hiding its
-buffer or exiting Neovim leaves the agent running. When OpenCode itself exits for
+buffer or exiting Neovim leaves the agent running. When the backing agent exits for
 any reason, its dedicated Herdr pane closes automatically and an attached
 Neovim chat buffer is removed. This cleanup is owned by the Herdr pane, so it
 still runs while Neovim is detached or closed.
+
+The model picker configures **background queries, edits, and commit generation**,
+not a running interactive chat. Change interactive models using each CLI's native
+model picker. Model IDs are backend-specific and are not translated between providers.
+Existing state directories and hook/environment names retain their legacy names
+for compatibility; saved attachments, native session IDs, and preferences need no migration.
 
 The dotfiles installer symlinks `config/nvim` by default, so the Neovim-side
 hook script is installed automatically on a new machine:

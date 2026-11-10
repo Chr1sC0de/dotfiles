@@ -1,8 +1,8 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/config/nvim")
 dofile("tests/support/tandem.lua")
-local chat = require("opencode.chat")
-local herdr = require("opencode.herdr")
-local attachment = require("opencode.attachment")
+local chat = require("agents.chat")
+local herdr = require("agents.herdr")
+local attachment = require("agents.attachment")
 
 vim.notify = function() end
 vim.fn.executable = function()

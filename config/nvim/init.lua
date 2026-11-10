@@ -1,13 +1,13 @@
 require("core.lazy")
 
 if not vim.g.vscode then
-	require("opencode.tandem").setup()
+	require("agents.tandem").setup()
 	require("core.lsp")
 	require("config.autocmds")
 
-	-- only load in opencode if it exists
-	if vim.fn.executable("opencode") == 1 then
-		require("config.opencode").setup()
+	-- Load the shared workflows when either backend is available.
+	if vim.fn.executable("opencode") == 1 or vim.fn.executable("pi") == 1 then
+		require("config.agents").setup()
 	end
 end
 

@@ -1,1 +1,1 @@
-return require("opencode")
+return require("agents")

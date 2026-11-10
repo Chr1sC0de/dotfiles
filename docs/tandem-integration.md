@@ -1,4 +1,49 @@
-# OpenCode, Tandem, and Neovim
+# Agents, Tandem, and Neovim
+
+## Agent backends
+
+`:AgentBackend` (or `<leader>aB`) selects **OpenCode** or **Pi**. Use
+`:AgentBackend opencode` / `:AgentBackend pi` to switch directly. Selection is
+remembered per checkout; OpenCode is the default. Pi integration targets Pi
+1.5+ (`agent_settled` and UI-prompt lifecycle events).
+
+Existing `:OpenCode…` commands and `<leader>a…` mappings operate on the selected
+backend. Every legacy command has an `Agent…` alias, including `:AgentChat`, `:AgentChatNew`, `:AgentSessions`,
+`:AgentJobs`, `:AgentEphemeralModel`, and `:AgentHealth`. Session and job rows identify their backend.
+Opening a session selects its backend; explicitly targeted sends use that
+buffer's backend. Switching preserves both terminal processes and input drafts,
+and restores each backend's last live conversation. Native session IDs are
+remembered for restart/resume once the lifecycle bridge has reported them.
+`:AgentChatNew` always starts a fresh conversation.
+
+Background queries, edits, continuations, promotion, titles and commit-message
+generation use the owning backend. Switching does not redirect pending prompts,
+model choices, or running jobs. Follow-ups stay on their original backend.
+Model preferences/catalogs and remembered Herdr attachments are separate.
+The shared Lua namespace is `agents` (`selection.lua` owns project selection);
+backend-specific plugins retain explicit names. Legacy state directories and
+transport environment variables are intentionally unchanged to preserve existing
+preferences, attachments, and native session IDs.
+
+`<leader>am` / `:AgentEphemeralModel [query|edit|commit]` configures background
+models for the selected backend, not the model of a running interactive chat.
+Use the native CLI model picker for interactive chats. IDs are not translated
+between catalogs. Stale model pickers are ignored after a backend/project switch.
+
+Both CLIs retain their native configuration and credentials; no credentials
+are copied between them.
+
+Pi uses its native terminal UI, JSON print mode for jobs, and a repository-owned
+status extension. Its `bash` tool invokes the same Tandem CLI with the same
+editor/root environment and revision-aware editing contract. Query restrictions
+remain instruction-only. Text generation disables tools, MCP and extension
+discovery. Inside Herdr, Pi uses native `--kind pi` managed panes and the same
+detach/reattach workflow. External agents do not acquire Tandem retroactively.
+
+After updating these Lua modules, restart Neovim to load the new command and
+adapters. Future backend switches require no restart. Use `:AgentHealth` and
+`:TandemStatus` for launch/registration issues. An unavailable CLI fails the
+switch rather than silently using the other backend.
 
 ## Development setup
 
@@ -25,14 +70,14 @@ backoff after failures or daemon restarts. Run `:TandemStatus` and
 `:OpenCodeHealth` to inspect readiness. Launches fail closed until registration
 succeeds, or if their cwd/target is outside the registered workspace.
 
-For custom startup options, configure `require("opencode.tandem").setup({...})`
+For custom startup options, configure `require("agents.tandem").setup({...})`
 in `init.lua`: `root`, `command`, `state_home`, `interval_ms`, and
 `backoff_cap_ms` are supported. The root defaults to Neovim's startup cwd and
 stays fixed; open another Neovim process for another workspace.
 
 ## Editing contract
 
-Managed chats and background jobs use `--standalone` with launch-local
+Managed OpenCode chats and background jobs use `--standalone` with launch-local
 configuration. Host instructions, provider credentials, and model settings
 still load normally. The OpenCode plugin only forwards lifecycle notifications
 to Neovim; it does not supply tools or modify the tool registry.
@@ -115,6 +160,7 @@ done
 nvim --headless -u NONE -i NONE -l config/nvim/tests/opencode_commit_test.lua
 for test_file in tests/opencode*_spec.sh; do bash "$test_file" || exit; done
 python3 -B tests/tandem_integration.py
+AGENT_TEST_BACKEND=pi python3 -B tests/tandem_integration.py
 ```
 
 The integration test uses real OpenCode, CLI, daemon, Neovim RPC, and Conform.
@@ -126,6 +172,9 @@ Evidence is written to `artifacts/tandem/`.
 Override `TANDEM_BIN`, `TANDEM_CONFORM`, or `TANDEM_EVIDENCE_DIR` as needed.
 `TANDEM_TEST_TMPDIR` defaults to `/tmp/opencode`. Inside Herdr, the opt-in
 `python3 -B tests/opencode_herdr_smoke.py` exercises owned live terminal panes.
+`python3 -B tests/pi_herdr_smoke.py` checks real managed Pi startup and detection
+without sending a model request. Lifecycle cleanup uses a backend-neutral
+parent script because Herdr inspects the entire foreground process group.
 
 CI runs regression suites and real Tandem integration tests on Ubuntu 22.04
 and 24.04 using the installer's pinned GitHub revision. The manual workflow's

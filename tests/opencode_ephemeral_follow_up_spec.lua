@@ -1,23 +1,31 @@
 -- Use the real Tandem argument validator; intercept only process launch and UI input.
 local root = vim.fn.getcwd()
 vim.opt.runtimepath:prepend(root .. "/config/nvim")
-local validator = require("opencode.tandem")
-local connection = { connected = true, editor = "test-editor", root = vim.uv.fs_realpath(root), command = vim.v.progpath, state_home = root }
+local validator = require("agents.tandem")
+local connection = {
+	connected = true,
+	editor = "test-editor",
+	root = vim.uv.fs_realpath(root),
+	command = vim.v.progpath,
+	state_home = root,
+}
 local launch_options
-validator.status = function() return connection end
+validator.status = function()
+	return connection
+end
 validator.configure(connection)
 local config = validator.config
 validator.config = function(cwd, read_only, path)
 	launch_options = { cwd = cwd, read_only = read_only, path = path }
 	return config(cwd, read_only, path)
 end
-local jobs = require("opencode.ephemeral.jobs")
-local panel = require("opencode.ephemeral.jobs_panel")
-local state = require("opencode.state")
+local jobs = require("agents.ephemeral.jobs")
+local panel = require("agents.ephemeral.jobs_panel")
+local state = require("agents.state")
 state.ephemeral_models_loaded = true
-local spinner = require("opencode.ephemeral.spinner")
+local spinner = require("agents.ephemeral.spinner")
 local notice
-require("opencode.util").notify = function(message)
+require("agents.util").notify = function(message)
 	notice = message
 end
 spinner.start_spinner = function()
@@ -253,7 +261,7 @@ assert(prompt:sub(-#"New instruction:\nApply second answer") == "New instruction
 
 -- The copied history and reference survive deletion, pruning, and later mutation.
 assert(jobs.delete(first))
-local constants = require("opencode.constants")
+local constants = require("agents.constants")
 local limit = constants.EPHEMERAL_RECENT_JOB_LIMIT
 constants.EPHEMERAL_RECENT_JOB_LIMIT = 0
 jobs.prune()
