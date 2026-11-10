@@ -74,6 +74,7 @@ function M.create(action, target, selected_model, instruction, attrs)
 
 	local job = {
 		backend = attrs.backend or agents.get(),
+		project = attrs.project or agents.project(),
 		answer_lines = {},
 		id = id,
 		action = action,
@@ -426,11 +427,12 @@ function M.run(action, target, instruction, owner, cwd)
 	run_direct(job_record, prompt)
 end
 
-local function active_thread_job(thread_id, owner)
+local function active_thread_job(thread_id, owner, cwd)
 	for _, candidate in pairs(state.ephemeral_jobs) do
 		if
 			candidate.thread_id == thread_id
 			and (candidate.backend or "opencode") == owner
+			and (not cwd or candidate.cwd == cwd)
 			and M.is_active(candidate)
 		then
 			return candidate
@@ -491,6 +493,35 @@ local function history_through(job, seen)
 	return history, incomplete, reference
 end
 
+local function native_options(job)
+	return {
+		backend = job.backend or "opencode",
+		cwd = job.cwd,
+		project = job.project,
+		native_session_id = job.thread_id,
+	}
+end
+
+function M.open_session(job)
+	if not job or not job.finished_at or M.is_active(job) then
+		util.notify("Select a completed Agent job to continue", vim.log.levels.WARN)
+		return false
+	end
+	if type(job.thread_id) ~= "string" or job.thread_id == "" then
+		util.notify("Agent thread ID was not captured; this result cannot be resumed", vim.log.levels.WARN)
+		return false
+	end
+	local active = active_thread_job(job.thread_id, job.backend or "opencode", job.cwd)
+	if active then
+		util.notify(
+			"Wait for Agent job #" .. active.id .. " to finish before opening this conversation",
+			vim.log.levels.WARN
+		)
+		return false
+	end
+	return require("agents.chat").open_native_session(native_options(job))
+end
+
 ---@param opts? {action?: "edit"|"query"}
 function M.follow_up(job, instruction, opts)
 	opts = opts or {}
@@ -524,10 +555,33 @@ function M.follow_up(job, instruction, opts)
 			return false
 		end
 	end
-	local active = not opts.action and active_thread_job(job.thread_id, owner)
+	local active = not opts.action and active_thread_job(job.thread_id, owner, job.cwd)
 	if active then
 		util.notify("Agent thread already has running job #" .. active.id, vim.log.levels.WARN)
 		return false
+	end
+
+	if not opts.action then
+		local chat = require("agents.chat")
+		local native = native_options(job)
+		local interactive = chat.native_session_owner(native)
+		if interactive then
+			if interactive.launch_status == "detached" then
+				chat.with_native_session_owner(native, function(current)
+					if current then
+						util.notify(
+							"This conversation is open in an Agent terminal; press c to continue there",
+							vim.log.levels.WARN
+						)
+					else
+						M.follow_up(job, instruction, opts)
+					end
+				end)
+				return true
+			end
+			util.notify("This conversation is open in an Agent terminal; continue there instead", vim.log.levels.WARN)
+			return false
+		end
 	end
 
 	-- Resume continues the latest state of a thread, even when invoked from an
@@ -589,6 +643,7 @@ function M.follow_up(job, instruction, opts)
 	local next_job = M.create(action, target, selected_model, instruction, {
 		backend = owner,
 		cwd = job.cwd,
+		project = job.project,
 		parent_job_id = job.id,
 		reasoning_effort = reasoning_effort,
 		thread_id = thread_id,

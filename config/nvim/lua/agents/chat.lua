@@ -19,6 +19,13 @@ local stop_paste_ready_timer
 local mark_paste_ready
 local handle_herdr_attachment_exit
 local resolutions = {}
+-- Retain exact-session ownership across terminal detach (the agent keeps running).
+state.native_session_owners = state.native_session_owners or {}
+local function native_key(opts)
+	local cwd = opts.cwd or vim.fn.getcwd()
+	cwd = vim.uv.fs_realpath(cwd) or vim.fs.normalize(cwd)
+	return table.concat({ opts.backend or "opencode", cwd, opts.native_session_id or "" }, "\n")
+end
 local function resolution_for_target()
 	local project, id = agents.project(), agents.get()
 	local key = project .. "\n" .. id
@@ -270,6 +277,12 @@ local function remove_session(bufnr, opts)
 	end
 	if session and session.title_output_path then
 		pcall(vim.fn.delete, session.title_output_path)
+	end
+	if session and not opts.keep_native_owner then
+		local key = native_key(session)
+		if state.native_session_owners[key] == session then
+			state.native_session_owners[key] = nil
+		end
 	end
 	if session then
 		stop_task_timer(session)
@@ -1200,6 +1213,7 @@ local function initialize_chat_buffer(session)
 	vim.b[buf].agent_backend = session.backend or "opencode"
 	vim.b[buf].agent_project = session.project
 	vim.b[buf].opencode_session_id = session.id
+	vim.b[buf].opencode_native_session_id = session.native_session_id
 	vim.b[buf].opencode_cwd = session.cwd
 	vim.b[buf].opencode_started_at = session.started_at
 	vim.b[buf].opencode_external_attachment = session.external_attachment == true
@@ -1464,6 +1478,8 @@ local function new_session(buf, cwd)
 end
 
 ---Starts a new Agent terminal buffer and begins the interactive session.
+---opts.transport defaults to "auto" (Herdr when available); "direct" always
+---runs in a Neovim terminal without creating a Herdr backing agent/pane.
 ---
 ---@return table|nil session when Agent starts successfully.
 function M.create(opts)
@@ -1504,7 +1520,7 @@ function M.create(opts)
 	local hook_env = session_hook_env(session) or {}
 	hook_env.OPENCODE_THREAD_ID = ""
 
-	if herdr.available() then
+	if opts.transport ~= "direct" and herdr.available() then
 		if not herdr.prepare(session) then
 			delete_session_buffer(session.bufnr)
 			util.notify("Failed to create Agent Herdr routing state", vim.log.levels.ERROR)
@@ -1522,6 +1538,107 @@ function M.create(opts)
 	end
 
 	return session
+end
+
+---Find the interactive owner, including a detached backing agent.
+function M.native_session_owner(opts)
+	ensure_session_state()
+	local key = native_key(opts)
+	local remembered = state.native_session_owners[key]
+	if remembered then
+		if not remembered.exited and (remembered.launch_status == "detached" or session_is_running(remembered)) then
+			return remembered
+		end
+		state.native_session_owners[key] = nil
+	end
+	for _, session in pairs(state.opencode_sessions) do
+		if
+			native_key(session) == key
+			and not session.exited
+			and (session.launch_status == "detached" or session_is_running(session))
+		then
+			return session
+		end
+	end
+end
+
+---Check detached ownership asynchronously before allowing another writer.
+function M.with_native_session_owner(opts, callback)
+	local owner = M.native_session_owner(opts)
+	if not owner or owner.launch_status ~= "detached" then
+		callback(owner)
+		return
+	end
+	herdr.agent_exists(owner.herdr_agent_name, function(exists)
+		if not exists then
+			owner.exited = true
+			state.native_session_owners[native_key(opts)] = nil
+		end
+		callback(exists and owner or nil)
+	end)
+end
+
+---Resume exactly this conversation in the regular <leader>aa Agent terminal.
+function M.open_native_session(opts)
+	local id = opts.backend or "opencode"
+	if not agents.valid(id) or type(opts.native_session_id) ~= "string" or opts.native_session_id == "" then
+		util.notify("No resumable Agent session was captured", vim.log.levels.WARN)
+		return false
+	end
+	local owner = M.native_session_owner(opts)
+	if owner then
+		if owner.launch_status == "detached" then
+			if owner.native_attach_pending then
+				return true
+			end
+			owner.native_attach_pending = true
+			M.attach_agent(owner.herdr_agent_name, function(restored)
+				owner.native_attach_pending = nil
+				if restored then
+					restored.native_session_id = opts.native_session_id
+					vim.b[restored.bufnr].opencode_native_session_id = opts.native_session_id
+					state.native_session_owners[native_key(opts)] = restored
+					M.focus(restored.bufnr)
+				end
+			end, {
+				backend = id,
+				name = owner.herdr_agent_name,
+				pane_id = owner.herdr_pane_id,
+				workspace_id = owner.herdr_workspace_id,
+			})
+			return true
+		end
+		-- Reuse an already visible terminal rather than showing a second view
+		-- in the result window. Remember the result before changing windows.
+		for _, win in ipairs(vim.api.nvim_list_wins()) do
+			if vim.api.nvim_win_get_buf(win) == owner.bufnr then
+				M.remember_previous_buffer()
+				vim.api.nvim_set_current_win(win)
+				break
+			end
+		end
+		return M.focus(owner.bufnr)
+	end
+	local project = opts.project or agents.project()
+	local previous = agents.get(project)
+	local session = M.create({
+		backend = id,
+		cwd = opts.cwd,
+		project = project,
+		native_session_id = opts.native_session_id,
+		background = true,
+		transport = "direct",
+	})
+	if not session then
+		return false
+	end
+	state.native_session_owners[native_key(opts)] = session
+	local focused = M.focus(session.bufnr)
+	if focused and previous ~= id then
+		session.switch_previous = previous
+		session.switch_revision = agents.revision(project)
+	end
+	return focused
 end
 
 function M.switch_backend(id)
@@ -1580,7 +1697,11 @@ function M.detach(bufnr)
 		state.opencode_deleted_jobs[session.job_id] = true
 		pcall(vim.fn.jobstop, session.job_id)
 	end
-	remove_session(session.bufnr, { delete_buffer = true })
+	session.launch_status = "detached"
+	if session.native_session_id then
+		state.native_session_owners[native_key(session)] = session
+	end
+	remove_session(session.bufnr, { delete_buffer = true, keep_native_owner = true })
 	if was_active then
 		sync_active_state(newest_live_session())
 	end

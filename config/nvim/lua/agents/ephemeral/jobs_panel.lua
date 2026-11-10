@@ -74,6 +74,7 @@ function M.result_lines(job)
 		"## Commands",
 		"",
 		"- `f` — follow up on this result",
+		"- `c` — continue inside Neovim, without creating a split/pane (normal interactive permissions)",
 		"- `e` — start an edit job from this result (new thread)",
 		"- `s` — jump to the source",
 		"- `q` / `<Esc>` — close the result",
@@ -185,6 +186,9 @@ local function ensure_result_buffer(job)
 	job.result_bufnr = bufnr
 
 	local opts = { buffer = bufnr, nowait = true, silent = true }
+	vim.keymap.set("n", "c", function()
+		jobs.open_session(job)
+	end, vim.tbl_extend("force", opts, { desc = "Agent: continue in Agent terminal" }))
 	vim.keymap.set("n", "f", function()
 		jobs.prompt_follow_up(job)
 	end, vim.tbl_extend("force", opts, { desc = "Agent: follow up on this result" }))

@@ -111,8 +111,21 @@ Queries (analysis-only instructions) and edits (live buffer changes) run as
 independent background processes: OpenCode uses `opencode run --standalone --format json`,
 while Pi uses JSON print mode. They can run in parallel without creating Herdr
 panes. Open completed results with `:AgentJobs`; `f` continues the original
-backend's native conversation, `s` returns to the source, and `q` closes the
-result tab. Jobs/results are session-only; native conversation IDs support resume.
+backend's native conversation in the background, `s` returns to the source, and
+`q` closes the result tab. Press `c` in a completed result to continue its actual
+conversation in the regular Agent terminal, with normal interactive permissions.
+This focuses an existing terminal, reattaches its existing Herdr agent inside
+Neovim, or resumes the job's session directly in the current Neovim window.
+It never creates a new split, tab, or Herdr backing pane; an existing Herdr pane
+stays intact when attached. Resume uses the job's original working directory,
+selects its backend, and makes it the `<leader>aa` target, with the result buffer
+as the return destination. Other chats remain available through `<leader>ab`.
+Repeated presses reuse the same terminal. Directly resumed agents follow the
+Neovim terminal lifecycle, without Herdr's detached-process persistence.
+Ordinary new Agent chats retain automatic Herdr launch behavior.
+Background follow-ups and interactive continuation cannot write to the same
+conversation concurrently, including while its Herdr agent is detached.
+Jobs/results are session-only; native conversation IDs support resume.
 Switching backends never redirects a running job or its follow-ups.
 
 Use `:AgentQuery` to ask without editor context, `:AgentQueryFile` for the
