@@ -40,6 +40,7 @@ fi
 . "$PROFILE_FOLDER/popos_fast_switching.sh"
 . "$PROFILE_FOLDER/texlive.sh"
 . "$PROFILE_FOLDER/zoxide.sh"
+. "$PROFILE_FOLDER/prek.sh"
 
 # disable ctrl+s in terminal
 stty -ixon
