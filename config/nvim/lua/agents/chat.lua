@@ -1529,6 +1529,11 @@ function M.create(opts)
 	end
 
 	initialize_chat_buffer(session)
+	if not opts.background then
+		-- Select immediately: asynchronous startup may finish after the user
+		-- has returned to a source buffer. Sends should queue on this chat.
+		sync_active_state(session)
+	end
 	if session.launch_mode == "herdr" then
 		start_herdr_chat(session)
 	elseif not start_direct_chat(session, hook_env) then
@@ -2034,11 +2039,11 @@ local function select_target_agent(resolution, candidates, callback)
 	end)
 end
 
-local function attach_target_agent(agent, previous_session)
+local function attach_target_agent(agent, previous_session, external)
 	if vim.g.opencode_chat_test and M._test.attach_existing_agent then
-		return M._test.attach_existing_agent(agent, previous_session)
+		return M._test.attach_existing_agent(agent, previous_session, external)
 	end
-	return attach_existing_agent(agent, previous_session)
+	return attach_existing_agent(agent, previous_session, external)
 end
 
 local function begin_target_resolution(resolution)
@@ -2063,29 +2068,50 @@ local function begin_target_resolution(resolution)
 		on_error = function(_, message)
 			finish_target_resolution(resolution, nil, "Failed to list Herdr agents: " .. tostring(message))
 		end,
-		on_success = function(agents)
-			local candidates = herdr.filter_agents(
-				agents,
-				represented,
-				{ tab_id = vim.env.HERDR_TAB_ID, backend = resolution.backend }
-			)
+		on_success = function(live_agents)
+			local function target_changed()
+				return agents.project() ~= resolution.project
+					or agents.get() ~= resolution.backend
+					or agents.revision(resolution.project) ~= resolution.revision
+			end
+			if target_changed() then
+				finish_target_resolution(resolution, nil, "Agent target changed; queued context was not sent")
+				return
+			end
+
+			-- Explicit remembered identity takes priority over tab-local discovery.
+			-- A successful listing distinguishes a stale record from a transport error.
+			local remembered = attachment.load(resolution.project, resolution.backend)
+			local candidates = {}
+			for _, agent in ipairs(live_agents) do
+				if remembered and attachment.matches(remembered, agent) then
+					candidates = { agent }
+					break
+				end
+			end
+			if #candidates == 0 then
+				candidates = herdr.filter_agents(
+					live_agents,
+					represented,
+					{ tab_id = vim.env.HERDR_TAB_ID, backend = resolution.backend }
+				)
+			end
 			if #candidates == 0 then
 				create_target_session(resolution)
 				return
 			end
 			select_target_agent(resolution, candidates, function(agent)
-				if
-					require("agents.selection").project() ~= resolution.project
-					or require("agents.selection").get() ~= resolution.backend
-				then
+				if target_changed() then
 					finish_target_resolution(resolution, nil, "Agent target changed; queued context was not sent")
 					return
 				end
-				local session = attach_target_agent(agent, local_sessions[agent.name])
+				local managed = #herdr.filter_agents({ agent }) > 0
+				local session = attach_target_agent(agent, local_sessions[agent.name], not managed)
 				if not session or not session_is_running(session) then
 					finish_target_resolution(resolution, nil, "Failed to attach agent; queued context was not sent")
 					return
 				end
+				attachment.save(resolution.project, session)
 				finish_target_resolution(resolution, session)
 			end)
 		end,

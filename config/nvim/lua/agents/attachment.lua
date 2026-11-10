@@ -12,7 +12,17 @@ function M.project()
 			path = vim.fs.dirname(name)
 		end
 	end
-	path = vim.fs.root(path, ".git") or path
+	-- A .git path alone is not proof of a repository (for example, an empty
+	-- directory left behind by tooling). Ask Git so source and terminal
+	-- buffers agree, while preserving real nested repositories and worktrees.
+	if vim.fn.executable("git") == 1 then
+		local result = vim.system({ "git", "-C", path, "rev-parse", "--show-toplevel" }, { text = true }):wait()
+		if result.code == 0 then
+			path = vim.trim(result.stdout)
+		end
+	else
+		path = vim.fs.root(path, ".git") or path
+	end
 	return vim.uv.fs_realpath(path) or vim.fs.normalize(path)
 end
 
