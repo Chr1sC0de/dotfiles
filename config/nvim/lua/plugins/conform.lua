@@ -54,6 +54,8 @@ return {
 						-- A temporary file name with this extension will be generated during formatting
 						-- because some formatters care about the filename.
 						lang_to_ext = {
+							-- Sqruff skips files with the .duckdbsql extension.
+							duckdbsql = "sql",
 							bash = "bash",
 							sh = "sh",
 							c = "c",
