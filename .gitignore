@@ -3,3 +3,12 @@
 nvim.log
 /.ci/
 /artifacts/
+
+# Herdr runtime state
+/config/herdr/.plugins.lock
+/config/herdr/*.log
+/config/herdr/*.sock
+/config/herdr/*.sock.agent
+/config/herdr/session.json
+/config/herdr/session-backups/
+/config/herdr/session-snapshots/
