@@ -27,7 +27,7 @@ function M.get(project)
 				and record.project == project
 				and M.valid(record.backend)
 				and record.backend
-			or "opencode"
+			or "pi"
 	end
 	return selected[project]
 end

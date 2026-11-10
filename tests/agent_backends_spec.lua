@@ -14,7 +14,9 @@ local model = require("agents.ephemeral.model")
 local attachment = require("agents.attachment")
 vim.notify = function() end
 local project = agents.project()
+assert(agents.get() == "pi", "Projects without a saved preference should default to Pi")
 agents.set("opencode")
+assert(agents.get() == "opencode", "Explicit backend preferences should override the default")
 
 local launched, sent, next_id = {}, {}, 40
 vim.fn.executable = function()
