@@ -1,0 +1,17 @@
+-- Exercise the plugin's actual search and replacement wrappers, not just PATH.
+local directory = vim.fn.tempname()
+vim.fn.mkdir(directory, "p")
+local path = directory .. "/sample.py"
+vim.fn.writefile({ "from audit_old import value" }, path)
+local ok, err = xpcall(function()
+	local jobs = require("pymple.jobs")
+	local results = jobs.gg("--json audit_old " .. vim.fn.shellescape(path))
+	assert(#results == 1 and #results[1].results > 0, "Pymple gg search returned no fixture match")
+	jobs.multi_sed({ "s/audit_old/audit_new/g" }, path, { 1, 1 })
+	assert(vim.fn.readfile(path)[1] == "from audit_new import value", "Pymple sed replacement failed")
+	local found = vim.system({ "fd", "--type", "f", "sample", directory }, { text = true }):wait(10000)
+	assert(found.code == 0 and found.stdout:find("sample.py", 1, true), "Pymple fd dependency failed")
+	print("Verified Pymple search, replacement, and file discovery")
+end, debug.traceback)
+vim.fn.delete(directory, "rf")
+assert(ok, err)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-dependencies=(git curl ca-certificates build-essential cmake python3 tmux)
+dependencies=(git curl ca-certificates build-essential cmake python3 python3-venv tmux unzip)
 case ${DOTFILES_CORE_SOURCE:-binaries} in
 apt) dependencies+=(jq bat ripgrep fd-find) ;;
 binaries) ;;

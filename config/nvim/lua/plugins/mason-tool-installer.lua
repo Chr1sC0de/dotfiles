@@ -42,7 +42,6 @@ return {
 				"prettierd",
 				"clang-format",
 				"pyproject-fmt",
-				"mbake",
 				"cbfmt",
 				"mdformat",
 				"shfmt",

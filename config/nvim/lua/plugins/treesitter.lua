@@ -23,7 +23,6 @@ local LANGUAGES = {
 	"jinja_inline",
 	"caddy",
 	"mermaid",
-	"just",
 }
 ---@module "lazy"
 ---@type LazySpec
@@ -56,10 +55,7 @@ return {
 			-- Load the config explicitly: Lazy does not load plugins for function build hooks.
 			require("lazy.core.loader").load(plugin, { task = "build" })
 			-- Avoid TSUpdate/TSUpdateSync collisions with the other Treesitter plugins.
-			local util = require("tree-sitter-manager.util")
-			local installer = require("tree-sitter-manager.installer")
-			local installed = vim.iter(LANGUAGES):filter(util.is_installed):totable()
-			installer.update(installed)
+			require("core.treesitter-install").install(true)
 		end,
 		config = function()
 			-- require("nvim-treesitter").install()

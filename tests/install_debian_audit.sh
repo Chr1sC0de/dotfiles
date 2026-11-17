@@ -52,6 +52,28 @@ if [[ ${1:-} == --inside ]]; then
 			stage "$pass-profile" run_script utils/profile-to-bashrc.sh || failed=1
 		fi
 	done
+	if [[ $AUDIT_SCOPE == full ]]; then
+		for editor_pass in 1 2; do
+			for editor_stage in plugins treesitter pymple mason; do
+				stage "nvim-$editor_pass-$editor_stage" "${runner[@]}" env NVIM_AUDIT_STAGE="$editor_stage" \
+					timeout 1800 bash -c '
+                export PATH="$HOME/.local/bin:/opt/nvim-linux-x86_64/bin:$HOME/.cargo/bin:$PATH"
+                # nvm is shell-based; noninteractive shells do not source .bashrc.
+                export NVM_DIR="$HOME/.nvm"
+                [[ ! -s "$NVM_DIR/nvm.sh" ]] || . "$NVM_DIR/nvm.sh"
+                cd "$HOME/.dotfiles"
+                exec nvim --headless --cmd "luafile tests/nvim_install_audit.lua" \
+                    "+lua dotfiles_install_audit()"
+            ' || failed=1
+			done
+		done
+		mkdir -p /results/nvim-logs
+		for logdir in "$home/.local/state/nvim" "$home/.cache/nvim"; do
+			if [[ -d $logdir ]]; then
+				cp -a "$logdir" "/results/nvim-logs/$(basename "$(dirname "$logdir")")"
+			fi
+		done
+	fi
 	dpkg-query -W -f='${Package}\t${Version}\t${Installed-Size}\n' >/results/packages.tsv
 	stage smoke "${runner[@]}" bash -c '
         set -euo pipefail
@@ -62,6 +84,10 @@ if [[ ${1:-} == --inside ]]; then
             [[ $binary != tmux ]] || flag=-V
             "$binary" "$flag"
         done
+        venv=$(mktemp -d)
+        python3 -m venv "$venv"
+        "$venv/bin/python" -m pip --version
+        rm -rf "$venv"
         printf "{\"ok\":true}\n" | jq -e .ok
         printf "audit-probe\n" | rg audit-probe
         fd --max-depth 1 . "$HOME"
