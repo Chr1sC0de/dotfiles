@@ -104,8 +104,20 @@ forces selected parsers; unchanged dependencies are not forced unless selected.
 The Lazy Tree-sitter build hook now uses this incremental reconciliation rather
 than unconditionally calling the manager's update for every language.
 
-Startup schedules **missing-only** provisioning. An already provisioned startup
-performs no remote revision checks, parser hashing, or compilation. Unconfigured
+Startup launches **missing-only** provisioning in a background headless Neovim
+worker. Update/rebuild commands use the same worker; Lazy build tasks yield until
+it exits and propagate failures. The worker uses a snapshot of the effective
+manager configuration and runtime paths, without loading init.lua. Editing stays
+available while network requests, compilation, and validation run in the child.
+Use `:DotfilesTSLog` for progress/errors (`:edit!` to refresh the log). Logs live
+alongside build records as `worker-*.log`. New parsers enable highlighting in
+open buffers after completion; already loaded parser libraries require restarting
+Neovim to pick up rebuilt versions. Workers are detached and may finish after the
+editor exits; the existing lock serializes workers across editors. Explicit
+requests during a local active job are rejected rather than silently discarded.
+Headless audits retain the blocking `core.treesitter-install.run` interface.
+
+An already provisioned startup performs no remote revision checks, parser hashing, or compilation. Unconfigured
 filetypes no longer trigger out-of-band manager installs. After changing grammar
 pins or updating/reloading manager definitions, run `DotfilesTSUpdate` to reconcile
 the effective configuration. Upstream TSUpdate/TSInstall commands and TSManager's
@@ -218,7 +230,7 @@ Run focused tests without modifying the user's editor configuration:
 
 ```bash
 bash tests/nvim_install_audit_spec.sh
-for test in treesitter_build treesitter_backend treesitter_audit pymple_build; do
+for test in treesitter_build treesitter_backend treesitter_audit treesitter_background pymple_build; do
     nvim --headless -u NONE -i NONE -n -l "config/nvim/tests/${test}_test.lua"
 done
 ```

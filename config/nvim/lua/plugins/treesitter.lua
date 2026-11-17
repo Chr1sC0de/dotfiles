@@ -55,7 +55,7 @@ return {
 			-- Load the config explicitly: Lazy does not load plugins for function build hooks.
 			require("lazy.core.loader").load(plugin, { task = "build" })
 			-- Avoid TSUpdate/TSUpdateSync collisions with the other Treesitter plugins.
-			require("core.treesitter-install").run("reconcile")
+			require("core.treesitter-background").build()
 		end,
 		config = function()
 			-- require("nvim-treesitter").install()
@@ -91,14 +91,15 @@ return {
 			require("tree-sitter-manager.config").cfg.ensure_installed = LANGUAGES
 			local provision = require("core.treesitter-install")
 			provision.setup_commands()
-			-- Defer cold-install work until startup completes. Existing parsers are
-			-- left alone; ensure never resolves remote revisions for those parsers.
-			vim.schedule(function()
-				local ok, err = pcall(provision.run, "ensure")
-				if not ok then
-					vim.notify(tostring(err), vim.log.levels.ERROR)
-				end
-			end)
+			-- Audits explicitly provision synchronously; interactive startup never waits.
+			if not vim.env.NVIM_AUDIT_STAGE then
+				vim.schedule(function()
+					local ok, err = pcall(require("core.treesitter-background").start, "ensure")
+					if not ok then
+						vim.notify(tostring(err), vim.log.levels.ERROR)
+					end
+				end)
+			end
 		end,
 	},
 	{

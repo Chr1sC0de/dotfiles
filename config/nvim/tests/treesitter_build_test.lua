@@ -147,9 +147,12 @@ end
 expect_failure("fixture lock timeout")
 b.lock = lock
 local commands = {}
-provision.run = function(mode, languages)
-	table.insert(commands, { mode, languages })
-end
+package.loaded["core.treesitter-background"] = {
+	setup_commands = function() end,
+	start = function(mode, languages)
+		table.insert(commands, { mode, languages })
+	end,
+}
 provision.setup_commands()
 vim.cmd("DotfilesTSUpdate lua")
 vim.cmd("DotfilesTSRebuild markdown")
@@ -162,8 +165,8 @@ package.loaded["lazy.core.loader"] = {
 		loaded = true
 	end,
 }
-provision.run = function(mode)
-	assert(loaded and mode == "reconcile")
+package.loaded["core.treesitter-background"].build = function()
+	assert(loaded)
 end
 spec.build(spec)
 print(

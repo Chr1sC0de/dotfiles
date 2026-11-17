@@ -1,6 +1,7 @@
 -- Run in a separate Neovim process after Lazy's builds, so cached parser
 -- libraries cannot hide missing or unloadable artifacts.
 local provision = require("core.treesitter-install")
+provision.run("ensure")
 local languages = provision.languages()
 provision.finish(languages)
 -- Explicitly reconcile twice: Lazy may skip its build hook on a repeat restore.

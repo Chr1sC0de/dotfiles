@@ -145,9 +145,10 @@ function M.install(update)
 end
 
 function M.setup_commands()
+	require("core.treesitter-background").setup_commands()
 	local function register(name, mode)
 		vim.api.nvim_create_user_command(name, function(opts)
-			M.run(mode, #opts.fargs > 0 and opts.fargs or nil)
+			require("core.treesitter-background").start(mode, #opts.fargs > 0 and opts.fargs or nil)
 		end, {
 			nargs = "*",
 			force = true,
