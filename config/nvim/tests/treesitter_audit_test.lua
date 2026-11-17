@@ -1,6 +1,12 @@
 -- Run: nvim --headless -u NONE -i NONE -n -l config/nvim/tests/treesitter_audit_test.lua
 local case = "ok"
+package.loaded["core.treesitter-backend"] = {
+	build = function()
+		error("Unexpected parser build")
+	end,
+}
 package.loaded["core.treesitter-install"] = {
+	run = function() end,
 	languages = function()
 		return { "lua" }
 	end,

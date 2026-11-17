@@ -3,6 +3,34 @@
 local provision = require("core.treesitter-install")
 local languages = provision.languages()
 provision.finish(languages)
+-- Explicitly reconcile twice: Lazy may skip its build hook on a repeat restore.
+-- Count backend build calls, not elapsed time or unchanged file timestamps.
+provision.run("reconcile")
+local backend = require("core.treesitter-backend")
+local build, builds = backend.build, 0
+backend.build = function(...)
+	builds = builds + 1
+	return build(...)
+end
+local system, compile_commands = vim.system, 0
+vim.system = function(argv, ...)
+	if vim.fs.basename(argv[1]) == "tree-sitter" and (argv[2] == "build" or argv[2] == "generate") then
+		compile_commands = compile_commands + 1
+	end
+	return system(argv, ...)
+end
+local repeat_ok, repeat_err = pcall(provision.run, "reconcile")
+backend.build, vim.system = build, system
+assert(repeat_ok, repeat_err)
+assert(
+	builds == 0 and compile_commands == 0,
+	"Unchanged Tree-sitter reconciliation requested "
+		.. builds
+		.. " builds and "
+		.. compile_commands
+		.. " compile commands"
+)
+print("Verified unchanged Tree-sitter reconciliation: zero parser compilations")
 local samples = {
 	lua = "local x = 1\n",
 	latex = "\\section{Hello}\n",

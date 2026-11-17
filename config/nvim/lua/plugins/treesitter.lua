@@ -55,7 +55,7 @@ return {
 			-- Load the config explicitly: Lazy does not load plugins for function build hooks.
 			require("lazy.core.loader").load(plugin, { task = "build" })
 			-- Avoid TSUpdate/TSUpdateSync collisions with the other Treesitter plugins.
-			require("core.treesitter-install").install(true)
+			require("core.treesitter-install").run("reconcile")
 		end,
 		config = function()
 			-- require("nvim-treesitter").install()
@@ -64,25 +64,41 @@ return {
 				pattern = { [".*%.duckdb%.sql"] = "duckdbsql" },
 			})
 
+			-- Empty-list deep merges can retain a previous configuration on reload.
+			require("tree-sitter-manager.config").cfg.ensure_installed = {}
 			require("tree-sitter-manager").setup({
 				languages = {
 					dap_repl = {
 						install_info = {
 							url = "https://github.com/LiadOz/nvim-dap-repl-highlights",
+							revision = "f31deba47fe3ee6ff8d2f13d9dbd06b2d1ae06b5",
 							queries = "queries/dap_repl",
 						},
 					},
 					duckdbsql = {
 						install_info = {
 							url = "https://github.com/Chr1sC0de/duckdbsql-grammar",
+							revision = "d1a9d36268c47019e2ccb6cb4c4dfe13b5c4ceab",
 							queries = "queries",
 						},
 					},
 				},
-				auto_install = true,
-				ensure_installed = LANGUAGES,
+				auto_install = false,
+				-- Provision only through the serialized incremental wrapper.
+				ensure_installed = {},
 				nohighlight = { "dap-repl" },
 			})
+			require("tree-sitter-manager.config").cfg.ensure_installed = LANGUAGES
+			local provision = require("core.treesitter-install")
+			provision.setup_commands()
+			-- Defer cold-install work until startup completes. Existing parsers are
+			-- left alone; ensure never resolves remote revisions for those parsers.
+			vim.schedule(function()
+				local ok, err = pcall(provision.run, "ensure")
+				if not ok then
+					vim.notify(tostring(err), vim.log.levels.ERROR)
+				end
+			end)
 		end,
 	},
 	{

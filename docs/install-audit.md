@@ -86,6 +86,89 @@ Node is exposed through nvm in noninteractive shells. Stage logs are named
 These checks do not prove every interactive UI or external-service workflow works.
 Core mode is unchanged; Ghostty and Homebrew remain outside the audit.
 
+## Incremental Tree-sitter updates
+
+Use the namespaced commands to avoid the competing upstream TSUpdate commands:
+
+```vim
+:DotfilesTSUpdate
+:DotfilesTSUpdate lua python
+:DotfilesTSRebuild lua
+:DotfilesTSRebuild
+```
+
+`DotfilesTSUpdate` reconciles configured parsers and dependencies, rebuilding only
+missing parsers, changed build inputs, or changed/corrupt artifacts. With no
+arguments it selects all configured languages. `DotfilesTSRebuild` explicitly
+forces selected parsers; unchanged dependencies are not forced unless selected.
+The Lazy Tree-sitter build hook now uses this incremental reconciliation rather
+than unconditionally calling the manager's update for every language.
+
+Startup schedules **missing-only** provisioning. An already provisioned startup
+performs no remote revision checks, parser hashing, or compilation. Unconfigured
+filetypes no longer trigger out-of-band manager installs. After changing grammar
+pins or updating/reloading manager definitions, run `DotfilesTSUpdate` to reconcile
+the effective configuration. Upstream TSUpdate/TSInstall commands and TSManager's
+UI bypass this wrapper; use the namespaced commands for incremental/serialized
+updates.
+
+Successful-build records live in `stdpath('state')/dotfiles-treesitter-v1/`.
+Fingerprints include the immutable grammar commit, grammar location/generation
+options, CLI/compiler identities and flags, platform, parser path, and Neovim ABI
+compatibility bounds. Artifact hashes detect replacement/corruption. Custom
+`dap_repl` and `duckdbsql` sources are pinned in `lua/plugins/treesitter.lua`;
+update those pins deliberately rather than following moving HEAD on startup.
+
+**Migration:** existing parsers without trustworthy metadata receive one rebuild
+on their first explicit/Lazy reconciliation. Startup leaves them alone. Deleting
+the state directory causes the same one-time migration; it is not an optimization.
+
+Query identities are separate from parser build inputs. Manager/local query
+changes and query-layout changes refresh/validate queries without compiling an
+unchanged grammar. Grammar-owned query refresh checks out the already resolved
+commit. A changed grammar commit conservatively rebuilds that grammar even if its
+upstream diff contained only query changes; content-level grammar diffing is not
+implemented. Parser success is recorded separately from query-validation success,
+so a query-validation retry does not force successful compilation to run again.
+
+The wrapper serializes cooperating Neovim processes with a per-user lock, recovers
+dead-owner/abandoned locks, and writes records atomically. Fresh child processes
+validate parser libraries to avoid Neovim's loaded-library cache. Updates are not
+rollback-safe: the backend can remove the previous artifact before a failed build.
+Failures are reported, never certified as successful complete installations.
+
+### Backend capability review
+
+The locked manager exposes effective repository definitions, explicit install/update
+subsets, completion status, artifact paths, and query copy utilities. It does not
+persist source provenance or offer incremental updates. The local adapter records
+provenance, temporarily passes the exact resolved commit to the manager, and
+restores its configuration on failure. Actual parser compilation remains entirely
+in the manager. Query-only refresh is a narrow copy/pinned-checkout adapter rather
+than a second parser installer; no manager fork was required.
+
+### Incremental validation
+
+All four fresh full audit runs exited zero, including first/repeat editor stages,
+parser/query verification, all Mason tools, and smoke checks:
+
+| Image | User | Results |
+| --- | --- | --- |
+| Python 3.13 slim/Trixie | root | `/tmp/opencode/treesitter-incremental-python-root` |
+| Python 3.13 slim/Trixie | non-root | `/tmp/opencode/treesitter-incremental-python-user` |
+| Debian 13 slim | root | `/tmp/opencode/treesitter-incremental-debian-root` |
+| Debian 13 slim | non-root | `/tmp/opencode/treesitter-incremental-debian-user` |
+
+The verifier explicitly reconciles twice and counts backend build calls; it does
+not depend on Lazy deciding whether to invoke its hook. The final audit also
+counts `tree-sitter build/generate` commands. Unit/backend tests cover selective
+updates, query-only changes, migration, corruption, force selection, retries,
+independent parser/query success, timeouts, immutable revision resolution, atomic
+metadata, and actual cross-process lock exclusion. Runtime/test refinements were
+copied into disposable containers during these runs; initial source snapshots may
+predate those changes. Final lock-recovery and compile-command-observer hardening
+were checked with the focused tests after the matrix completed.
+
 ## Editor provisioning fixes
 
 - Install `unzip` for ZIP-distributed Mason tools and `python3-venv` for Debian's
@@ -135,7 +218,7 @@ Run focused tests without modifying the user's editor configuration:
 
 ```bash
 bash tests/nvim_install_audit_spec.sh
-for test in treesitter_build treesitter_audit pymple_build; do
+for test in treesitter_build treesitter_backend treesitter_audit pymple_build; do
     nvim --headless -u NONE -i NONE -n -l "config/nvim/tests/${test}_test.lua"
 done
 ```
