@@ -55,12 +55,15 @@ vim.lsp.config("ruff", {
 
 -- json
 vim.lsp.config("jsonls", {
+	-- Load the catalog only when this language server actually starts.
+	before_init = function(_, config)
+		config.settings.json.schemas = require("schemastore").json.schemas()
+	end,
 	cmd = { "vscode-json-language-server", "--stdio" },
 	filetypes = { "json", "jsonc", "json5" },
 	settings = {
 		json = {
 			format = { enable = true },
-			schemas = require("schemastore").json.schemas(),
 			validate = { enable = true },
 		},
 	},
@@ -68,6 +71,10 @@ vim.lsp.config("jsonls", {
 
 -- yaml
 vim.lsp.config("yamlls", {
+	-- Load the catalog only when this language server actually starts.
+	before_init = function(_, config)
+		config.settings.yaml.schemas = require("schemastore").yaml.schemas()
+	end,
 	settings = {
 		yaml = {
 			format = { enable = false },
@@ -75,7 +82,6 @@ vim.lsp.config("yamlls", {
 				enable = false,
 				url = "",
 			},
-			schemas = require("schemastore").yaml.schemas(),
 		},
 	},
 })

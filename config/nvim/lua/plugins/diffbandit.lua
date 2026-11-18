@@ -1,13 +1,31 @@
 return {
 	"CoreyKaylor/diffbandit.nvim",
-	config = function()
-		require("diffbandit").setup()
-
-		local function map(mode, l, r, desc)
-			vim.keymap.set(mode, l, r, { desc = desc, silent = true })
-		end
-
-		map("n", "<leader>ghd", ":DiffBanditGitCurrent<cr>", "diff bandit: git current")
-		map("n", "<leader>dbc", ":DiffBanditCommitPanel<cr>", "diff bandit: commit panel")
-	end,
+	cmd = {
+		"DiffBandit",
+		"DiffBanditBuffers",
+		"DiffBanditGit",
+		"DiffBanditGitCurrent",
+		"DiffBanditCommitPanel",
+		"DiffBanditGitMenu",
+		"DiffBanditGitLog",
+		"DiffBanditGitCommit",
+		"DiffBanditGitCompare",
+		"DiffBanditGitCheckout",
+		"DiffBanditMerge",
+		"DiffBanditFolderDiff",
+		"DiffBanditClose",
+		"DiffBanditLaunch",
+		"DiffBanditToggleStageHunk",
+		"DiffBanditStageHunk",
+		"DiffBanditUnstageHunk",
+		"DiffBanditDiscardHunk",
+		"DiffBanditApplyLeftHunk",
+		"DiffBanditApplyRightHunk",
+		"DiffBanditUndo",
+	},
+	keys = {
+		{ "<leader>ghd", ":DiffBanditGitCurrent<cr>", desc = "diff bandit: git current" },
+		{ "<leader>dbc", ":DiffBanditCommitPanel<cr>", desc = "diff bandit: commit panel" },
+	},
+	opts = {},
 }
