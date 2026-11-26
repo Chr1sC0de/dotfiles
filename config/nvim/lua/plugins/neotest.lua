@@ -14,7 +14,16 @@ return {
 		"nvim-treesitter/nvim-treesitter",
 	},
 	config = function()
+		-- Neotest merges this partial configuration with its defaults.
+		---@diagnostic disable-next-line: missing-fields
 		require("neotest").setup({
+			discovery = {
+				enabled = true,
+				concurrent = 0,
+				filter_dir = function(name)
+					return name ~= ".venv"
+				end,
+			},
 			adapters = {
 				require("neotest-python")({
 					-- Extra arguments for nvim-dap configuration
@@ -44,7 +53,11 @@ return {
 					-- Returns if a given file path is a test file.
 					-- NB: This function is called a lot so don't perform any heavy tasks within it.
 					is_test_file = function(file_path)
-						return file_path:match("/tests/.*test_.*%.py$") ~= nil
+						local path = "/" .. file_path:gsub("\\", "/")
+						if path:find("/.venv/", 1, true) then
+							return false
+						end
+						return path:match("/tests/.*test_.*%.py$") ~= nil
 					end,
 					-- !!EXPERIMENTAL!! Enable shelling out to `pytest` to discover test
 					-- instances for files containing a parametrize mark (default: false)
@@ -89,7 +102,7 @@ return {
 		end, { desc = "neotest: test file" })
 
 		vim.keymap.set("n", "<leader>td", function()
-			require("neotest").run.run({ strategy = "dap" })
+			require("neotest").run.run({ strategy = "dap", suite = false })
 		end, { desc = "neotest: debug nearest test" })
 
 		vim.keymap.set("n", "<leader>ts", function()
