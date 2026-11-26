@@ -142,6 +142,7 @@ vim.lsp.enable({
 	-- c++
 	"neocmake",
 	"clangd",
+	"just",
 
 	-- jinja
 	-- "jinja_lsp",
