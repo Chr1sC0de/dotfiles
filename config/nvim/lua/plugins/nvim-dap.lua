@@ -17,18 +17,62 @@ return {
 		local dap = require("dap")
 		local dapui = require("dapui")
 
+		-- The REPL and the debuggee console live in separate layouts so they can
+		-- be toggled independently. Both share the bottom area, so opening one
+		-- replaces the other instead of stacking splits.
+		local DAPUI_REPL = 1
+		local DAPUI_CONSOLE = 2
+
 		dapui.setup({
 			layouts = {
 				{
 					elements = {
-						{ id = "console", size = 0.5 },
-						{ id = "repl", size = 0.5 },
+						{ id = "repl", size = 1 },
 					},
-					size = 0.5,
+					size = 0.35,
+					position = "bottom",
+				},
+				{
+					elements = {
+						{ id = "console", size = 1 },
+					},
+					size = 0.35,
 					position = "bottom",
 				},
 			},
 		})
+
+		local dapui_windows = require("dapui.windows")
+
+		-- Work directly with the layouts instead of dapui.open()/dapui.toggle() so
+		-- that each UI can be shown on its own. Keep the cursor where it is.
+		local function close_layouts_except(index)
+			for i, layout in ipairs(dapui_windows.layouts) do
+				if i ~= index and layout:is_open() then
+					layout:close()
+				end
+			end
+		end
+
+		local function open_layout(index)
+			close_layouts_except(index)
+			local layout = dapui_windows.layouts[index]
+			if layout and not layout:is_open() then
+				layout:open()
+			end
+		end
+
+		local function toggle_layout(index)
+			local layout = dapui_windows.layouts[index]
+			if not layout then
+				return
+			end
+			if layout:is_open() then
+				layout:close()
+			else
+				open_layout(index)
+			end
+		end
 
 		local function dapui_float_element(element, title)
 			return function()
@@ -86,7 +130,7 @@ return {
 			local repl_window = vim.fn.bufwinid(repl_buffer)
 
 			if repl_window == -1 then
-				dapui.open()
+				open_layout(DAPUI_REPL)
 				repl_buffer = dapui.elements.repl.buffer()
 				repl_window = vim.fn.bufwinid(repl_buffer)
 			end
@@ -128,10 +172,13 @@ return {
 		vim.keymap.set("n", "<Leader>lp", function()
 			dap.set_breakpoint(nil, nil, vim.fn.input("Log point message: "))
 		end, { desc = "dap: set logpoint message" })
-		vim.keymap.set("n", "<Leader>dr", toggle_dapui_repl_focus, { desc = "dap-ui: toggle repl focus" })
-		vim.keymap.set("n", "<Leader>dt", function()
-			dapui.toggle()
-		end, { desc = "dap-ui: toggle" })
+		vim.keymap.set("n", "<Leader>di", function()
+			toggle_layout(DAPUI_REPL)
+		end, { desc = "dap-ui: toggle repl" })
+		vim.keymap.set("n", "<Leader>do", function()
+			toggle_layout(DAPUI_CONSOLE)
+		end, { desc = "dap-ui: toggle terminal" })
+		vim.keymap.set("n", "<Leader>du", toggle_dapui_repl_focus, { desc = "dap-ui: toggle repl focus" })
 		vim.keymap.set("n", "<Leader>dS", dapui_float_element("stacks", "Stacks"), { desc = "dap-ui: float stacks" })
 		vim.keymap.set("n", "<Leader>dL", dapui_float_element("scopes", "Locals"), { desc = "dap-ui: float locals" })
 		vim.keymap.set("n", "<Leader>dT", dapui_float_element("stacks", "Threads"), { desc = "dap-ui: float threads" })
